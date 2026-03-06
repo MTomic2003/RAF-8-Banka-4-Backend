@@ -1,25 +1,25 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 
 	pb "github.com/RAF-SI-2025/Banka-4-Backend/proto/health"
 )
 
-func HealthHandler(client pb.HealthServiceClient) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		resp, err := client.Check(r.Context(), &pb.HealthRequest{})
+func HealthHandler(client pb.HealthServiceClient) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		resp, err := client.Check(c.Request.Context(), &pb.HealthRequest{})
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
 			return
 		}
 
-		response := map[string]string{
+		c.JSON(http.StatusOK, gin.H{
 			"health": resp.Status,
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		})
 	}
 }
