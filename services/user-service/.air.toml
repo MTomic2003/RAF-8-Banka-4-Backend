@@ -1,0 +1,22 @@
+# services/user-service/.air.toml
+root = "."
+tmp_dir = "tmp"
+
+[build]
+# Build komanda u containeru sa stvarnom strukturom
+cmd = "go build -o tmp/main ./services/user-service/cmd/main.go"
+bin = "tmp/main"
+full_bin = "tmp/main"
+exclude_dir = ["tmp", "vendor"]
+
+[log]
+time = true
+
+[color]
+main = "yellow"
+
+[watch]
+# prati sve Go fajlove u projektu
+include_dir = ["services/user-service", "common"]
+include_ext = ["go"]
+exclude_dir = ["tmp", "vendor", "node_modules"]
