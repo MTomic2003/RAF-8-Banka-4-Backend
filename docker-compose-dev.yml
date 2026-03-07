@@ -32,8 +32,7 @@ services:
       user_service_db:
         condition: service_healthy
     volumes:
-      - ./services/user-service:/app/services/user-service
-      - ./common:/app/common
+      - .:/app
       - /app/tmp
 
 volumes:

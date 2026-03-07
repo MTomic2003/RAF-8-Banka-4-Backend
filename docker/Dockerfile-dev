@@ -7,10 +7,7 @@ RUN go install github.com/air-verse/air@latest
 RUN mkdir -p /app
 WORKDIR /app
 
-COPY go.work go.work.sum ./
-COPY common ./common
-COPY services/user-service ./services/user-service
-COPY .air.toml ./
+COPY . ./
 
 EXPOSE 8080
 

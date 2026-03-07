@@ -6,6 +6,7 @@ tmp_dir = "tmp"
 cmd = "go build -o tmp/main ./services/user-service/cmd/main.go"
 bin = "tmp/main"
 full_bin = "tmp/main"
+delay = 1000
 exclude_dir = ["tmp", "vendor", "node_modules"]
 
 [log]
