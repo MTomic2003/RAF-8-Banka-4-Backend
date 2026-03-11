@@ -1,11 +1,13 @@
 package errors
 
 import (
+	"common/pkg/logging"
 	stderrors "errors"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // AppError represents a structured API error with an HTTP status code and message.
@@ -48,6 +50,10 @@ func (e *AppError) Error() string {
 	}
 
 	return e.Message
+}
+
+func (e *AppError) Unwrap() error {
+	return e.Err
 }
 
 func NewAppError(code int, message string, err error) *AppError {
@@ -115,6 +121,7 @@ func ErrorHandler() gin.HandlerFunc {
 
 		lastError := contextErrors.Last().Err
 		if appErr, ok := stderrors.AsType[*AppError](lastError); ok {
+			logError(context, appErr)
 			context.JSON(appErr.Code, appErr)
 		} else {
 			context.JSON(
@@ -123,4 +130,36 @@ func ErrorHandler() gin.HandlerFunc {
 			)
 		}
 	}
+}
+
+func logError(c *gin.Context, appErr *AppError) {
+	if appErr.Code < 500 {
+		return
+	}
+
+	fields := []zap.Field{
+		zap.Int("status", appErr.Code),
+		zap.String("method", c.Request.Method),
+		zap.String("path", c.Request.URL.Path),
+		zap.String("ip", c.ClientIP()),
+	}
+
+	if appErr.Err != nil {
+		fields = append(fields, zap.Error(appErr.Err))
+	} else {
+		fields = append(fields, zap.String("message", appErr.Message))
+	}
+
+	logging.Error("request failed", fields...)
+}
+
+func logUnexpectedError(c *gin.Context, err error) {
+	logging.Error(
+		"unhandled request error",
+		zap.Int("status", http.StatusInternalServerError),
+		zap.String("method", c.Request.Method),
+		zap.String("path", c.Request.URL.Path),
+		zap.String("ip", c.ClientIP()),
+		zap.Error(err),
+	)
 }
