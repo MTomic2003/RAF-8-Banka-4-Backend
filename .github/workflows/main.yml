@@ -3,7 +3,6 @@ run-name: Checking if ${{ github.repository }} builds successfully
 
 on:
   workflow_dispatch:
-  push:
   pull_request:
     branches:
       - main
@@ -11,8 +10,8 @@ on:
 jobs:
   build-dev:
     runs-on: ubuntu-latest
-    environment: development
     env:
+      ENV: development
       COMPOSE_FILE: docker-compose-dev.yml
 
     steps:
@@ -21,21 +20,21 @@ jobs:
 
     - name: Set up environment variables
       run: |
-        echo "ENV=${{ vars.ENV }}" >> $GITHUB_ENV
-        echo "PORT=${{ vars.PORT }}" >> $GITHUB_ENV
-        echo "DB_HOST=${{ vars.DB_HOST }}" >> $GITHUB_ENV
-        echo "DB_PORT=${{ vars.DB_PORT }}" >> $GITHUB_ENV
-        echo "DB_USER=${{ secrets.DB_USER }}" >> $GITHUB_ENV
-        echo "DB_PASS=${{ secrets.DB_PASS }}" >> $GITHUB_ENV
-        echo "DB_NAME=${{ secrets.DB_NAME }}" >> $GITHUB_ENV
-        echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> $GITHUB_ENV
-        echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> $GITHUB_ENV
-        echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> $GITHUB_ENV
-        echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> $GITHUB_ENV
-        echo "SMTP_PASS=${{ secrets.SMTP_PASS }}" >> $GITHUB_ENV
-        echo "EMAIL_FROM=${{ vars.EMAIL_FROM }}" >> $GITHUB_ENV
-        echo "FRONTEND_BASE_URL=${{ vars.FRONTEND_BASE_URL }}" >> $GITHUB_ENV
-        echo "BACKEND_BASE_URL=${{ vars.BACKEND_BASE_URL }}" >> $GITHUB_ENV
+        echo "ENV=${{ env.ENV }}" >> .env
+        echo "PORT=${{ vars.PORT }}" >> .env
+        echo "DB_HOST=${{ vars.DB_HOST }}" >> .env
+        echo "DB_PORT=${{ vars.DB_PORT }}" >> .env
+        echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+        echo "DB_PASS=${{ secrets.DB_PASS }}" >> .env
+        echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+        echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+        echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> .env
+        echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> .env
+        echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> .env
+        echo "SMTP_PASS=${{ secrets.SMTP_PASS }}" >> .env
+        echo "EMAIL_FROM=${{ vars.EMAIL_FROM }}" >> .env
+        echo "FRONTEND_BASE_URL=${{ vars.FRONTEND_BASE_URL }}" >> .env
+        echo "BACKEND_BASE_URL=${{ vars.BACKEND_BASE_URL }}" >> .env
 
     - name: Run the compose file
       run: docker compose -f ${{ env.COMPOSE_FILE }} up -d --build
