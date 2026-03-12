@@ -40,12 +40,12 @@ func InitRouter(r *gin.Engine, cfg *config.Configuration) {
 	r.Use(errors.ErrorHandler())
 
 	r.Use(cors.New(cors.Config{
-				AllowOrigins:     []string{cfg.URLs.FrontendBaseURL},
-        AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-        AllowHeaders:     []string{"Content-Type", "Authorization"},
-        ExposeHeaders:    []string{"Content-Length"},
-        AllowCredentials: true,
-        MaxAge: 12 * time.Hour,
+		AllowOrigins:     []string{cfg.URLs.FrontendBaseURL},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge: 12 * time.Hour,
 	}))
 
 	// Registrujemo custom validator za password
