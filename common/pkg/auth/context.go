@@ -28,6 +28,13 @@ func SetAuth(c *gin.Context, auth *AuthContext) {
 	c.Request = c.Request.WithContext(ctx)
 }
 
+// SetAuthOnContext stores AuthContext into a stdlib context.
+// This is intended for use in service-layer unit tests where
+// there is no Gin context available.
+func SetAuthOnContext(ctx context.Context, ac *AuthContext) context.Context {
+	return context.WithValue(ctx, authKey, ac)
+}
+
 // GetAuth retrieves the authenticated user from the Gin context.
 func GetAuth(c *gin.Context) *AuthContext {
 	val, exists := c.Get(authKey)
