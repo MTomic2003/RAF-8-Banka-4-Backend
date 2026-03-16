@@ -32,12 +32,27 @@ var employees = []struct {
 	{"Admin", "Admin", "M", "1980-01-01", "admin@raf.rs", "000000000", "RAF", "admin", "admin123", true, "IT", "Manager"},
 }
 
+var clients = []struct {
+	FirstName   string
+	LastName    string
+	Gender      string
+	DateOfBirth string
+	Email       string
+	Username    string
+	PhoneNumber string
+	Address     string
+}{
+	{"Marko", "Markovic", "M", "1992-03-15", "marko.markovic@example.com", "marko.markovic", "+381601234567", "Knez Mihailova 10, Beograd"},
+	{"Ana", "Anic", "F", "1995-07-22", "ana.anic@example.com", "ana.anic", "+381609876543", "Bulevar Oslobodjenja 20, Novi Sad"},
+	{"Stefan", "Stefanovic", "M", "1988-11-30", "stefan.stefanovic@example.com", "stefan.stefanovic", "+381611112222", "Trg Republike 5, Beograd"},
+}
+
 func Run(db *gorm.DB) error {
+	// seed positions
 	positionMap := make(map[string]uint)
 	for _, title := range positions {
 		var pos model.Position
 		err := db.Where("title = ?", title).First(&pos).Error
-
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			pos = model.Position{Title: title}
 			if err := db.Create(&pos).Error; err != nil {
@@ -46,10 +61,10 @@ func Run(db *gorm.DB) error {
 		} else if err != nil {
 			return err
 		}
-
 		positionMap[title] = pos.PositionID
 	}
 
+	// seed employees
 	for _, e := range employees {
 		var existingIdentity model.Identity
 		if err := db.Where("email = ?", e.Email).First(&existingIdentity).Error; err == nil {
@@ -93,6 +108,43 @@ func Run(db *gorm.DB) error {
 		}
 	}
 
+	// seed clients
+	for _, c := range clients {
+		var existingIdentity model.Identity
+		if err := db.Where("email = ?", c.Email).First(&existingIdentity).Error; err == nil {
+			continue
+		}
+
+		dob, err := time.Parse("2006-01-02", c.DateOfBirth)
+		if err != nil {
+			return err
+		}
+
+		identity := model.Identity{
+			Email:    c.Email,
+			Username: c.Username,
+			Type:     auth.IdentityClient,
+			Active:   true,
+		}
+		if err := db.Create(&identity).Error; err != nil {
+			return err
+		}
+
+		client := model.Client{
+			IdentityID:  identity.ID,
+			FirstName:   c.FirstName,
+			LastName:    c.LastName,
+			Gender:      c.Gender,
+			DateOfBirth: dob,
+			PhoneNumber: c.PhoneNumber,
+			Address:     c.Address,
+		}
+		if err := db.Create(&client).Error; err != nil {
+			return err
+		}
+	}
+
+	// seed admin permissions
 	var adminIdentity model.Identity
 	if err := db.Where("email = ?", "admin@raf.rs").First(&adminIdentity).Error; err != nil {
 		return err
@@ -105,10 +157,8 @@ func Run(db *gorm.DB) error {
 
 	for _, p := range permission.All {
 		var existing model.EmployeePermission
-
 		err := db.Where("employee_id = ? AND permission = ?", admin.EmployeeID, string(p)).
 			First(&existing).Error
-
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			perm := model.EmployeePermission{
 				EmployeeID: admin.EmployeeID,

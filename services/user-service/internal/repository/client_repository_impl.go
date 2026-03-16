@@ -38,3 +38,17 @@ func (r *clientRepository) FindByIdentityID(ctx context.Context, identityID uint
 
 	return &c, nil
 }
+func (r *clientRepository) FindByID(ctx context.Context, id uint) (*model.Client, error) {
+	var c model.Client
+	result := r.db.WithContext(ctx).
+		Preload("Identity").
+		First(&c, id)
+
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &c, nil
+}

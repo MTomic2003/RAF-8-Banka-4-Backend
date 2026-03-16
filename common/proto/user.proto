@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package user.v1;
+
+option go_package = "common/pkg/pb;pb";
+
+service UserService {
+  rpc GetClientById(GetClientByIdRequest) returns (GetClientByIdResponse);
+  rpc GetEmployeeById(GetEmployeeByIdRequest) returns (GetEmployeeByIdResponse);
+}
+
+message GetClientByIdRequest {
+  uint64 id = 1;
+}
+
+message GetClientByIdResponse {
+  uint64 id    = 1;
+  string email = 2;
+  string name  = 3;
+}
+
+message GetEmployeeByIdRequest {
+  uint64 id = 1;
+}
+
+message GetEmployeeByIdResponse {
+  uint64 id    = 1;
+  string email = 2;
+  string name  = 3;
+}

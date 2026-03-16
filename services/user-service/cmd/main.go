@@ -56,6 +56,7 @@ func main() {
 			handler.NewClientHandler,
 			handler.NewHealthHandler,
 			grpc.NewPermissionService,
+			grpc.NewUserService,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)

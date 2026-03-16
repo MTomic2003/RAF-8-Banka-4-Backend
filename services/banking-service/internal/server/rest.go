@@ -4,6 +4,7 @@ import (
 	"banking-service/internal/config"
 	"banking-service/internal/handler"
 	"banking-service/internal/validator"
+	"common/pkg/auth"
 	"common/pkg/errors"
 	"common/pkg/logging"
 	"context"
@@ -21,11 +22,18 @@ import (
 	"go.uber.org/fx"
 )
 
-func NewServer(lc fx.Lifecycle, cfg *config.Configuration, healthHandler *handler.HealthHandler) {
+func NewServer(
+	lc fx.Lifecycle,
+	cfg *config.Configuration,
+	healthHandler *handler.HealthHandler,
+	accountHandler *handler.AccountHandler,
+	verifier auth.TokenVerifier,
+	permissions auth.PermissionProvider,
+) {
 	r := gin.New()
 
 	InitRouter(r, cfg)
-	SetupRoutes(r, healthHandler)
+	SetupRoutes(r, healthHandler, accountHandler, verifier, permissions)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -53,12 +61,26 @@ func InitRouter(r *gin.Engine, cfg *config.Configuration) {
 	validator.RegisterValidators()
 }
 
-func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler) {
+func SetupRoutes(
+	r *gin.Engine,
+	healthHandler *handler.HealthHandler,
+	accountHandler *handler.AccountHandler,
+	verifier auth.TokenVerifier,
+	permissions auth.PermissionProvider,
+) {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	api := r.Group("/api")
 	{
 		api.GET("/health", healthHandler.Health)
+
+		accounts := api.Group("/accounts")
+		accounts.Use(auth.Middleware(verifier, permissions))
+		{
+			accounts.POST("", accountHandler.Create)
+			accounts.GET("/:account_number", accountHandler.GetByAccountNumber)
+			accounts.GET("/client/:client_id", accountHandler.GetByClientID)
+		}
 	}
 }
 

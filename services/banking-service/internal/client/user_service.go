@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func NewUserServiceClient(lc fx.Lifecycle, cfg *config.Configuration) (*grpc.ClientConn, error) {
+func NewUserServiceConnection(lc fx.Lifecycle, cfg *config.Configuration) (*grpc.ClientConn, error) {
 	conn, err := grpc.NewClient(
 		cfg.UserServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

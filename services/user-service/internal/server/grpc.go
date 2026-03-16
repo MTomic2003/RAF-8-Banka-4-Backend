@@ -14,7 +14,12 @@ import (
 	"google.golang.org/grpc"
 )
 
-func NewGRPCServer(lc fx.Lifecycle, cfg *config.Configuration, permissionService *service.PermissionService) error {
+func NewGRPCServer(
+	lc fx.Lifecycle,
+	cfg *config.Configuration,
+	permissionService *service.PermissionService,
+	userService *service.UserService,
+) error {
 	listener, err := net.Listen("tcp", ":"+cfg.GrpcPort)
 	if err != nil {
 		return err
@@ -22,12 +27,13 @@ func NewGRPCServer(lc fx.Lifecycle, cfg *config.Configuration, permissionService
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterPermissionServiceServer(grpcServer, permissionService)
+	pb.RegisterUserServiceServer(grpcServer, userService) // now resolved
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go func() {
 				if serveErr := grpcServer.Serve(listener); serveErr != nil && !errors.Is(serveErr, grpc.ErrServerStopped) {
-					log.Printf("permission gRPC server stopped: %v", serveErr)
+					log.Printf("gRPC server stopped: %v", serveErr)
 				}
 			}()
 			return nil
