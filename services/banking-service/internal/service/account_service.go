@@ -65,25 +65,17 @@ func (s *AccountService) findCurrencyByCode(ctx context.Context, code model.Curr
 	var currency model.Currency
 	result := s.db.WithContext(ctx).Where("code = ?", code).First(&currency)
 	if result.Error != nil {
-		return nil, errors.NotFoundErr("currency not found: " + string(code))
+		return nil, errors.NotFoundErr("currency not found: " + string(code)
 	}
 	return &currency, nil
 }
 
 func (s *AccountService) Create(ctx context.Context, req dto.CreateAccountRequest) (*model.Account, error) {
-	client, err := s.userClient.GetClientByID(ctx, req.ClientID)
-	if err != nil {
-		return nil, errors.InternalErr(err)
-	}
-	if client == nil {
+	if _, err := s.userClient.GetClientByID(ctx, req.ClientID); err != nil {
 		return nil, errors.NotFoundErr("client not found")
 	}
-
-	employee, err := s.userClient.GetEmployeeByID(ctx, req.EmployeeID)
-	if err != nil {
-		return nil, errors.InternalErr(err)
-	}
-	if employee == nil {
+	
+	if _, err := s.userClient.GetEmployeeByID(ctx, req.EmployeeID); err != nil {
 		return nil, errors.NotFoundErr("employee not found")
 	}
 
