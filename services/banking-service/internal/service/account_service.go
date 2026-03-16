@@ -32,13 +32,13 @@ var subtypeTypeCodes = map[model.Subtype]string{
 
 type AccountService struct {
 	repo       repository.AccountRepository
-	userClient *client.UserServiceClient
+	userClient client.UserClient
 	db         *gorm.DB
 }
 
 func NewAccountService(
 	repo repository.AccountRepository,
-	userClient *client.UserServiceClient,
+	userClient client.UserClient,
 	db *gorm.DB,
 ) *AccountService {
 	return &AccountService{

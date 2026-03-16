@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"banking-service/internal/dto"
 	"sync"
 
 	"github.com/gin-gonic/gin/binding"
@@ -18,10 +19,7 @@ func RegisterValidators() {
 			v.RegisterValidation("account_type", validateAccountType)
 			v.RegisterValidation("account_kind", validateAccountKind)
 			v.RegisterValidation("currency_code", validateForeignCurrency)
-			v.RegisterStructValidation(validateCurrentAccountStruct, struct {
-				AccountType string
-				Subtype     string
-			}{})
+			v.RegisterStructValidation(validateCurrentAccountStruct, dto.CreateAccountRequest{})
 		}
 	})
 }

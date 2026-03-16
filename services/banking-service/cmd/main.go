@@ -2,6 +2,7 @@ package main
 
 import (
 	"banking-service/internal/client"
+	"banking-service/internal/client/grpc"
 	"banking-service/internal/config"
 	"banking-service/internal/handler"
 	"banking-service/internal/model"
@@ -39,7 +40,10 @@ func main() {
 				return jwt.NewJWTVerifier(cfg.JWTSecret)
 			},
 			client.NewUserServiceConnection,
-			client.NewUserServiceClient,
+			fx.Annotate(
+				grpc.NewUserServiceClient,
+				fx.As(new(client.UserClient)),
+			),
 			func(conn *grpc.ClientConn) pb.PermissionServiceClient {
 				return pb.NewPermissionServiceClient(conn)
 			},

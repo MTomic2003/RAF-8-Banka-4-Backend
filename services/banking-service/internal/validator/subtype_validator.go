@@ -1,7 +1,9 @@
 package validator
 
 import (
+	"banking-service/internal/dto"
 	"banking-service/internal/model"
+
 	"github.com/go-playground/validator/v10"
 )
 
@@ -21,24 +23,20 @@ var validBusinessSubtypes = map[model.Subtype]bool{
 }
 
 func validateCurrentAccountStruct(sl validator.StructLevel) {
-	accountTypeField := sl.Current().FieldByName("AccountType")
-	subtypeField := sl.Current().FieldByName("Subtype")
+	req := sl.Current().Interface().(dto.CreateAccountRequest)
 
-	if !accountTypeField.IsValid() || !subtypeField.IsValid() {
+	if req.AccountKind != model.AccountKindCurrent {
 		return
 	}
 
-	accountType := model.AccountType(accountTypeField.String())
-	subtype := model.Subtype(subtypeField.String())
-
-	switch accountType {
+	switch req.AccountType {
 	case model.AccountTypePersonal:
-		if !validPersonalSubtypes[subtype] {
-			sl.ReportError(subtype, "Subtype", "subtype", "subtype_personal", "")
+		if !validPersonalSubtypes[req.Subtype] {
+			sl.ReportError(req.Subtype, "Subtype", "subtype", "subtype_personal", "")
 		}
 	case model.AccountTypeBusiness:
-		if !validBusinessSubtypes[subtype] {
-			sl.ReportError(subtype, "Subtype", "subtype", "subtype_business", "")
+		if !validBusinessSubtypes[req.Subtype] {
+			sl.ReportError(req.Subtype, "Subtype", "subtype", "subtype_business", "")
 		}
 	}
 }

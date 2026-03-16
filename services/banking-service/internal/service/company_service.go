@@ -13,14 +13,13 @@ import (
 
 type CompanyService struct {
 	repo       repository.CompanyRepository
-	userClient *client.UserServiceClient
+	userClient client.UserClient
 	db         *gorm.DB
 }
 
-
 func NewCompanyService(
 	repo repository.CompanyRepository,
-	userClient *client.UserServiceClient,
+	userClient client.UserClient,
 	db *gorm.DB,
 ) *CompanyService {
 	return &CompanyService{
@@ -75,34 +74,33 @@ func (s *CompanyService) taxNumberExists(ctx context.Context, taxNumber string) 
 	return count > 0, nil
 }
 
-
 func (s *CompanyService) Create(ctx context.Context, req dto.CreateCompanyRequest) (*model.Company, error) {
 	if _, err := s.userClient.GetClientByID(ctx, req.OwnerID); err != nil {
 		return nil, errors.NotFoundErr("owner client not found")
 	}
 
 	workCodeExists, err := s.workCodeExists(ctx, req.WorkCodeID)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
 	if !workCodeExists {
 		return nil, errors.NotFoundErr("work code not found")
 	}
-	if err != nil {
-		return nil, err
-	}
 
 	regNumExists, err := s.registrationNumberExists(ctx, req.RegistrationNumber)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
 	if regNumExists {
 		return nil, errors.ConflictErr("registration number already exists")
 	}
-	if err != nil {
-		return nil, err
-	}
 
 	taxNumExists, err := s.taxNumberExists(ctx, req.TaxNumber)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
 	if taxNumExists {
 		return nil, errors.ConflictErr("tax number already exists")
-	}
-	if err != nil {
-		return nil, err
 	}
 
 	company := &model.Company{
