@@ -1,9 +1,10 @@
 package auth
 
 import (
-	"common/pkg/jwt"
-	"common/pkg/permission"
 	"context"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 )
 
 // PermissionProvider loads all permissions for an identity. Used by

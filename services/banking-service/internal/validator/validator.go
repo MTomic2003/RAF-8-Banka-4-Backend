@@ -1,11 +1,12 @@
 package validator
 
 import (
-	"banking-service/internal/dto"
 	"sync"
 
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
 )
 
 // Gin exposes a shared validator engine, so custom rules must only be

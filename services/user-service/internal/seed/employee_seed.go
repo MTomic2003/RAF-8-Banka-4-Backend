@@ -7,10 +7,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"time"
-	"user-service/internal/model"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 )
 
 var positions = []string{"Manager", "Developer", "HR"}

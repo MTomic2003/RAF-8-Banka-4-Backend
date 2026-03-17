@@ -4,6 +4,8 @@ import (
 	"banking-service/internal/dto"
 	"banking-service/internal/model"
 	"context"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
 type AccountRepository interface {

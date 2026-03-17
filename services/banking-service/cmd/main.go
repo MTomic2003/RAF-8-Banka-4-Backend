@@ -21,6 +21,22 @@ import (
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
+	clientgrpc "github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client/grpc"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/config"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/handler"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/permission"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/seed"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/server"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/service"
 )
 
 // @title Banking Service API

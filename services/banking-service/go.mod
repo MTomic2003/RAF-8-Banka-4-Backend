@@ -1,4 +1,4 @@
-module banking-service
+module github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service
 
 go 1.26
 

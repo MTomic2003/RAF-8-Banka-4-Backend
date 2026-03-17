@@ -1,12 +1,13 @@
 package grpc
 
 import (
-	"common/pkg/pb"
 	"context"
-	"user-service/internal/repository"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/repository"
 )
 
 type UserService struct {

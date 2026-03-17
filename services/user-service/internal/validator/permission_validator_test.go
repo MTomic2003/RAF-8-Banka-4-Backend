@@ -1,11 +1,12 @@
 package validator
 
 import (
-	"common/pkg/permission"
 	"testing"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/require"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 )
 
 func newPermissionValidator() *validator.Validate {

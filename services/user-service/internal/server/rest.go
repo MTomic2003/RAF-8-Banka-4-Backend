@@ -1,27 +1,26 @@
 package server
 
 import (
-	"common/pkg/auth"
-	"common/pkg/errors"
-	"common/pkg/logging"
-	"common/pkg/permission"
 	"context"
 	stderrors "errors"
 	"log"
 	"net/http"
 	"time"
 
-	"user-service/internal/config"
-	"user-service/internal/handler"
-	"user-service/internal/validator"
-
-	_ "user-service/docs"
-
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/fx"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
+	_ "github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/docs"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/config"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/handler"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/validator"
 )
 
 func NewServer(

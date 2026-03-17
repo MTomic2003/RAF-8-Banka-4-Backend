@@ -1,14 +1,17 @@
 package service
 
 import (
-	"common/pkg/auth"
-	"common/pkg/permission"
 	"context"
 	"user-service/internal/config"
 	"user-service/internal/dto"
 	"user-service/internal/model"
 
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/config"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 )
 
 type fakeIdentityRepo struct {
@@ -105,7 +108,7 @@ type fakeClientRepo struct {
 	findErr   error
 	createErr error
 	updateErr error
-	getAllErr  error
+	getAllErr error
 
 	createdClient *model.Client
 	updatedClient *model.Client

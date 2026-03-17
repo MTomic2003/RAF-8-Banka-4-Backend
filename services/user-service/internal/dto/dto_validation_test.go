@@ -2,14 +2,14 @@ package dto_test
 
 import (
 	"testing"
-	"user-service/internal/dto"
-	"user-service/internal/validator"
-
-	"common/pkg/permission"
 
 	"github.com/gin-gonic/gin/binding"
 	govalidator "github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/require"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/validator"
 )
 
 func init() {

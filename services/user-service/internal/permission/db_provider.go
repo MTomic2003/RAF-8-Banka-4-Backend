@@ -1,12 +1,13 @@
 package permission
 
 import (
-	"common/pkg/auth"
-	commonjwt "common/pkg/jwt"
-	perm "common/pkg/permission"
 	"context"
 
 	"gorm.io/gorm"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	commonjwt "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
+	perm "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 )
 
 // DBPermissionProvider loads all permissions for an identity by querying the

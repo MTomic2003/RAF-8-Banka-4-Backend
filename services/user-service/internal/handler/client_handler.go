@@ -10,6 +10,10 @@ import (
 	"user-service/internal/service"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/service"
 )
 
 type ClientHandler struct {

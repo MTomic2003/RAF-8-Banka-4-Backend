@@ -1,6 +1,6 @@
 package model
 
-import "common/pkg/auth"
+import "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 
 type Identity struct {
 	ID           uint              `gorm:"primaryKey"`

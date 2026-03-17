@@ -1,11 +1,12 @@
 package permission
 
 import (
-	"common/pkg/auth"
-	"common/pkg/jwt"
-	"common/pkg/pb"
-	perm "common/pkg/permission"
 	"context"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
+	perm "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 )
 
 type GrpcPermissionProvider struct {

@@ -1,10 +1,11 @@
 package validator
 
 import (
-	"common/pkg/permission"
 	"reflect"
 
 	"github.com/go-playground/validator/v10"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 )
 
 func validatePermission(fl validator.FieldLevel) bool {

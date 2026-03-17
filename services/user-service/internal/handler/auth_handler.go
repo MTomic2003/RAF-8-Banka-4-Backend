@@ -3,11 +3,11 @@ package handler
 import (
 	"net/http"
 
-	"common/pkg/errors"
-	"user-service/internal/dto"
-	"user-service/internal/service"
-
 	"github.com/gin-gonic/gin"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/service"
 )
 
 type AuthHandler struct {

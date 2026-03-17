@@ -1,22 +1,22 @@
 package main
 
 import (
-	"common/pkg/auth"
-	"common/pkg/db"
-	"common/pkg/jwt"
-	"common/pkg/logging"
-	"user-service/internal/config"
-	"user-service/internal/grpc"
-	"user-service/internal/handler"
-	"user-service/internal/model"
-	"user-service/internal/permission"
-	"user-service/internal/repository"
-	"user-service/internal/seed"
-	"user-service/internal/server"
-	"user-service/internal/service"
-
 	"go.uber.org/fx"
 	"gorm.io/gorm"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/config"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/grpc"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/handler"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/permission"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/repository"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/seed"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/server"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/service"
 )
 
 // @title User Service API
