@@ -31,13 +31,14 @@ func NewServer(
 	exchangeHandler *handler.ExchangeHandler,
 	paymentHandler *handler.PaymentHandler,
 	cardHandler *handler.CardHandler,
+	loanHandler *handler.LoanHandler,
 	verifier auth.TokenVerifier,
 	permissions auth.PermissionProvider,
 ) {
 	r := gin.New()
 
 	InitRouter(r, cfg)
-	SetupRoutes(r, healthHandler, accountHandler, companyHandler, exchangeHandler, paymentHandler,  cardHandler, verifier, permissions)
+	SetupRoutes(r, healthHandler, accountHandler, companyHandler, exchangeHandler, paymentHandler,  cardHandler, loanHandler, verifier, permissions)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -73,6 +74,7 @@ func SetupRoutes(
 	exchangeHandler *handler.ExchangeHandler,
 	paymentHandler *handler.PaymentHandler,
 	cardHandler *handler.CardHandler,
+	loanHandler *handler.LoanHandler,
 	verifier auth.TokenVerifier,
 	permissions auth.PermissionProvider,
 ) {
@@ -116,6 +118,14 @@ func SetupRoutes(
 		{
 			payments.POST("", paymentHandler.CreatePayment)
 			payments.POST("/:id/verify", paymentHandler.VerifyPayment)
+		}
+
+		clientLoans := api.Group("/client/:client_id/loans")
+		clientLoans.Use(auth.Middleware(verifier, permissions))
+		{
+			clientLoans.GET("", loanHandler.GetLoans)
+			clientLoans.GET("/:loan_id", loanHandler.GetLoanByID)
+			clientLoans.POST("/request", loanHandler.SubmitLoanRequest)
 		}
 	}
 }

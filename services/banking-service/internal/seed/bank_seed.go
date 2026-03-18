@@ -67,6 +67,49 @@ var companies = []struct {
 	},
 }
 
+var loanTypes = []model.LoanType{
+	{
+		Name:               "Cash Loan",
+		Description:        "Unsecured personal loan for general purposes",
+		BankMargin:         1.75,
+		BaseInterestRate:   5.0,
+		MinRepaymentPeriod: 6,
+		MaxRepaymentPeriod: 60,
+	},
+	{
+		Name:               "Mortgage Loan",
+		Description:        "Loan for purchasing or refinancing real estate",
+		BankMargin:         1.50,
+		BaseInterestRate:   3.5,
+		MinRepaymentPeriod: 60,
+		MaxRepaymentPeriod: 360,
+	},
+	{
+		Name:               "Car Loan",
+		Description:        "Loan for purchasing a vehicle",
+		BankMargin:         1.25,
+		BaseInterestRate:   4.0,
+		MinRepaymentPeriod: 12,
+		MaxRepaymentPeriod: 84,
+	},
+	{
+		Name:               "Refinancing Loan",
+		Description:        "Loan used to refinance existing debts under better terms",
+		BankMargin:         1.00,
+		BaseInterestRate:   4.5,
+		MinRepaymentPeriod: 12,
+		MaxRepaymentPeriod: 120,
+	},
+	{
+		Name:               "Student Loan",
+		Description:        "Loan intended for education-related expenses",
+		BankMargin:         0.75,
+		BaseInterestRate:   2.5,
+		MinRepaymentPeriod: 12,
+		MaxRepaymentPeriod: 120,
+	},
+}
+
 var accounts = []struct {
 	AccountNumber string
 	Name          string
@@ -313,6 +356,35 @@ func Run(db *gorm.DB) error {
 			return err
 		} else {
 			log.Printf("company already exists: %s", c.Name)
+		}
+	}
+
+	// seed loan types
+	for _, lt := range loanTypes {
+		var existing model.LoanType
+
+		err := db.Where("name = ?", lt.Name).First(&existing).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			loanType := model.LoanType {
+				Name:               lt.Name,
+				Description:        lt.Description,
+				BankMargin:         lt.BankMargin,
+				BaseInterestRate:   lt.BaseInterestRate,
+				MinRepaymentPeriod: lt.MinRepaymentPeriod,
+				MaxRepaymentPeriod: lt.MaxRepaymentPeriod,
+			}
+
+			if err := db.Create(&loanType).Error; err != nil {
+				log.Printf("failed to create loan type %s: %v", lt.Name, err)
+				return err
+			}
+			log.Printf("created loan type: %s", lt.Name)
+
+		} else if err != nil {
+			log.Printf("failed to query loan type %s: %v", lt.Name, err)
+			return err
+		} else {
+			log.Printf("loan type already exists: %s", lt.Name)
 		}
 	}
 
