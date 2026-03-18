@@ -44,7 +44,6 @@ func (s *LoanService) CalculateMonthlyInstallment(amount float64, annualRatePerc
 }
 
 func (s *LoanService) SubmitLoanRequest(ctx context.Context, req *dto.CreateLoanRequest, clientID uint) (*dto.CreateLoanResponse, error) {
-	// 1. DOHVATANJE RAČUNA (pretpostavljam da imate metodu sličnu ovoj u AccountRepository)
 	account, err := s.accountRepo.FindByAccountNumber(ctx, req.AccountNumber)
 	if err != nil {
 		return nil, errors.InternalErr(err)
@@ -53,7 +52,6 @@ func (s *LoanService) SubmitLoanRequest(ctx context.Context, req *dto.CreateLoan
 		return nil, errors.BadRequestErr("account not found")
 	}
 
-	// 2. DOHVATANJE TIPA KREDITA
 	loanType, err := s.loanTypeRepo.FindByID(ctx, req.LoanTypeID)
 	if err != nil {
 		return nil, errors.InternalErr(err)
