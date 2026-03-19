@@ -43,3 +43,13 @@ func (e *Employee) RawPermissions() []permission.Permission {
 
 	return permissions
 }
+
+func (e *Employee) IsAdmin() bool {
+	isAdmin := true
+	for _, p := range permission.All {
+		if !e.HasPermission(p) {
+			isAdmin = false
+		}
+	}
+	return isAdmin
+}

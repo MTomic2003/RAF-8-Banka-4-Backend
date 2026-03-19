@@ -148,6 +148,11 @@ func (s *EmployeeService) UpdateEmployee(ctx context.Context, id uint, req *dto.
 		return nil, errors.NotFoundErr("identity not found")
 	}
 
+	// TODO: Ability for other admins, or the admin themselves, to update their details?
+	if employee.IsAdmin() {
+		return nil, errors.ForbiddenErr("cannot modify admin")
+	}
+
 	identityChanged := false
 
 	if req.Email != nil && *req.Email != identity.Email {

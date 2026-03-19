@@ -14,7 +14,10 @@ import (
 )
 
 type fakeCardServiceAccountRepo struct {
-	accounts map[string]*model.Account
+	accounts   map[string]*model.Account
+	accountArr []model.Account
+	account    *model.Account
+	nameExists bool
 }
 
 func (r *fakeCardServiceAccountRepo) Create(_ context.Context, _ *model.Account) error {
@@ -38,9 +41,28 @@ func (f *fakeCardServiceAccountRepo) UpdateBalance(ctx context.Context, account 
 	f.accounts[account.AccountNumber] = account
 	return nil
 }
-func (f *fakeCardServiceAccountRepo) NameExistsForClient(_ context.Context, _ uint, _ string, _ string) (bool, error) {
-	return false, nil
+
+func (f *fakeCardServiceAccountRepo) FindAllByClientID(_ context.Context, _ uint) ([]model.Account, error) {
+	return f.accountArr, nil
 }
+
+func (f *fakeCardServiceAccountRepo) FindByAccountNumberAndClientID(_ context.Context, _ string, _ uint) (*model.Account, error) {
+	return f.account, nil
+}
+
+func (f *fakeCardServiceAccountRepo) NameExistsForClient(_ context.Context, _ uint, _ string, _ string) (bool, error) {
+	return f.nameExists, nil
+}
+
+func (f *fakeCardServiceAccountRepo) UpdateName(_ context.Context, _ string, _ string) error {
+	return nil
+}
+
+func (f *fakeCardServiceAccountRepo) UpdateLimits(_ context.Context, _ string, _ float64, _ float64) error {
+	return nil
+}
+
+
 
 type fakeCardServiceCardRepo struct {
 	cards        map[uint]*model.Card

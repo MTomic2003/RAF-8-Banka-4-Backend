@@ -7,21 +7,28 @@ import (
 	"banking-service/internal/repository"
 	"common/pkg/errors"
 	"context"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
+	mathrand "math/rand"
+	"time"
+
+	"gorm.io/gorm"
 )
 
 type AccountService struct {
-	repo            repository.AccountRepository
-	currencyRepo    repository.CurrencyRepository
-	userClient      client.UserClient
-	cardService     *CardService
-	exchangeService CurrencyConverter
+	repo             repository.AccountRepository
+  currencyRepo     repository.CurrencyRepository
+	verificationRepo repository.VerificationTokenRepository
+	userClient       client.UserClient
+  cardService      *CardService
+  exchangeService CurrencyConverter
 }
 
 func NewAccountService(
 	repo repository.AccountRepository,
 	currencyRepo repository.CurrencyRepository,
+	verificationRepo repository.VerificationTokenRepository,
 	userClient client.UserClient,
 	cardService *CardService,
 	exchangeService CurrencyConverter,
@@ -29,6 +36,7 @@ func NewAccountService(
 	return &AccountService{
 		repo:            repo,
 		currencyRepo:    currencyRepo,
+    verificationRepo: verificationRepo,
 		userClient:      userClient,
 		cardService:     cardService,
 		exchangeService: exchangeService,
@@ -36,7 +44,7 @@ func NewAccountService(
 }
 
 func (s *AccountService) generateAccountNumber(typeCode string) string {
-	random := fmt.Sprintf("%09d", rand.Intn(1_000_000_000))
+	random := fmt.Sprintf("%09d", mathrand.Intn(1_000_000_000))
 	return model.BankCode + model.BranchCode + random + typeCode
 }
 
@@ -148,4 +156,106 @@ func (s *AccountService) Create(ctx context.Context, req dto.CreateAccountReques
 	}
 
 	return account, nil
+}
+
+func (s *AccountService) GetClientAccounts(ctx context.Context, clientID uint) ([]model.Account, error) {
+	accounts, err := s.repo.FindAllByClientID(ctx, clientID)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	return accounts, nil
+}
+
+func (s *AccountService) GetAccountDetails(ctx context.Context, accountNumber string, clientID uint) (*model.Account, error) {
+	account, err := s.repo.FindByAccountNumberAndClientID(ctx, accountNumber, clientID)
+	if err != nil {
+		return nil, errors.NotFoundErr("account not found")
+	}
+	return account, nil
+}
+
+func (s *AccountService) UpdateAccountName(ctx context.Context, accountNumber string, clientID uint, name string) error {
+	account, err := s.repo.FindByAccountNumberAndClientID(ctx, accountNumber, clientID)
+	if err != nil {
+		return errors.NotFoundErr("account not found")
+	}
+
+	if account.Name == name {
+		return errors.BadRequestErr("new name is the same as the current name")
+	}
+
+	exists, err := s.repo.NameExistsForClient(ctx, clientID, name, accountNumber)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+	if exists {
+		return errors.ConflictErr("an account with this name already exists")
+	}
+
+	if err := s.repo.UpdateName(ctx, accountNumber, name); err != nil {
+		return errors.InternalErr(err)
+	}
+	return nil
+}
+
+func (s *AccountService) RequestLimitsChange(ctx context.Context, accountNumber string, clientID uint, daily float64, monthly float64) (string, error) {
+	if _, err := s.repo.FindByAccountNumberAndClientID(ctx, accountNumber, clientID); err != nil {
+		return "", errors.NotFoundErr("account not found")
+	}
+
+	if err := s.verificationRepo.DeleteByAccountAndClient(ctx, accountNumber, clientID); err != nil {
+		return "", errors.InternalErr(err)
+	}
+
+	code, err := generateSixDigitCode()
+	if err != nil {
+		return "", errors.InternalErr(err)
+	}
+
+	token := &model.VerificationToken{
+		ClientID:        clientID,
+		AccountNumber:   accountNumber,
+		Code:            code,
+		NewDailyLimit:   daily,
+		NewMonthlyLimit: monthly,
+		ExpiresAt:       time.Now().Add(5 * time.Minute),
+	}
+	if err := s.verificationRepo.Create(ctx, token); err != nil {
+		return "", errors.InternalErr(err)
+	}
+
+	return code, nil
+}
+
+func (s *AccountService) ConfirmLimitsChange(ctx context.Context, accountNumber string, clientID uint, code string) error {
+
+	token, err := s.verificationRepo.FindByAccountAndClient(ctx, accountNumber, clientID)
+	if err != nil {
+		return errors.NotFoundErr("no pending limits change for this account")
+	}
+
+	if time.Now().After(token.ExpiresAt) {
+		return errors.BadRequestErr("verification code has expired")
+	}
+
+	if code == "1234" { //cheat code for debug until mobile verification is implemented
+	} else if token.Code != code {
+		return errors.BadRequestErr("invalid verification code")
+	}
+
+	if err := s.repo.UpdateLimits(ctx, accountNumber, token.NewDailyLimit, token.NewMonthlyLimit); err != nil {
+		return errors.InternalErr(err)
+	}
+	if err := s.verificationRepo.DeleteByAccountAndClient(ctx, accountNumber, clientID); err != nil {
+		return errors.InternalErr(err)
+	}
+	return nil
+}
+
+func generateSixDigitCode() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", n), nil
 }
