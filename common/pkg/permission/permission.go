@@ -7,6 +7,9 @@ const (
 	EmployeeCreate Permission = "employee.create"
 	EmployeeUpdate Permission = "employee.update"
 	EmployeeDelete Permission = "employee.delete"
+
+	ClientView   Permission = "client.view"
+	ClientUpdate Permission = "client.update"
 )
 
 var All = []Permission{
@@ -14,4 +17,6 @@ var All = []Permission{
 	EmployeeCreate,
 	EmployeeUpdate,
 	EmployeeDelete,
+	ClientView,
+	ClientUpdate,
 }

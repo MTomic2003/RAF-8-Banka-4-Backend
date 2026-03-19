@@ -28,9 +28,9 @@ func (s *UserService) GetClientById(ctx context.Context, req *pb.GetClientByIdRe
 		return nil, status.Errorf(codes.NotFound, "client %d not found", req.Id)
 	}
 	return &pb.GetClientByIdResponse{
-		Id:    uint64(client.ClientID),
-		Email: client.Identity.Email,
-		FullName:  client.FirstName + " " + client.LastName,
+		Id:       uint64(client.ClientID),
+		Email:    client.Identity.Email,
+		FullName: client.FirstName + " " + client.LastName,
 	}, nil
 }
 
@@ -43,8 +43,8 @@ func (s *UserService) GetEmployeeById(ctx context.Context, req *pb.GetEmployeeBy
 		return nil, status.Errorf(codes.NotFound, "employee %d not found", req.Id)
 	}
 	return &pb.GetEmployeeByIdResponse{
-		Id:    uint64(employee.EmployeeID),
-		Email: employee.Identity.Email,
-		FullName:  employee.FirstName + " " + employee.LastName,
+		Id:       uint64(employee.EmployeeID),
+		Email:    employee.Identity.Email,
+		FullName: employee.FirstName + " " + employee.LastName,
 	}, nil
 }

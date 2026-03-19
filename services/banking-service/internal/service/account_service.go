@@ -8,42 +8,51 @@ import (
 	"common/pkg/errors"
 	"context"
 	"fmt"
-	"math/rand"
-
-	"gorm.io/gorm"
+	mathrand "math/rand"
+	"time"
 )
 
 type AccountService struct {
-	repo       repository.AccountRepository
-	userClient client.UserClient
-	db         *gorm.DB
+	repo               repository.AccountRepository
+	currencyRepo       repository.CurrencyRepository
+	verificationRepo   repository.VerificationTokenRepository
+	userClient         client.UserClient
+	cardService        *CardService
+	mobileSecretClient client.MobileSecretClient
+	exchangeService    CurrencyConverter
 }
 
 func NewAccountService(
 	repo repository.AccountRepository,
+	currencyRepo repository.CurrencyRepository,
+	verificationRepo repository.VerificationTokenRepository,
 	userClient client.UserClient,
-	db *gorm.DB,
+	cardService *CardService,
+	mobileSecretClient client.MobileSecretClient,
+	exchangeService CurrencyConverter,
 ) *AccountService {
 	return &AccountService{
-		repo:       repo,
-		userClient: userClient,
-		db:         db,
+		repo:               repo,
+		currencyRepo:       currencyRepo,
+		verificationRepo:   verificationRepo,
+		userClient:         userClient,
+		cardService:        cardService,
+		mobileSecretClient: mobileSecretClient,
+		exchangeService:    exchangeService,
 	}
 }
 
 func (s *AccountService) generateAccountNumber(typeCode string) string {
-	random := fmt.Sprintf("%09d", rand.Intn(1_000_000_000))
+	random := fmt.Sprintf("%09d", mathrand.Intn(1_000_000_000))
 	return model.BankCode + model.BranchCode + random + typeCode
 }
 
 func (s *AccountService) isValidAccountNumber(ctx context.Context, number string) bool {
-	var exists, _ = s.repo.AccountNumberExists(ctx, number)
-
+	exists, _ := s.repo.AccountNumberExists(ctx, number)
 	if exists {
 		return false
 	}
 
-	// TODO Actually implement checksum
 	sum := 0
 	for _, ch := range number {
 		sum += int(ch - '0')
@@ -59,15 +68,6 @@ func (s *AccountService) generateValidAccountNumber(ctx context.Context, account
 			return number
 		}
 	}
-}
-
-func (s *AccountService) findCurrencyByCode(ctx context.Context, code model.CurrencyCode) (*model.Currency, error) {
-	var currency model.Currency
-	result := s.db.WithContext(ctx).Where("code = ?", code).First(&currency)
-	if result.Error != nil {
-		return nil, errors.NotFoundErr("currency not found: " + string(code))
-	}
-	return &currency, nil
 }
 
 func (s *AccountService) Create(ctx context.Context, req dto.CreateAccountRequest) (*model.Account, error) {
@@ -87,11 +87,12 @@ func (s *AccountService) Create(ctx context.Context, req dto.CreateAccountReques
 		return nil, errors.BadRequestErr("personal account cannot have a company")
 	}
 
-	currencyCode := model.CurrencyCode("RSD")
+	currencyCode := model.RSD
 	if req.AccountKind == model.AccountKindForeign {
 		if req.CurrencyCode == "" {
 			return nil, errors.BadRequestErr("currency code is required for foreign accounts")
 		}
+
 		currencyCode = req.CurrencyCode
 	}
 
@@ -99,7 +100,16 @@ func (s *AccountService) Create(ctx context.Context, req dto.CreateAccountReques
 		return nil, errors.BadRequestErr("subtype is required for current accounts")
 	}
 
-	currency, err := s.findCurrencyByCode(ctx, currencyCode)
+	exists, err := s.repo.NameExistsForClient(ctx, req.ClientID, req.Name, "")
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+
+	if exists {
+		return nil, errors.ConflictErr("account with this name already exists")
+	}
+
+	currency, err := s.currencyRepo.FindByCode(ctx, currencyCode)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +117,16 @@ func (s *AccountService) Create(ctx context.Context, req dto.CreateAccountReques
 	dailyLimit := model.DefaultDailyLimitRSD
 	monthlyLimit := model.DefaultMonthlyLimitRSD
 	if req.AccountKind == model.AccountKindForeign {
-		// TODO Use Exchange Office to change limits.
+		convertedDaily, err := s.exchangeService.Convert(ctx, model.DefaultDailyLimitRSD, model.RSD, currencyCode)
+		if err != nil {
+			return nil, err
+		}
+		convertedMonthly, err := s.exchangeService.Convert(ctx, model.DefaultMonthlyLimitRSD, model.RSD, currencyCode)
+		if err != nil {
+			return nil, err
+		}
+		dailyLimit = convertedDaily
+		monthlyLimit = convertedMonthly
 	}
 
 	account := &model.Account{
@@ -131,5 +150,103 @@ func (s *AccountService) Create(ctx context.Context, req dto.CreateAccountReques
 		return nil, errors.InternalErr(err)
 	}
 
+	if req.GenerateCard {
+		if _, err := s.cardService.createCard(ctx, account, nil); err != nil {
+			return nil, err
+		}
+	}
+
 	return account, nil
 }
+func (s *AccountService) GetAllAccounts(ctx context.Context, query *dto.ListAccountsQuery) ([]*model.Account, int64, error) {
+	return s.repo.FindAll(ctx, query)
+}
+
+func (s *AccountService) GetClientAccounts(ctx context.Context, clientID uint) ([]model.Account, error) {
+	accounts, err := s.repo.FindAllByClientID(ctx, clientID)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	return accounts, nil
+}
+
+func (s *AccountService) GetAccountDetails(ctx context.Context, accountNumber string, clientID uint) (*model.Account, error) {
+	account, err := s.repo.FindByAccountNumberAndClientID(ctx, accountNumber, clientID)
+	if err != nil {
+		return nil, errors.NotFoundErr("account not found")
+	}
+	return account, nil
+}
+
+func (s *AccountService) UpdateAccountName(ctx context.Context, accountNumber string, clientID uint, name string) error {
+	account, err := s.repo.FindByAccountNumberAndClientID(ctx, accountNumber, clientID)
+	if err != nil {
+		return errors.NotFoundErr("account not found")
+	}
+
+	if account.Name == name {
+		return errors.BadRequestErr("new name is the same as the current name")
+	}
+
+	exists, err := s.repo.NameExistsForClient(ctx, clientID, name, accountNumber)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+	if exists {
+		return errors.ConflictErr("an account with this name already exists")
+	}
+
+	if err := s.repo.UpdateName(ctx, accountNumber, name); err != nil {
+		return errors.InternalErr(err)
+	}
+	return nil
+}
+
+func (s *AccountService) RequestLimitsChange(ctx context.Context, accountNumber string, clientID uint, daily float64, monthly float64) error {
+	if _, err := s.repo.FindByAccountNumberAndClientID(ctx, accountNumber, clientID); err != nil {
+		return errors.NotFoundErr("account not found")
+	}
+
+	if err := s.verificationRepo.DeleteByAccountAndClient(ctx, accountNumber, clientID); err != nil {
+		return errors.InternalErr(err)
+	}
+
+	token := &model.VerificationToken{
+		ClientID:        clientID,
+		AccountNumber:   accountNumber,
+		NewDailyLimit:   daily,
+		NewMonthlyLimit: monthly,
+	}
+	if err := s.verificationRepo.Create(ctx, token); err != nil {
+		return errors.InternalErr(err)
+	}
+
+	return nil
+}
+
+func (s *AccountService) ConfirmLimitsChange(ctx context.Context, accountNumber string, clientID uint, code, authorizationHeader string) error {
+
+	token, err := s.verificationRepo.FindByAccountAndClient(ctx, accountNumber, clientID)
+	if err != nil {
+		return errors.NotFoundErr("no pending limits change for this account")
+	}
+
+	secret, err := s.mobileSecretClient.GetMobileSecret(ctx, authorizationHeader)
+	if err != nil {
+		return errors.ServiceUnavailableErr(err)
+	}
+
+	if !verifyTOTPCode(secret, code, time.Now(), totpAllowedSkew) {
+		return errors.BadRequestErr("invalid verification code")
+	}
+
+	if err := s.repo.UpdateLimits(ctx, accountNumber, token.NewDailyLimit, token.NewMonthlyLimit); err != nil {
+		return errors.InternalErr(err)
+	}
+	if err := s.verificationRepo.DeleteByAccountAndClient(ctx, accountNumber, clientID); err != nil {
+		return errors.InternalErr(err)
+	}
+	return nil
+}
+
+// ...existing code...

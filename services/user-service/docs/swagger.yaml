@@ -55,7 +55,7 @@ definitions:
       email:
         type: string
       first_name:
-        maxLength: 50
+        maxLength: 20
         type: string
       gender:
         type: string
@@ -181,6 +181,11 @@ definitions:
       user:
         $ref: '#/definitions/dto.AuthUser'
     type: object
+  dto.MobileSecretResponse:
+    properties:
+      secret:
+        type: string
+    type: object
   dto.RefreshRequest:
     properties:
       refresh_token:
@@ -206,6 +211,27 @@ definitions:
     required:
     - new_password
     - token
+    type: object
+  dto.UpdateClientRequest:
+    properties:
+      address:
+        type: string
+      date_of_birth:
+        type: string
+      email:
+        type: string
+      first_name:
+        maxLength: 20
+        type: string
+      gender:
+        type: string
+      last_name:
+        maxLength: 100
+        type: string
+      phone_number:
+        type: string
+      username:
+        type: string
     type: object
   dto.UpdateEmployeeRequest:
     properties:
@@ -253,12 +279,16 @@ definitions:
     - employee.create
     - employee.update
     - employee.delete
+    - client.view
+    - client.update
     type: string
     x-enum-varnames:
     - EmployeeView
     - EmployeeCreate
     - EmployeeUpdate
     - EmployeeDelete
+    - ClientView
+    - ClientUpdate
 info:
   contact: {}
   description: API for managing employees, clients, authentication, and permissions.
@@ -461,6 +491,100 @@ paths:
       summary: Reset password
       tags:
       - auth
+  /api/clients:
+    get:
+      description: Returns a paginated list of clients. Supports filtering by email,
+        first name, and last name. Requires ClientView permission.
+      parameters:
+      - description: Filter by email
+        in: query
+        name: email
+        type: string
+      - description: Filter by first name
+        in: query
+        name: first_name
+        type: string
+      - description: Filter by last name
+        in: query
+        name: last_name
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List all clients
+      tags:
+      - clients
+  /api/clients/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Updates client details by ID. Requires ClientUpdate permission.
+      parameters:
+      - description: Client ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Fields to update
+        in: body
+        name: client
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateClientRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Update a client
+      tags:
+      - clients
   /api/clients/register:
     post:
       consumes:
@@ -494,6 +618,8 @@ paths:
           description: Service Unavailable
           schema:
             $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
       summary: Register a new client
       tags:
       - clients
@@ -645,6 +771,33 @@ paths:
       summary: Register a new employee
       tags:
       - employees
+  /api/secret-mobile:
+    get:
+      description: Returns TOTP secret for currently authenticated client
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.MobileSecretResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get mobile verification secret
+      tags:
+      - clients
 securityDefinitions:
   BearerAuth:
     description: 'Enter "Bearer" followed by a space and your token. Example: "Bearer

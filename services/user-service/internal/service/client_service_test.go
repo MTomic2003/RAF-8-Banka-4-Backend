@@ -1,13 +1,15 @@
 package service
 
 import (
+	"common/pkg/auth"
 	"context"
 	"fmt"
 	"testing"
 	"time"
+	"user-service/internal/model"
 
-	"common/pkg/auth"
 	"user-service/internal/dto"
+	"user-service/internal/model"
 
 	"github.com/stretchr/testify/require"
 )
@@ -25,6 +27,37 @@ func newClientService(
 		mailer,
 		testConfig(),
 	)
+}
+
+func TestGetMobileVerificationSecret(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns secret for authenticated client", func(t *testing.T) {
+		svc := newClientService(
+			&fakeClientRepo{byID: &model.Client{ClientID: 2, MobileVerificationSecret: "JBSWY3DPEHPK3PXP"}},
+			&fakeIdentityRepo{},
+			&fakeActivationTokenRepo{},
+			&fakeMailer{},
+		)
+
+		secret, err := svc.GetMobileVerificationSecret(context.Background(), 2)
+		require.NoError(t, err)
+		require.Equal(t, "JBSWY3DPEHPK3PXP", secret)
+	})
+
+	t.Run("not found when secret is empty", func(t *testing.T) {
+		svc := newClientService(
+			&fakeClientRepo{byID: &model.Client{ClientID: 2}},
+			&fakeIdentityRepo{},
+			&fakeActivationTokenRepo{},
+			&fakeMailer{},
+		)
+
+		secret, err := svc.GetMobileVerificationSecret(context.Background(), 2)
+		require.Error(t, err)
+		require.Empty(t, secret)
+		require.Contains(t, err.Error(), "mobile verification secret not found")
+	})
 }
 
 func TestClientRegister(t *testing.T) {
@@ -129,6 +162,125 @@ func TestClientRegister(t *testing.T) {
 			require.Equal(t, auth.IdentityClient, client.Identity.Type)
 			require.False(t, client.Identity.Active)
 			require.Equal(t, uint(1), client.IdentityID)
+			require.NotEmpty(t, client.MobileVerificationSecret)
+		})
+	}
+}
+func TestClientGetAll(t *testing.T) {
+	t.Parallel()
+
+	query := &dto.ListClientsQuery{
+		Page:     1,
+		PageSize: 10,
+	}
+
+	tests := []struct {
+		name       string
+		clientRepo *fakeClientRepo
+		expectErr  bool
+		wantTotal  int64
+		wantCount  int
+	}{
+		{
+			name: "successful list",
+			clientRepo: &fakeClientRepo{
+				allClients: []*model.Client{activeClient(), activeClient()},
+				allTotal:   2,
+			},
+			wantTotal: 2,
+			wantCount: 2,
+		},
+		{
+			name:       "empty list",
+			clientRepo: &fakeClientRepo{},
+			wantTotal:  0,
+			wantCount:  0,
+		},
+		{
+			name:       "repo error",
+			clientRepo: &fakeClientRepo{getAllErr: fmt.Errorf("db error")},
+			expectErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newClientService(tt.clientRepo, &fakeIdentityRepo{}, &fakeActivationTokenRepo{}, &fakeMailer{})
+
+			clients, total, err := svc.GetAllClients(context.Background(), query)
+
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.wantTotal, total)
+			require.Len(t, clients, tt.wantCount)
+		})
+	}
+}
+
+func TestClientUpdate(t *testing.T) {
+	t.Parallel()
+
+	newFirstName := "Updated"
+	newPhone := "0609999999"
+
+	tests := []struct {
+		name       string
+		clientRepo *fakeClientRepo
+		req        *dto.UpdateClientRequest
+		expectErr  bool
+		errMsg     string
+	}{
+		{
+			name:       "successful update",
+			clientRepo: &fakeClientRepo{byID: activeClient()},
+			req: &dto.UpdateClientRequest{
+				FirstName:   &newFirstName,
+				PhoneNumber: &newPhone,
+			},
+		},
+		{
+			name:       "client not found",
+			clientRepo: &fakeClientRepo{},
+			req:        &dto.UpdateClientRequest{FirstName: &newFirstName},
+			expectErr:  true,
+			errMsg:     "client not found",
+		},
+		{
+			name:       "find error",
+			clientRepo: &fakeClientRepo{findErr: fmt.Errorf("db error")},
+			req:        &dto.UpdateClientRequest{FirstName: &newFirstName},
+			expectErr:  true,
+		},
+		{
+			name:       "update error",
+			clientRepo: &fakeClientRepo{byID: activeClient(), updateErr: fmt.Errorf("db error")},
+			req:        &dto.UpdateClientRequest{FirstName: &newFirstName},
+			expectErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newClientService(tt.clientRepo, &fakeIdentityRepo{}, &fakeActivationTokenRepo{}, &fakeMailer{})
+
+			client, err := svc.UpdateClient(context.Background(), 1, tt.req)
+
+			if tt.expectErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					require.Contains(t, err.Error(), tt.errMsg)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, client)
+			require.Equal(t, newFirstName, client.FirstName)
+			require.Equal(t, newPhone, client.PhoneNumber)
 		})
 	}
 }

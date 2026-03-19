@@ -16,6 +16,7 @@ import (
 	"common/pkg/jwt"
 	"common/pkg/logging"
 	"common/pkg/pb"
+	"context"
 
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
@@ -39,6 +40,13 @@ func main() {
 			func(cfg *config.Configuration) auth.TokenVerifier {
 				return jwt.NewJWTVerifier(cfg.JWTSecret)
 			},
+			func(cfg *config.Configuration) client.ExchangeRateClient {
+				return client.NewExchangeRateClient(cfg.ExchangeRateAPIKey)
+			},
+			fx.Annotate(
+				client.NewMobileSecretClient,
+				fx.As(new(client.MobileSecretClient)),
+			),
 			client.NewUserServiceConnection,
 			fx.Annotate(
 				clientgrpc.NewUserServiceClient,
@@ -53,25 +61,95 @@ func main() {
 			handler.NewHealthHandler,
 			repository.NewAccountRepository,
 			repository.NewCompanyRepository,
+			repository.NewPayeeRepository,
+			repository.NewCardRepository,
+			repository.NewAuthorizedPersonRepository,
+			repository.NewCardRequestRepository,
+			repository.NewExchangeRateRepository,
+			repository.NewCurrencyRepository,
+			service.NewExchangeService,
+			func(svc *service.ExchangeService) service.CurrencyConverter {
+				return svc
+			},
+			repository.NewPaymentRepository,
+			repository.NewTransactionRepository,
+			repository.NewVerificationTokenRepository,
+			repository.NewGormTransactionManager,
+			repository.NewLoanRepository,
+			repository.NewLoanTypeRepository,
 			service.NewAccountService,
 			service.NewCompanyService,
+			service.NewPayeeService,
+			service.NewPaymentService,
+			service.NewTransactionProcessor,
+			service.NewCardService,
+			service.NewEmailService,
+			service.NewLoanService,
 			handler.NewAccountHandler,
 			handler.NewCompanyHandler,
+			handler.NewPayeeHandler,
+			handler.NewExchangeHandler,
+			handler.NewPaymentHandler,
+			repository.NewTransferRepository,
+			service.NewTransferService,
+			handler.NewTransferHandler,
+			handler.NewCardHandler,
+			handler.NewLoanHandler,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
+			if err := normalizeVerificationTokensSchema(db); err != nil {
+				return err
+			}
+
 			if err := db.AutoMigrate(
 				&model.Currency{},
 				&model.WorkCode{},
 				&model.Company{},
 				&model.Account{},
+				&model.Payee{},
+				&model.Card{},
+				&model.AuthorizedPerson{},
+				&model.CardRequest{},
+				&model.ExchangeRate{},
+				&model.Transaction{},
+				&model.Payment{},
+				&model.VerificationToken{},
+				&model.LoanType{},
+				&model.LoanRequest{},
+				&model.VerificationToken{},
 			); err != nil {
 				return err
 			}
 			return seed.Run(db)
 		}),
+		fx.Invoke(func(lc fx.Lifecycle, svc *service.ExchangeService) {
+			lc.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					svc.Initialize(ctx)
+					svc.StartBackgroundRefresh(ctx)
+					return nil
+				},
+			})
+		}),
 		fx.Invoke(server.NewServer),
 	).Run()
+}
+
+func normalizeVerificationTokensSchema(db *gorm.DB) error {
+	if db.Migrator().HasColumn("verification_tokens", "code") {
+		if err := db.Migrator().DropColumn("verification_tokens", "code"); err != nil {
+			return err
+		}
+	}
+
+	if db.Migrator().HasColumn("verification_tokens", "expires_at") {
+		if err := db.Migrator().DropColumn("verification_tokens", "expires_at"); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

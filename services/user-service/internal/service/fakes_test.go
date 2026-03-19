@@ -5,6 +5,7 @@ import (
 	"common/pkg/permission"
 	"context"
 	"user-service/internal/config"
+	"user-service/internal/dto"
 	"user-service/internal/model"
 
 	"golang.org/x/crypto/bcrypt"
@@ -98,11 +99,16 @@ func (f *fakeEmployeeRepo) GetAll(_ context.Context, _, _, _, _ string, _, _ int
 type fakeClientRepo struct {
 	byID         *model.Client
 	byIdentityID *model.Client
+	allClients   []*model.Client
+	allTotal     int64
 
 	findErr   error
 	createErr error
+	updateErr error
+	getAllErr  error
 
 	createdClient *model.Client
+	updatedClient *model.Client
 }
 
 func (f *fakeClientRepo) Create(_ context.Context, client *model.Client) error {
@@ -116,6 +122,15 @@ func (f *fakeClientRepo) FindByIdentityID(_ context.Context, _ uint) (*model.Cli
 
 func (f *fakeClientRepo) FindByID(_ context.Context, id uint) (*model.Client, error) {
 	return f.byID, f.findErr
+}
+
+func (f *fakeClientRepo) FindAll(_ context.Context, _ *dto.ListClientsQuery) ([]*model.Client, int64, error) {
+	return f.allClients, f.allTotal, f.getAllErr
+}
+
+func (f *fakeClientRepo) Update(_ context.Context, client *model.Client) error {
+	f.updatedClient = client
+	return f.updateErr
 }
 
 type fakeActivationTokenRepo struct {

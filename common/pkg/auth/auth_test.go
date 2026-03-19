@@ -64,6 +64,13 @@ func doGet(router *gin.Engine, authHeader string) *httptest.ResponseRecorder {
 	return w
 }
 
+func doGetPath(router *gin.Engine, path string) *httptest.ResponseRecorder {
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	router.ServeHTTP(w, req)
+	return w
+}
+
 func TestMiddleware_ValidToken(t *testing.T) {
 	t.Parallel()
 
@@ -261,6 +268,146 @@ func TestRequirePermission_EmptyUserPermissions(t *testing.T) {
 
 	w := doGet(router, "Bearer valid-token")
 	require.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func clientPathMatchRouter(authContext *auth.AuthContext) *gin.Engine {
+	router := gin.New()
+	router.Use(errors.ErrorHandler())
+	if authContext != nil {
+		router.Use(func(c *gin.Context) {
+			auth.SetAuth(c, authContext)
+			c.Next()
+		})
+	}
+
+	router.GET("/clients/:clientId/transfers", auth.RequireClientSelf("clientId", true), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	return router
+}
+
+func TestRequireClientPathMatchOrEmployee_ClientMatch(t *testing.T) {
+	t.Parallel()
+
+	clientID := uint(5)
+	router := clientPathMatchRouter(&auth.AuthContext{
+		IdentityType: auth.IdentityClient,
+		ClientID:     &clientID,
+	})
+
+	w := doGetPath(router, "/clients/5/transfers")
+	require.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestRequireClientPathMatchOrEmployee_ClientMismatch(t *testing.T) {
+	t.Parallel()
+
+	clientID := uint(5)
+	router := clientPathMatchRouter(&auth.AuthContext{
+		IdentityType: auth.IdentityClient,
+		ClientID:     &clientID,
+	})
+
+	w := doGetPath(router, "/clients/6/transfers")
+	require.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestRequireClientPathMatchOrEmployee_EmployeeAllowed(t *testing.T) {
+	t.Parallel()
+
+	employeeID := uint(11)
+	router := clientPathMatchRouter(&auth.AuthContext{
+		IdentityType: auth.IdentityEmployee,
+		EmployeeID:   &employeeID,
+	})
+
+	w := doGetPath(router, "/clients/99/transfers")
+	require.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestRequireClientPathMatchOrEmployee_InvalidPathClientID(t *testing.T) {
+	t.Parallel()
+
+	clientID := uint(5)
+	router := clientPathMatchRouter(&auth.AuthContext{
+		IdentityType: auth.IdentityClient,
+		ClientID:     &clientID,
+	})
+
+	w := doGetPath(router, "/clients/not-a-number/transfers")
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestRequireClientPathMatchOrEmployee_NoAuth(t *testing.T) {
+	t.Parallel()
+
+	router := clientPathMatchRouter(nil)
+	w := doGetPath(router, "/clients/5/transfers")
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestGetSubjectFromContext_Client(t *testing.T) {
+	t.Parallel()
+
+	clientID := uint(22)
+	ctx := auth.SetAuthOnContext(context.Background(), &auth.AuthContext{
+		IdentityType: auth.IdentityClient,
+		ClientID:     &clientID,
+	})
+
+	subjectID, err := auth.GetSubjectFromContext(ctx)
+	require.NoError(t, err)
+	require.Equal(t, uint(22), subjectID)
+}
+
+func TestGetSubjectFromContext_Employee(t *testing.T) {
+	t.Parallel()
+
+	employeeID := uint(7)
+	ctx := auth.SetAuthOnContext(context.Background(), &auth.AuthContext{
+		IdentityType: auth.IdentityEmployee,
+		EmployeeID:   &employeeID,
+	})
+
+	subjectID, err := auth.GetSubjectFromContext(ctx)
+	require.NoError(t, err)
+	require.Equal(t, uint(7), subjectID)
+}
+
+func TestGetSubjectFromContext_NoAuth(t *testing.T) {
+	t.Parallel()
+
+	subjectID, err := auth.GetSubjectFromContext(context.Background())
+	require.Error(t, err)
+	require.Zero(t, subjectID)
+	require.Contains(t, err.Error(), "not authenticated")
+}
+
+func TestGetSubjectFromContext_MissingClientID(t *testing.T) {
+	t.Parallel()
+
+	ctx := auth.SetAuthOnContext(context.Background(), &auth.AuthContext{
+		IdentityType: auth.IdentityClient,
+	})
+
+	subjectID, err := auth.GetSubjectFromContext(ctx)
+	require.Error(t, err)
+	require.Zero(t, subjectID)
+	require.Contains(t, err.Error(), "not authenticated")
+}
+
+func TestGetSubjectFromContext_InvalidIdentityType(t *testing.T) {
+	t.Parallel()
+
+	ctx := auth.SetAuthOnContext(context.Background(), &auth.AuthContext{
+		IdentityType: auth.IdentityType("partner"),
+	})
+
+	subjectID, err := auth.GetSubjectFromContext(ctx)
+	require.Error(t, err)
+	require.Zero(t, subjectID)
+	require.Contains(t, err.Error(), "access denied")
 }
 
 func uintPtr(v uint) *uint {

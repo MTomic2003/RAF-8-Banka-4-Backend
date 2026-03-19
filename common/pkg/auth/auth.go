@@ -2,6 +2,7 @@ package auth
 
 import (
 	"common/pkg/permission"
+	"strconv"
 	"strings"
 
 	"common/pkg/errors"
@@ -100,6 +101,44 @@ func RequireIdentityType(allowed ...IdentityType) gin.HandlerFunc {
 		c.Error(errors.ForbiddenErr("access denied for this identity type"))
 		c.Abort()
 	}
+}
+
+func RequireClientSelf(param string, allowEmployee bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ac := GetAuth(c)
+		if ac == nil {
+			abortWithError(c, errors.UnauthorizedErr("not authenticated"))
+			return
+		}
+
+		if allowEmployee && ac.IdentityType == IdentityEmployee {
+			c.Next()
+			return
+		}
+
+		if ac.IdentityType != IdentityClient || ac.ClientID == nil {
+			abortWithError(c, errors.ForbiddenErr("access denied"))
+			return
+		}
+
+		clientID, err := strconv.ParseUint(c.Param(param), 10, 64)
+		if err != nil {
+			abortWithError(c, errors.BadRequestErr("invalid client id"))
+			return
+		}
+
+		if uint(clientID) != *ac.ClientID {
+			abortWithError(c, errors.ForbiddenErr("client id does not match authenticated user"))
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func abortWithError(c *gin.Context, err error) {
+	c.Error(err)
+	c.Abort()
 }
 
 func hasPermission(perm permission.Permission, permissions []permission.Permission) bool {

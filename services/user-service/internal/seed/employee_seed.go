@@ -3,6 +3,8 @@ package seed
 import (
 	"common/pkg/auth"
 	"common/pkg/permission"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"time"
 	"user-service/internal/model"
@@ -32,6 +34,20 @@ var employees = []struct {
 	{"Admin", "Admin", "M", "1980-01-01", "admin@raf.rs", "000000000", "RAF", "admin", "admin123", true, "IT", "Manager"},
 }
 
+var activatableClients = []struct {
+	FirstName   string
+	LastName    string
+	Gender      string
+	DateOfBirth string
+	Email       string
+	Username    string
+	PhoneNumber string
+	Address     string
+	Password    string
+}{
+	{"Test", "Client", "M", "2000-01-01", "testclient@example.com", "testclient", "+381600000001", "Test Address 1, Beograd", "test123"},
+}
+
 var clients = []struct {
 	FirstName   string
 	LastName    string
@@ -41,10 +57,11 @@ var clients = []struct {
 	Username    string
 	PhoneNumber string
 	Address     string
+	Password    string
 }{
-	{"Marko", "Markovic", "M", "1992-03-15", "marko.markovic@example.com", "marko.markovic", "+381601234567", "Knez Mihailova 10, Beograd"},
-	{"Ana", "Anic", "F", "1995-07-22", "ana.anic@example.com", "ana.anic", "+381609876543", "Bulevar Oslobodjenja 20, Novi Sad"},
-	{"Stefan", "Stefanovic", "M", "1988-11-30", "stefan.stefanovic@example.com", "stefan.stefanovic", "+381611112222", "Trg Republike 5, Beograd"},
+	{"Marko", "Markovic", "M", "1992-03-15", "marko.markovic@example.com", "marko.markovic", "+381601234567", "Knez Mihailova 10, Beograd", "password123"},
+	{"Ana", "Anic", "F", "1995-07-22", "ana.anic@example.com", "ana.anic", "+381609876543", "Bulevar Oslobodjenja 20, Novi Sad", "password123"},
+	{"Stefan", "Stefanovic", "M", "1988-11-30", "stefan.stefanovic@example.com", "stefan.stefanovic", "+381611112222", "Trg Republike 5, Beograd", "password123"},
 }
 
 func Run(db *gorm.DB) error {
@@ -107,12 +124,16 @@ func Run(db *gorm.DB) error {
 			return err
 		}
 	}
-
 	// seed clients
 	for _, c := range clients {
 		var existingIdentity model.Identity
 		if err := db.Where("email = ?", c.Email).First(&existingIdentity).Error; err == nil {
 			continue
+		}
+
+		hash, err := bcrypt.GenerateFromPassword([]byte(c.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
 		}
 
 		dob, err := time.Parse("2006-01-02", c.DateOfBirth)
@@ -121,10 +142,11 @@ func Run(db *gorm.DB) error {
 		}
 
 		identity := model.Identity{
-			Email:    c.Email,
-			Username: c.Username,
-			Type:     auth.IdentityClient,
-			Active:   true,
+			Email:        c.Email,
+			Username:     c.Username,
+			PasswordHash: string(hash),
+			Type:         auth.IdentityClient,
+			Active:       true,
 		}
 		if err := db.Create(&identity).Error; err != nil {
 			return err
@@ -140,6 +162,72 @@ func Run(db *gorm.DB) error {
 			Address:     c.Address,
 		}
 		if err := db.Create(&client).Error; err != nil {
+			return err
+		}
+	}
+	// seed activatable clients, activated in place
+	for _, c := range activatableClients {
+		var existingIdentity model.Identity
+		if err := db.Where("email = ?", c.Email).First(&existingIdentity).Error; err == nil {
+			continue // already seeded
+		}
+
+		dob, err := time.Parse("2006-01-02", c.DateOfBirth)
+		if err != nil {
+			return err
+		}
+
+		identity := model.Identity{
+			Email:    c.Email,
+			Username: c.Username,
+			Type:     auth.IdentityClient,
+			Active:   false,
+		}
+		if err := db.Create(&identity).Error; err != nil {
+			return err
+		}
+
+		client := model.Client{
+			IdentityID:  identity.ID,
+			FirstName:   c.FirstName,
+			LastName:    c.LastName,
+			Gender:      c.Gender,
+			DateOfBirth: dob,
+			PhoneNumber: c.PhoneNumber,
+			Address:     c.Address,
+		}
+		if err := db.Create(&client).Error; err != nil {
+			return err
+		}
+
+		// generate and insert an activation token
+		rawBytes := make([]byte, 16)
+		if _, err := rand.Read(rawBytes); err != nil {
+			return err
+		}
+		tokenStr := hex.EncodeToString(rawBytes)
+
+		activationToken := model.ActivationToken{
+			IdentityID: identity.ID,
+			Token:      tokenStr,
+			ExpiresAt:  time.Now().Add(24 * time.Hour),
+		}
+		if err := db.Create(&activationToken).Error; err != nil {
+			return err
+		}
+
+		// activate in-place
+		hash, err := bcrypt.GenerateFromPassword([]byte(c.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		if err := db.Model(&identity).Updates(map[string]any{
+			"password_hash": string(hash),
+			"active":        true,
+		}).Error; err != nil {
+			return err
+		}
+		if err := db.Delete(&activationToken).Error; err != nil {
 			return err
 		}
 	}
