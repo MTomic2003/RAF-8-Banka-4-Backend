@@ -39,6 +39,7 @@ func ToAccountResponse(a *model.Account) AccountResponse {
 		AvailableBalance: a.AvailableBalance,
 		CreatedAt:        a.CreatedAt,
 		ExpiresAt:        a.ExpiresAt,
+		CurrencyCode:     a.Currency.Code,
 		Status:           a.Status,
 		AccountType:      string(a.AccountType),
 		AccountKind:      string(a.AccountKind),
