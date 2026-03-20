@@ -115,6 +115,7 @@ func (s *ClientService) Register(ctx context.Context, req *dto.CreateClientReque
 	client.Identity = *identity
 	return client, nil
 }
+
 func (s *ClientService) GetAllClients(ctx context.Context, query *dto.ListClientsQuery) (*dto.ListClientsResponse, error) {
 	clients, total, err := s.clientRepo.FindAll(ctx, query)
 	if err != nil {
