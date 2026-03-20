@@ -1,5 +1,16 @@
 definitions:
-  banking-service_internal_dto.AccountResponse:
+  dto.AccountCardsResponse:
+    properties:
+      account_name:
+        type: string
+      account_number:
+        type: string
+      cards:
+        items:
+          $ref: '#/definitions/dto.CardResponse'
+        type: array
+    type: object
+  dto.AccountResponse:
     properties:
       account_kind:
         type: string
@@ -18,7 +29,7 @@ definitions:
       created_at:
         type: string
       currency:
-        $ref: '#/definitions/banking-service_internal_model.CurrencyCode'
+        $ref: '#/definitions/model.CurrencyCode'
       daily_limit:
         type: number
       daily_spending:
@@ -42,7 +53,7 @@ definitions:
       subtype:
         type: string
     type: object
-  banking-service_internal_dto.AccountSummaryResponse:
+  dto.AccountSummaryResponse:
     properties:
       account_kind:
         type: string
@@ -60,95 +71,6 @@ definitions:
         type: string
       reserved_funds:
         type: number
-    type: object
-  banking-service_internal_dto.ConfirmLimitsChangeRequest:
-    properties:
-      code:
-        type: string
-    required:
-    - code
-    type: object
-  banking-service_internal_dto.CreateAccountRequest:
-    properties:
-      account_kind:
-        $ref: '#/definitions/banking-service_internal_model.AccountKind'
-      account_type:
-        $ref: '#/definitions/banking-service_internal_model.AccountType'
-      client_id:
-        type: integer
-      company_id:
-        type: integer
-      create_card:
-        type: boolean
-      currency_code:
-        allOf:
-        - $ref: '#/definitions/banking-service_internal_model.CurrencyCode'
-        description: required if AccountKind=Foreign
-      employee_id:
-        type: integer
-      expires_at:
-        type: string
-      initial_balance:
-        minimum: 0
-        type: number
-      name:
-        type: string
-      subtype:
-        allOf:
-        - $ref: '#/definitions/banking-service_internal_model.Subtype'
-        description: required if AccountKind=Current
-    required:
-    - account_kind
-    - account_type
-    - client_id
-    - employee_id
-    - expires_at
-    - name
-    type: object
-  banking-service_internal_dto.ListPaymentsResponse:
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/banking-service_internal_dto.PaymentSummaryResponse'
-        type: array
-      page:
-        type: integer
-      page_size:
-        type: integer
-      total:
-        type: integer
-      total_pages:
-        type: integer
-    type: object
-  banking-service_internal_dto.PaymentSummaryResponse:
-    properties:
-      amount:
-        type: number
-      created_at:
-        type: string
-      currency:
-        type: string
-      id:
-        type: integer
-      payer_account:
-        type: string
-      payment_code:
-        type: string
-      purpose:
-        type: string
-      recipient_account:
-        type: string
-      recipient_name:
-  dto.AccountCardsResponse:
-    properties:
-      account_name:
-        type: string
-      account_number:
-        type: string
-      cards:
-        items:
-          $ref: '#/definitions/dto.CardResponse'
-        type: array
     type: object
   dto.AuthorizedPersonRequest:
     properties:
@@ -198,7 +120,312 @@ definitions:
       status:
         type: string
     type: object
-  banking-service_internal_dto.RequestLimitsChangeRequest:
+  dto.ConfirmCardRequest:
+    properties:
+      account_number:
+        type: string
+      confirmation_code:
+        type: string
+    required:
+    - account_number
+    - confirmation_code
+    type: object
+  dto.ConfirmLimitsChangeRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
+  dto.ConvertResponse:
+    properties:
+      amount:
+        type: number
+      from_currency:
+        type: string
+      to_currency:
+        type: string
+      total:
+        type: number
+    type: object
+  dto.CreateAccountRequest:
+    properties:
+      account_kind:
+        $ref: '#/definitions/model.AccountKind'
+      account_type:
+        $ref: '#/definitions/model.AccountType'
+      client_id:
+        type: integer
+      company_id:
+        type: integer
+      create_card:
+        type: boolean
+      currency_code:
+        allOf:
+        - $ref: '#/definitions/model.CurrencyCode'
+        description: required if AccountKind=Foreign
+      employee_id:
+        type: integer
+      expires_at:
+        type: string
+      generate_card:
+        type: boolean
+      initial_balance:
+        minimum: 0
+        type: number
+      name:
+        type: string
+      subtype:
+        allOf:
+        - $ref: '#/definitions/model.Subtype'
+        description: required if AccountKind=Current
+    required:
+    - account_kind
+    - account_type
+    - client_id
+    - employee_id
+    - expires_at
+    - name
+    type: object
+  dto.CreateLoanRequest:
+    properties:
+      account_number:
+        type: string
+      amount:
+        type: number
+      loan_type_id:
+        type: integer
+      repayment_period:
+        description: Broj meseci
+        type: integer
+    required:
+    - account_number
+    - amount
+    - loan_type_id
+    - repayment_period
+    type: object
+  dto.CreateLoanResponse:
+    properties:
+      id:
+        type: integer
+      monthly_installment:
+        type: number
+      status:
+        $ref: '#/definitions/model.LoanRequestStatus'
+    type: object
+  dto.CreatePayeeRequest:
+    properties:
+      account_number:
+        type: string
+      name:
+        type: string
+    required:
+    - account_number
+    - name
+    type: object
+  dto.CreatePaymentRequest:
+    properties:
+      amount:
+        type: number
+      payer_account_number:
+        type: string
+      payment_code:
+        type: string
+      purpose:
+        type: string
+      recipient_account_number:
+        type: string
+      recipient_name:
+        type: string
+      reference_number:
+        type: string
+    required:
+    - amount
+    - payer_account_number
+    - recipient_account_number
+    - recipient_name
+    type: object
+  dto.CreatePaymentResponse:
+    properties:
+      id:
+        type: integer
+    type: object
+  dto.ExchangeRatesResponse:
+    properties:
+      base_currency:
+        type: string
+      next_update_at:
+        type: string
+      rates:
+        items:
+          $ref: '#/definitions/dto.RateItem'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  dto.Installment:
+    properties:
+      amount:
+        type: number
+      number:
+        type: integer
+      status:
+        description: npr. "PAID", "UPCOMING"
+        type: string
+    type: object
+  dto.ListPaymentsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.PaymentSummaryResponse'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  dto.ListTransfersResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.TransferResponse'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  dto.LoanDetailsResponse:
+    properties:
+      amount:
+        type: number
+      currency:
+        $ref: '#/definitions/model.CurrencyCode'
+      id:
+        type: integer
+      installments:
+        items:
+          $ref: '#/definitions/dto.Installment'
+        type: array
+      interest_rate:
+        type: number
+      loan_type:
+        type: string
+      monthly_installment:
+        type: number
+      repayment_period:
+        type: integer
+      status:
+        $ref: '#/definitions/model.LoanRequestStatus'
+    type: object
+  dto.LoanResponse:
+    properties:
+      amount:
+        type: number
+      currency:
+        $ref: '#/definitions/model.CurrencyCode'
+      id:
+        type: integer
+      loan_type:
+        type: string
+      monthly_installment:
+        type: number
+      status:
+        $ref: '#/definitions/model.LoanRequestStatus'
+    type: object
+  dto.MessageResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  dto.PayeeResponse:
+    properties:
+      account_number:
+        type: string
+      client_d:
+        type: integer
+      name:
+        type: string
+      payee_id:
+        type: integer
+    type: object
+  dto.PaymentResponse:
+    properties:
+      amount:
+        type: number
+      created_at:
+        type: string
+      currency_code:
+        type: string
+      payer_account_number:
+        type: string
+      payment_code:
+        type: string
+      payment_id:
+        type: integer
+      purpose:
+        type: string
+      recipient_account_number:
+        type: string
+      recipient_name:
+        type: string
+      reference_number:
+        type: string
+      status:
+        type: string
+    type: object
+  dto.PaymentSummaryResponse:
+    properties:
+      amount:
+        type: number
+      created_at:
+        type: string
+      currency:
+        type: string
+      id:
+        type: integer
+      payer_account:
+        type: string
+      payment_code:
+        type: string
+      purpose:
+        type: string
+      recipient_account:
+        type: string
+      recipient_name:
+        type: string
+      status:
+        type: string
+    type: object
+  dto.RateItem:
+    properties:
+      buy_rate:
+        type: number
+      currency:
+        type: string
+      middle_rate:
+        type: number
+      sell_rate:
+        type: number
+    type: object
+  dto.RequestCardRequest:
+    properties:
+      account_number:
+        type: string
+      authorized_person:
+        $ref: '#/definitions/dto.AuthorizedPersonRequest'
+    required:
+    - account_number
+    type: object
+  dto.RequestLimitsChangeRequest:
     properties:
       daily_limit:
         type: number
@@ -208,35 +435,96 @@ definitions:
     - daily_limit
     - monthly_limit
     type: object
-  banking-service_internal_dto.RequestLimitsChangeResponse:
+  dto.TransferRequest:
     properties:
-      code:
+      amount:
+        type: number
+      from_account:
         type: string
+      to_account:
+        type: string
+    required:
+    - amount
+    - from_account
+    - to_account
     type: object
-  banking-service_internal_dto.UpdateAccountNameRequest:
+  dto.TransferResponse:
+    properties:
+      commission:
+        type: number
+      created_at:
+        type: string
+      exchange_rate:
+        type: number
+      final_amount:
+        type: number
+      from_account_number:
+        type: string
+      initial_amount:
+        type: number
+      to_account_number:
+        type: string
+      transaction_id:
+        type: integer
+      transfer_id:
+        type: integer
+    type: object
+  dto.UpdateAccountNameRequest:
     properties:
       name:
         type: string
     required:
     - name
     type: object
-  banking-service_internal_model.AccountKind:
+  dto.UpdatePayeeRequest:
+    properties:
+      account_number:
+        type: string
+      name:
+        type: string
+    type: object
+  dto.VerifyPaymentRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
+  dto.VerifyPaymentResponse:
+    properties:
+      id:
+        type: integer
+    type: object
+  errors.AppError:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  model.AccountKind:
     enum:
     - Current
     - Foreign
+    - Internal
     type: string
     x-enum-varnames:
     - AccountKindCurrent
     - AccountKindForeign
-  banking-service_internal_model.AccountType:
+    - AccountKindInternal
+  model.AccountType:
     enum:
     - Personal
     - Business
+    - Bank
     type: string
     x-enum-varnames:
     - AccountTypePersonal
     - AccountTypeBusiness
-  banking-service_internal_model.CurrencyCode:
+    - AccountTypeBank
+  model.CurrencyCode:
     enum:
     - EUR
     - USD
@@ -256,7 +544,17 @@ definitions:
     - CAD
     - AUD
     - RSD
-  banking-service_internal_model.Subtype:
+  model.LoanRequestStatus:
+    enum:
+    - PENDING
+    - APPROVED
+    - REJECTED
+    type: string
+    x-enum-varnames:
+    - LoanRequestPending
+    - LoanRequestApproved
+    - LoanRequestRejected
+  model.Subtype:
     enum:
     - Standard
     - Savings
@@ -278,39 +576,6 @@ definitions:
     - SubtypeLLC
     - SubtypeJointStock
     - SubtypeFoundation
-  dto.ConfirmCardRequest:
-    properties:
-      account_number:
-        type: string
-      confirmation_code:
-        type: string
-    required:
-    - account_number
-    - confirmation_code
-    type: object
-  dto.MessageResponse:
-    properties:
-      message:
-        type: string
-    type: object
-  dto.RequestCardRequest:
-    properties:
-      account_number:
-        type: string
-      authorized_person:
-        $ref: '#/definitions/dto.AuthorizedPersonRequest'
-    required:
-    - account_number
-    type: object
-  errors.AppError:
-    properties:
-      message:
-        type: string
-      status:
-        type: string
-      timestamp:
-        type: string
-    type: object
 info:
   contact: {}
   description: API for managing accounts, balances, and banking operations.
@@ -319,38 +584,59 @@ info:
 paths:
   /api/accounts:
     get:
-      description: Returns all active accounts belonging to the authenticated client
-  /api/accounts/{accountId}/cards:
-    get:
-      description: Returns cards for the specified account. Clients can access only
-        their own accounts, while employees can access any account.
+      description: Returns a paginated list of all accounts. Employee access only.
+        Supports filtering by client, account type, kind, status and currency.
       parameters:
-      - description: Account number
-        in: path
-        name: accountId
-        required: true
+      - description: Filter by client ID
+        in: query
+        name: client_id
+        type: integer
+      - description: Filter by account type
+        in: query
+        name: account_type
         type: string
+      - description: Filter by account kind
+        in: query
+        name: account_kind
+        type: string
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Filter by currency ID
+        in: query
+        name: currency_id
+        type: integer
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/banking-service_internal_dto.AccountSummaryResponse'
-            type: array
+            type: object
         "400":
           description: Bad Request
           schema:
             $ref: '#/definitions/errors.AppError'
-            $ref: '#/definitions/dto.AccountCardsResponse'
         "401":
           description: Unauthorized
           schema:
             $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
       security:
       - BearerAuth: []
-      summary: List client accounts
+      summary: List all accounts
       tags:
       - accounts
     post:
@@ -365,18 +651,16 @@ paths:
         name: account
         required: true
         schema:
-          $ref: '#/definitions/banking-service_internal_dto.CreateAccountRequest'
+          $ref: '#/definitions/dto.CreateAccountRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/banking-service_internal_dto.AccountResponse'
+            $ref: '#/definitions/dto.AccountResponse'
         "400":
           description: Bad Request
-        "403":
-          description: Forbidden
           schema:
             $ref: '#/definitions/errors.AppError'
         "404":
@@ -392,21 +676,6 @@ paths:
       summary: Create a new bank account
       tags:
       - accounts
-  /api/accounts/{accountNumber}:
-    get:
-      description: Returns full details for a specific account owned by the authenticated
-        client
-      parameters:
-      - description: Account number
-        in: path
-        name: accountNumber
-        required: true
-        type: string
-      security:
-      - BearerAuth: []
-      summary: List cards for an account
-      tags:
-      - cards
   /api/cards/{cardId}/block:
     put:
       description: Blocks a card. Clients can block only their own cards, while employees
@@ -423,7 +692,6 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/banking-service_internal_dto.AccountResponse'
             $ref: '#/definitions/dto.CardResponse'
         "400":
           description: Bad Request
@@ -443,28 +711,6 @@ paths:
             $ref: '#/definitions/errors.AppError'
       security:
       - BearerAuth: []
-      summary: Get account details
-      tags:
-      - accounts
-  /api/accounts/{accountNumber}/limits:
-    put:
-      consumes:
-      - application/json
-      description: Confirms a pending limit change request using the verification
-        code from the mobile app
-      parameters:
-      - description: Account number
-        in: path
-        name: accountNumber
-        required: true
-        type: string
-      - description: Verification code, you can use 1234 for testing but still needs
-          request to be made first
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/banking-service_internal_dto.ConfirmLimitsChangeRequest'
       summary: Block a card
       tags:
       - cards
@@ -503,27 +749,6 @@ paths:
             $ref: '#/definitions/errors.AppError'
       security:
       - BearerAuth: []
-      summary: Confirm account limit change
-      tags:
-      - accounts
-  /api/accounts/{accountNumber}/limits/request:
-    post:
-      consumes:
-      - application/json
-      description: Initiates a limit change request for an account. Sends a verification
-        code for confirmation via mobile app, temporarily returned in body as code.
-      parameters:
-      - description: Account number
-        in: path
-        name: accountNumber
-        required: true
-        type: string
-      - description: New daily and monthly limits
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/banking-service_internal_dto.RequestLimitsChangeRequest'
       summary: Deactivate a card
       tags:
       - cards
@@ -542,7 +767,6 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/banking-service_internal_dto.RequestLimitsChangeResponse'
             $ref: '#/definitions/dto.CardResponse'
         "400":
           description: Bad Request
@@ -562,22 +786,6 @@ paths:
             $ref: '#/definitions/errors.AppError'
       security:
       - BearerAuth: []
-      summary: Request account limit change
-      tags:
-      - accounts
-  /api/accounts/{accountNumber}/name:
-    put:
-      consumes:
-      - application/json
-      description: Updates the display name of an account owned by the authenticated
-        client
-      parameters:
-      - description: Account number
-        in: path
-        name: accountNumber
-        required: true
-        type: string
-      - description: New account name
       summary: Unblock a card
       tags:
       - cards
@@ -593,7 +801,6 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/banking-service_internal_dto.UpdateAccountNameRequest'
           $ref: '#/definitions/dto.RequestCardRequest'
       produces:
       - application/json
@@ -618,16 +825,315 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/errors.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Request a new card
+      tags:
+      - cards
+  /api/cards/request/confirm:
+    post:
+      consumes:
+      - application/json
+      description: Confirms a pending card request using the confirmation code and
+        creates the card.
+      parameters:
+      - description: Confirmation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ConfirmCardRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.CardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Confirm a card request
+      tags:
+      - cards
+  /api/clients/{clientId}/accounts:
+    get:
+      description: Returns all active accounts belonging to the authenticated client
+      parameters:
+      - description: Client id
+        in: path
+        name: clientId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.AccountSummaryResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List client accounts
+      tags:
+      - accounts
+  /api/clients/{clientId}/accounts/{accountNumber}:
+    get:
+      description: Returns full details for a specific account owned by the authenticated
+        client
+      parameters:
+      - description: Account number
+        in: path
+        name: accountNumber
+        required: true
+        type: string
+      - description: Client id
+        in: path
+        name: clientId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.AccountResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get account details
+      tags:
+      - accounts
+  /api/clients/{clientId}/accounts/{accountNumber}/cards:
+    get:
+      description: Returns cards for the specified account. Clients can access only
+        their own accounts, while employees can access any account.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Account number
+        in: path
+        name: accountNumber
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.AccountCardsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List cards for an account
+      tags:
+      - cards
+  /api/clients/{clientId}/accounts/{accountNumber}/limits:
+    put:
+      consumes:
+      - application/json
+      description: Confirms a pending limit change request using the verification
+        code from the mobile app
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Account number
+        in: path
+        name: accountNumber
+        required: true
+        type: string
+      - description: Verification code generated in mobile app
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ConfirmLimitsChangeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Confirm account limit change
+      tags:
+      - accounts
+  /api/clients/{clientId}/accounts/{accountNumber}/limits/request:
+    post:
+      consumes:
+      - application/json
+      description: Initiates a limit change request for an account. Confirmation uses
+        TOTP code generated in the mobile app.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Account number
+        in: path
+        name: accountNumber
+        required: true
+        type: string
+      - description: New daily and monthly limits
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RequestLimitsChangeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Request account limit change
+      tags:
+      - accounts
+  /api/clients/{clientId}/accounts/{accountNumber}/name:
+    put:
+      consumes:
+      - application/json
+      description: Updates the display name of an account owned by the authenticated
+        client
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Account number
+        in: path
+        name: accountNumber
+        required: true
+        type: string
+      - description: New account name
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateAccountNameRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
       security:
       - BearerAuth: []
       summary: Update account name
       tags:
       - accounts
-  /api/accounts/{accountNumber}/payments:
+  /api/clients/{clientId}/accounts/{accountNumber}/payments:
     get:
       description: Returns a paginated list of payments for an account, filterable
-        by status, date range, and amount. Only the account owner can access this.
+        by status, date range, and amount. Clients can access only their own accounts,
+        employees can access any.
       parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
       - description: Account number
         in: path
         name: accountNumber
@@ -670,36 +1176,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/banking-service_internal_dto.ListPaymentsResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errors.AppError'
-      security:
-      - BearerAuth: []
-      summary: Request a new card
-      tags:
-      - cards
-  /api/cards/request/confirm:
-    post:
-      consumes:
-      - application/json
-      description: Confirms a pending card request using the confirmation code and
-        creates the card.
-      parameters:
-      - description: Confirmation payload
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.ConfirmCardRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/dto.CardResponse'
+            $ref: '#/definitions/dto.ListPaymentsResponse'
         "400":
           description: Bad Request
           schema:
@@ -717,19 +1194,484 @@ paths:
       summary: List account payments
       tags:
       - payments
-        "404":
-          description: Not Found
+  /api/clients/{clientId}/loans:
+    get:
+      description: Returns a list of loans for a client. Supports sorting by amount.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: 'Sort by amount: ''asc'' or ''desc'''
+        in: query
+        name: sort
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.LoanResponse'
+            type: array
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/errors.AppError'
-        "409":
-          description: Conflict
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
           schema:
             $ref: '#/definitions/errors.AppError'
       security:
       - BearerAuth: []
-      summary: Confirm a card request
+      summary: List client loans
       tags:
-      - cards
+      - loans
+  /api/clients/{clientId}/loans/{loanId}:
+    get:
+      description: Returns detailed loan information including the repayment schedule.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Loan ID
+        in: path
+        name: loanId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.LoanDetailsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get loan details
+      tags:
+      - loans
+  /api/clients/{clientId}/loans/request:
+    post:
+      consumes:
+      - application/json
+      description: Client submits a loan request. Validates repayment period and currency,
+        and calculates the monthly installment based on bank margin.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Loan request data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateLoanRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.CreateLoanResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Submit a loan request
+      tags:
+      - loans
+  /api/clients/{clientId}/payments:
+    get:
+      description: Returns a paginated list of all payments for a client. Supports
+        filtering by status, date range, and amount.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Filter by status (processing, completed, rejected)
+        in: query
+        name: status
+        type: string
+      - description: Filter from date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: Filter to date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      - description: Minimum amount filter
+        in: query
+        name: min_amount
+        type: number
+      - description: Maximum amount filter
+        in: query
+        name: max_amount
+        type: number
+      - description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListPaymentsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List all client payments
+      tags:
+      - payments
+    post:
+      consumes:
+      - application/json
+      description: Creates a new payment from the request body. Only the authenticated
+        client can create payments.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Payment data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreatePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.CreatePaymentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Create a new payment
+      tags:
+      - payments
+  /api/clients/{clientId}/payments/{id}:
+    get:
+      description: Returns payment details by ID. Clients can only access their own
+        payments, employees can access any.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Payment ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PaymentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get payment details
+      tags:
+      - payments
+  /api/clients/{clientId}/payments/{id}/receipt:
+    get:
+      description: Generates and returns a PDF receipt for a completed payment.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Payment ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/pdf
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Download payment receipt
+      tags:
+      - payments
+  /api/clients/{clientId}/payments/{id}/verify:
+    post:
+      consumes:
+      - application/json
+      description: Confirms a payment using a verification code. Only the client who
+        created the payment can verify it.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Payment ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Verification code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.VerifyPaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.VerifyPaymentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Verify a payment
+      tags:
+      - payments
+  /api/clients/{clientId}/transfers:
+    get:
+      description: Returns transfer history for a client, newest first. Supports pagination.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListTransfersResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get client transfer history
+      tags:
+      - transfers
+    post:
+      consumes:
+      - application/json
+      description: Executes transfer between two authenticated-client accounts and
+        persists transaction and transfer records atomically.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      - description: Transfer details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TransferRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.TransferResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Execute an internal transfer
+      tags:
+      - transfers
   /api/health:
     get:
       description: Returns service health status
@@ -745,6 +1687,328 @@ paths:
       summary: Health check
       tags:
       - health
+  /api/loan-requests:
+    get:
+      description: Returns a paginated list of all loan requests. Employee access
+        only.
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List loan requests
+      tags:
+      - loan-requests
+  /api/loan-requests/{id}/approve:
+    patch:
+      description: Approves a pending loan request. Employee access only.
+      parameters:
+      - description: Loan request ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Approve a loan request
+      tags:
+      - loan-requests
+  /api/loan-requests/{id}/reject:
+    patch:
+      description: Rejects a pending loan request. Employee access only.
+      parameters:
+      - description: Loan request ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Reject a loan request
+      tags:
+      - loan-requests
+  /exchange/calculate:
+    get:
+      description: Converts a given amount from one currency to another using current
+        exchange rates.
+      parameters:
+      - description: Amount to convert
+        in: query
+        minimum: 0
+        name: amount
+        required: true
+        type: number
+      - description: Source currency code (e.g. USD, EUR)
+        in: query
+        name: from_currency
+        required: true
+        type: string
+      - description: Target currency code (e.g. RSD, EUR)
+        in: query
+        name: to_currency
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ConvertResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Calculate currency conversion
+      tags:
+      - exchange
+  /exchange/rates:
+    get:
+      description: Returns the latest available currency exchange rates.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ExchangeRatesResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Get exchange rates
+      tags:
+      - exchange
+  /payees:
+    get:
+      description: Returns a list of all payees for the authenticated client.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.PayeeResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List all payees
+      tags:
+      - payees
+    post:
+      consumes:
+      - application/json
+      description: Creates a new payee for the authenticated client.
+      parameters:
+      - description: Payee data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreatePayeeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.PayeeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Create a new payee
+      tags:
+      - payees
+  /payees/{id}:
+    delete:
+      description: Deletes a payee by ID.
+      parameters:
+      - description: Payee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Delete a payee
+      tags:
+      - payees
+    patch:
+      consumes:
+      - application/json
+      description: Updates an existing payee by ID.
+      parameters:
+      - description: Payee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated payee data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdatePayeeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PayeeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Update a payee
+      tags:
+      - payees
 securityDefinitions:
   BearerAuth:
     description: JWT Authorization header using the Bearer scheme.

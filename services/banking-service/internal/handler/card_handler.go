@@ -103,15 +103,16 @@ func (h *CardHandler) ConfirmCardRequest(c *gin.Context) {
 // @Description Returns cards for the specified account. Clients can access only their own accounts, while employees can access any account.
 // @Tags cards
 // @Produce json
-// @Param accountId path string true "Account number"
+// @Param clientId path int true "Client ID"
+// @Param accountNumber path string true "Account number"
 // @Success 200 {object} dto.AccountCardsResponse
 // @Failure 401 {object} errors.AppError
 // @Failure 403 {object} errors.AppError
 // @Failure 404 {object} errors.AppError
 // @Security BearerAuth
-// @Router /api/accounts/{accountId}/cards [get]
+// @Router /api/clients/{clientId}/accounts/{accountNumber}/cards [get]
 func (h *CardHandler) ListCardsByAccount(c *gin.Context) {
-	accountNumber := c.Param("accountId")
+	accountNumber := c.Param("accountNumber")
 
 	result, err := h.service.ListCardsForAccount(c.Request.Context(), accountNumber)
 	if err != nil {

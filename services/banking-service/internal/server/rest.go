@@ -45,7 +45,13 @@ func NewServer(
 		accountHandler,
 		companyHandler,
 		transferHandler,
-		payeeHandler, exchangeHandler, paymentHandler, cardHandler, loanHandler, verifier, permissions,
+		payeeHandler,
+		exchangeHandler,
+		paymentHandler,
+		cardHandler,
+		loanHandler,
+		verifier,
+		permissions,
 	)
 
 	server := &http.Server{
@@ -94,13 +100,17 @@ func SetupRoutes(
 	{
 		api.GET("/health", healthHandler.Health)
 
+		exchange := api.Group("/exchange")
+		{
+			exchange.GET("/rates", exchangeHandler.GetRates)
+			exchange.GET("/calculate", exchangeHandler.Calculate)
+		}
+
 		accounts := api.Group("/accounts")
 		accounts.Use(auth.Middleware(verifier, permissions))
 		{
-			accounts.POST("", accountHandler.Create)
-			accounts.GET("/:accountId/cards", auth.RequireIdentityType(auth.IdentityClient, auth.IdentityEmployee), cardHandler.ListCardsByAccount)
-			accounts.GET("", auth.RequireIdentityType(auth.IdentityClient, auth.IdentityEmployee), accountHandler.ListAccounts)
-			//TODO employee list all accounts here?
+			accounts.GET("", auth.RequireIdentityType(auth.IdentityEmployee), accountHandler.ListAccounts)
+			accounts.POST("", auth.RequireIdentityType(auth.IdentityEmployee), accountHandler.Create)
 		}
 
 		client := api.Group("/clients/:clientId")
@@ -108,36 +118,55 @@ func SetupRoutes(
 		{
 			clientAccounts := client.Group("/accounts")
 			{
-				clientAccounts.GET("", accountHandler.GetClientAccounts)
-				clientAccounts.GET("/:accountNumber", accountHandler.GetAccountDetails)
-				clientAccounts.GET("/:accountNumber/payments", paymentHandler.GetAccountPayments)
-				clientAccounts.PUT("/:accountNumber/name", accountHandler.UpdateAccountName)
-				clientAccounts.POST("/:accountNumber/limits/request", accountHandler.RequestLimitsChange)
-				clientAccounts.PUT("/:accountNumber/limits", accountHandler.ConfirmLimitsChange)
+				clientAccounts.GET("", auth.RequireClientSelf("clientId", true), accountHandler.GetClientAccounts)
+
+				account := clientAccounts.Group("/:accountNumber")
+				{
+					account.GET("", auth.RequireClientSelf("clientId", true), accountHandler.GetAccountDetails)
+					account.GET("/cards", auth.RequireClientSelf("clientId", true), cardHandler.ListCardsByAccount)
+					account.GET("/payments", auth.RequireClientSelf("clientId", true), paymentHandler.GetAccountPayments)
+					account.PUT("/name", auth.RequireClientSelf("clientId", false), accountHandler.UpdateAccountName)
+					account.PUT("/limits", auth.RequireClientSelf("clientId", false), accountHandler.ConfirmLimitsChange)
+					account.POST("/limits/request", auth.RequireClientSelf("clientId", false), accountHandler.RequestLimitsChange)
+				}
 			}
+
 			clientPayments := client.Group("/payments")
 			{
-				clientPayments.GET("", paymentHandler.GetClientPayments)
-				clientPayments.GET("/:id", paymentHandler.GetPaymentByID)
-				clientPayments.GET("/:id/receipt", paymentHandler.GetReceipt)
-				clientPayments.POST("", paymentHandler.CreatePayment)
-				clientPayments.POST("/:id/verify", paymentHandler.VerifyPayment)
+				clientPayments.GET("", auth.RequireClientSelf("clientId", true), paymentHandler.GetClientPayments)
+				clientPayments.POST("", auth.RequireClientSelf("clientId", false), paymentHandler.CreatePayment)
+				clientPayments.GET("/:id", auth.RequireClientSelf("clientId", true), paymentHandler.GetPaymentByID)
+				clientPayments.GET("/:id/receipt", auth.RequireClientSelf("clientId", true), paymentHandler.GetReceipt)
+				clientPayments.POST("/:id/verify", auth.RequireClientSelf("clientId", false), paymentHandler.VerifyPayment)
+			}
+
+			clientLoans := client.Group("/loans")
+			{
+				clientLoans.GET("", auth.RequireClientSelf("clientId", true), loanHandler.GetLoans)
+				clientLoans.GET("/:loanId", auth.RequireClientSelf("clientId", true), loanHandler.GetLoanByID)
+				clientLoans.POST("/request", auth.RequireClientSelf("clientId", false), loanHandler.SubmitLoanRequest)
+			}
+
+			clientTransfers := client.Group("/transfers")
+			{
+				clientTransfers.GET("", auth.RequireClientSelf("clientId", true), transferHandler.GetTransferHistory)
+				clientTransfers.POST("", auth.RequireClientSelf("clientId", false), transferHandler.ExecuteTransfer)
 			}
 		}
 
 		companies := api.Group("/companies")
 		companies.Use(auth.Middleware(verifier, permissions))
 		{
-			companies.POST("", companyHandler.Create)
+			companies.POST("", auth.RequireIdentityType(auth.IdentityEmployee), companyHandler.Create)
 		}
 
 		payees := api.Group("/payees")
 		payees.Use(auth.Middleware(verifier, permissions))
 		{
-			payees.GET("", payeeHandler.GetAll)
-			payees.POST("", payeeHandler.Create)
-			payees.PATCH("/:id", payeeHandler.Update)
-			payees.DELETE("/:id", payeeHandler.Delete)
+			payees.GET("", auth.RequireIdentityType(auth.IdentityClient), payeeHandler.GetAll)
+			payees.POST("", auth.RequireIdentityType(auth.IdentityClient), payeeHandler.Create)
+			payees.PATCH("/:id", auth.RequireIdentityType(auth.IdentityClient), payeeHandler.Update)
+			payees.DELETE("/:id", auth.RequireIdentityType(auth.IdentityClient), payeeHandler.Delete)
 		}
 
 		cards := api.Group("/cards")
@@ -150,42 +179,6 @@ func SetupRoutes(
 			cards.PUT("/:cardId/deactivate", auth.RequireIdentityType(auth.IdentityEmployee), cardHandler.DeactivateCard)
 		}
 
-		exchange := api.Group("/exchange")
-		{
-			exchange.GET("/rates", exchangeHandler.GetRates)
-			exchange.GET("/calculate", exchangeHandler.Calculate)
-		}
-
-		payments := api.Group("/payments")
-		payments.Use(auth.Middleware(verifier, permissions))
-		{
-			payments.POST("", paymentHandler.CreatePayment)
-			payments.POST("/:id/verify", paymentHandler.VerifyPayment)
-		}
-
-		transfers := api.Group("/transfers")
-		transfers.Use(auth.Middleware(verifier, permissions))
-		{
-			transfers.POST("", auth.RequireIdentityType(auth.IdentityClient), transferHandler.ExecuteTransfer)
-		}
-
-		clients := api.Group("/clients")
-		clients.Use(auth.Middleware(verifier, permissions))
-		{
-			transfers := clients.Group("/:clientId/transfers")
-			transfers.Use(auth.RequireClientSelf("clientId", true))
-			{
-				transfers.GET("", transferHandler.GetTransferHistory)
-			}
-		}
-
-		clientLoans := api.Group("/client/:client_id/loans")
-		clientLoans.Use(auth.Middleware(verifier, permissions))
-		{
-			clientLoans.GET("", loanHandler.GetLoans)
-			clientLoans.GET("/:loan_id", loanHandler.GetLoanByID)
-			clientLoans.POST("/request", loanHandler.SubmitLoanRequest)
-		}
 		loanRequests := api.Group("/loan-requests")
 		loanRequests.Use(auth.Middleware(verifier, permissions))
 		{

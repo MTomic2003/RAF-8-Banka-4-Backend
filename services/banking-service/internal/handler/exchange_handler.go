@@ -19,6 +19,14 @@ func NewExchangeHandler(service *service.ExchangeService) *ExchangeHandler {
 	return &ExchangeHandler{service: service}
 }
 
+// GetRates godoc
+// @Summary Get exchange rates
+// @Description Returns the latest available currency exchange rates.
+// @Tags exchange
+// @Produce json
+// @Success 200 {object} dto.ExchangeRatesResponse
+// @Failure 500 {object} errors.AppError
+// @Router /exchange/rates [get]
 func (h *ExchangeHandler) GetRates(c *gin.Context) {
 	rates, err := h.service.GetRates(c.Request.Context())
 	if err != nil {
@@ -29,6 +37,18 @@ func (h *ExchangeHandler) GetRates(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToExchangeRatesResponse(rates))
 }
 
+// Calculate godoc
+// @Summary Calculate currency conversion
+// @Description Converts a given amount from one currency to another using current exchange rates.
+// @Tags exchange
+// @Produce json
+// @Param amount query number true "Amount to convert" minimum(0)
+// @Param from_currency query string true "Source currency code (e.g. USD, EUR)"
+// @Param to_currency query string true "Target currency code (e.g. RSD, EUR)"
+// @Success 200 {object} dto.ConvertResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 500 {object} errors.AppError
+// @Router /exchange/calculate [get]
 func (h *ExchangeHandler) Calculate(c *gin.Context) {
 	amountStr := c.Query("amount")
 	fromStr := c.Query("from_currency")

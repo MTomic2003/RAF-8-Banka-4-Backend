@@ -24,6 +24,7 @@ func NewTransferHandler(service *service.TransferService) *TransferHandler {
 // @Tags transfers
 // @Accept json
 // @Produce json
+// @Param clientId path int true "Client ID"
 // @Param request body dto.TransferRequest true "Transfer details"
 // @Success 201 {object} dto.TransferResponse
 // @Failure 400 {object} errors.AppError
@@ -32,7 +33,7 @@ func NewTransferHandler(service *service.TransferService) *TransferHandler {
 // @Failure 404 {object} errors.AppError
 // @Failure 500 {object} errors.AppError
 // @Security BearerAuth
-// @Router /api/transfers [post]
+// @Router /api/clients/{clientId}/transfers [post]
 func (h *TransferHandler) ExecuteTransfer(c *gin.Context) {
 	var req dto.TransferRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -71,11 +71,10 @@ func TestCreateCompany(t *testing.T) {
 		errMsg     string
 	}{
 		{
-			name:      "success",
-			repo:      &fakeCompanyRepo{workCodeExists: true},
-			uc:        &fakeUserClient{},
-			setupMock: func(mock sqlmock.Sqlmock) {},
-			req:       validCompanyReq(),
+			name:       "success",
+			repo:       &fakeCompanyRepo{workCodeExists: true},
+			userClient: &fakeUserClient{},
+			req:        req,
 		},
 		{
 			name:       "owner client not found",

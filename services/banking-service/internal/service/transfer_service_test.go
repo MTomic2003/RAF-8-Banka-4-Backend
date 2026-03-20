@@ -99,6 +99,10 @@ func (r *fakeTransferAccountRepo) NameExistsForClient(_ context.Context, clientI
 	return false, nil
 }
 
+func (r *fakeTransferAccountRepo) FindAll(_ context.Context, _ *dto.ListAccountsQuery) ([]*model.Account, int64, error) {
+	return nil, 0, nil
+}
+
 func (r *fakeTransferAccountRepo) UpdateBalance(_ context.Context, account *model.Account) error {
 	if err := r.updateErrByNumber[account.AccountNumber]; err != nil {
 		return err

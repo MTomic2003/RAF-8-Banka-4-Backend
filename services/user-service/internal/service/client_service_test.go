@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 	"time"
-	"user-service/internal/model"
 
 	"user-service/internal/dto"
 	"user-service/internal/model"
@@ -184,7 +183,7 @@ func TestClientGetAll(t *testing.T) {
 		{
 			name: "successful list",
 			clientRepo: &fakeClientRepo{
-				allClients: []*model.Client{activeClient(), activeClient()},
+				allClients: []model.Client{*activeClient(), *activeClient()},
 				allTotal:   2,
 			},
 			wantTotal: 2,
@@ -207,7 +206,7 @@ func TestClientGetAll(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newClientService(tt.clientRepo, &fakeIdentityRepo{}, &fakeActivationTokenRepo{}, &fakeMailer{})
 
-			clients, total, err := svc.GetAllClients(context.Background(), query)
+			clients, err := svc.GetAllClients(context.Background(), query)
 
 			if tt.expectErr {
 				require.Error(t, err)
@@ -215,8 +214,7 @@ func TestClientGetAll(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			require.Equal(t, tt.wantTotal, total)
-			require.Len(t, clients, tt.wantCount)
+			require.Len(t, clients.Data, tt.wantCount)
 		})
 	}
 }

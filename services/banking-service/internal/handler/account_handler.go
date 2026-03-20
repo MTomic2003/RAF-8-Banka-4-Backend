@@ -47,6 +47,24 @@ func (h *AccountHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, dto.ToAccountResponse(account))
 }
 
+// ListAccounts godoc
+// @Summary List all accounts
+// @Description Returns a paginated list of all accounts. Employee access only. Supports filtering by client, account type, kind, status and currency.
+// @Tags accounts
+// @Produce json
+// @Param client_id query int false "Filter by client ID"
+// @Param account_type query string false "Filter by account type"
+// @Param account_kind query string false "Filter by account kind"
+// @Param status query string false "Filter by status"
+// @Param currency_id query int false "Filter by currency ID"
+// @Param page query int false "Page number"
+// @Param page_size query int false "Page size"
+// @Success 200 {object} object
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/accounts [get]
 func (h *AccountHandler) ListAccounts(c *gin.Context) {
 	var req dto.ListAccountsQuery
 
@@ -54,12 +72,15 @@ func (h *AccountHandler) ListAccounts(c *gin.Context) {
 		c.Error(errors.BadRequestErr(err.Error()))
 		return
 	}
+
 	if req.Page < 0 {
 		req.Page = 1
 	}
+
 	if req.PageSize < 0 {
 		req.PageSize = 10
 	}
+
 	accounts, total, err := h.service.GetAllAccounts(c.Request.Context(), &req)
 	if err != nil {
 		c.Error(err)
@@ -98,7 +119,6 @@ func GetParamUint(c *gin.Context, key string) (uint, bool) {
 // @Failure 401 {object} errors.AppError
 // @Security BearerAuth
 // @Router /api/clients/{clientId}/accounts [get]
-
 func (h *AccountHandler) GetClientAccounts(c *gin.Context) {
 
 	clientId, ok := GetParamUint(c, "clientId")
@@ -132,7 +152,6 @@ func (h *AccountHandler) GetClientAccounts(c *gin.Context) {
 // @Failure 404 {object} errors.AppError
 // @Security BearerAuth
 // @Router /api/clients/{clientId}/accounts/{accountNumber} [get]
-
 func (h *AccountHandler) GetAccountDetails(c *gin.Context) {
 	clientId, ok := GetParamUint(c, "clientId")
 	if !ok {
@@ -155,6 +174,7 @@ func (h *AccountHandler) GetAccountDetails(c *gin.Context) {
 // @Tags accounts
 // @Accept json
 // @Produce json
+// @Param clientId path int true "Client ID"
 // @Param accountNumber path string true "Account number"
 // @Param request body dto.UpdateAccountNameRequest true "New account name"
 // @Success 200
@@ -162,7 +182,7 @@ func (h *AccountHandler) GetAccountDetails(c *gin.Context) {
 // @Failure 403 {object} errors.AppError
 // @Failure 404 {object} errors.AppError
 // @Security BearerAuth
-// @Router /api/clients/{clientId}/accounts/{accountNumber}/name [get]
+// @Router /api/clients/{clientId}/accounts/{accountNumber}/name [put]
 func (h *AccountHandler) UpdateAccountName(c *gin.Context) {
 	clientId, ok := GetParamUint(c, "clientId")
 	if !ok {
@@ -191,6 +211,7 @@ func (h *AccountHandler) UpdateAccountName(c *gin.Context) {
 // @Tags accounts
 // @Accept json
 // @Produce json
+// @Param clientId path int true "Client ID"
 // @Param accountNumber path string true "Account number"
 // @Param request body dto.RequestLimitsChangeRequest true "New daily and monthly limits"
 // @Success 200
@@ -227,6 +248,7 @@ func (h *AccountHandler) RequestLimitsChange(c *gin.Context) {
 // @Tags accounts
 // @Accept json
 // @Produce json
+// @Param clientId path int true "Client ID"
 // @Param accountNumber path string true "Account number"
 // @Param request body dto.ConfirmLimitsChangeRequest true "Verification code generated in mobile app"
 // @Success 200

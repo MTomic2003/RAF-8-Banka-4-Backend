@@ -19,21 +19,22 @@ func NewLoanHandler(loanService *service.LoanService) *LoanHandler {
 	return &LoanHandler{loanService: loanService}
 }
 
-// SubmitLoanRequest godocExpand commentComment on line R23
-// @Summary      Podnošenje zahteva za kredit
-// @Description  Klijent podnosi zahtev za kredit. Vrši se validacija perioda otplate i valute, i računa se mesečna rata na osnovu marže banke.
-// @Tags         loans
-// @Accept       json
-// @Produce      json
-// @Param        request body dto.CreateLoanRequest true "Podaci za zahtev kredita"
-// @Success      201  {object}  dto.CreateLoanResponse
-// @Failure      400  {object}  errors.AppError "Nevalidni podaci, valuta se ne poklapa ili los period otplate"
-// @Failure      401  {object}  errors.AppError "Korisnik nije ulogovan"
-// @Failure      403  {object}  errors.AppError "Račun ne pripada klijentu"
-// @Failure      404  {object}  errors.AppError "Kredit nije pronađen"
-// @Failure      500  {object}  errors.AppError "Greška na serveru"
-// @Router       /api/loans/request [post]
-// @Security     BearerAuth
+// SubmitLoanRequest godoc
+// @Summary Submit a loan request
+// @Description Client submits a loan request. Validates repayment period and currency, and calculates the monthly installment based on bank margin.
+// @Tags loans
+// @Accept json
+// @Produce json
+// @Param clientId path int true "Client ID"
+// @Param request body dto.CreateLoanRequest true "Loan request data"
+// @Success 201 {object} dto.CreateLoanResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Failure 500 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/clients/{clientId}/loans/request [post]
 func (h *LoanHandler) SubmitLoanRequest(c *gin.Context) {
 	var req dto.CreateLoanRequest
 
@@ -42,7 +43,7 @@ func (h *LoanHandler) SubmitLoanRequest(c *gin.Context) {
 		return
 	}
 
-	clientID, err := strconv.ParseUint(c.Param("client_id"), 10, 64)
+	clientID, err := strconv.ParseUint(c.Param("clientId"), 10, 64)
 	if err != nil {
 		c.Error(errors.BadRequestErr("invalid client id"))
 		return
@@ -59,21 +60,21 @@ func (h *LoanHandler) SubmitLoanRequest(c *gin.Context) {
 }
 
 // GetLoans godoc
-// @Summary      Pregled svih kredita klijenta
-// @Description  Vraća listu kredita. Podržava sortiranje po iznosu.
-// @Tags         loans
-// @Produce      json
-// @Param        sort query string false "Sortiraj po iznosu: 'asc' ili 'desc'"
-// @Success      200  {array}   dto.LoanResponse
-// @Router       /api/loans [get]
-// @Security     BearerAuth
-// @Failure      400  {object}  errors.AppError "Nevalidni podaci, valuta se ne poklapa ili los period otplate"
-// @Failure      401  {object}  errors.AppError "Korisnik nije ulogovan"
-// @Failure      403  {object}  errors.AppError "Račun ne pripada klijentu"
-// @Failure      404  {object}  errors.AppError "Kredit nije pronađen"
-// @Failure      500  {object}  errors.AppError "Greška na serveru"
+// @Summary List client loans
+// @Description Returns a list of loans for a client. Supports sorting by amount.
+// @Tags loans
+// @Produce json
+// @Param clientId path int true "Client ID"
+// @Param sort query string false "Sort by amount: 'asc' or 'desc'"
+// @Success 200 {array} dto.LoanResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Failure 500 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/clients/{clientId}/loans [get]
 func (h *LoanHandler) GetLoans(c *gin.Context) {
-	clientID, err := strconv.ParseUint(c.Param("client_id"), 10, 64)
+	clientID, err := strconv.ParseUint(c.Param("clientId"), 10, 64)
 	if err != nil {
 		c.Error(errors.BadRequestErr("invalid client id"))
 		return
@@ -92,27 +93,28 @@ func (h *LoanHandler) GetLoans(c *gin.Context) {
 }
 
 // GetLoanByID godoc
-// @Summary      Detalji kredita
-// @Description  Vraća detaljne informacije o kreditu uključujući plan otplate (rate).
-// @Tags         loans
-// @Produce      json
-// @Param        id   path      int  true  "ID kredita"
-// @Success      200  {object}  dto.LoanDetailsResponse
-// @Router       /api/loans/{id} [get]
-// @Security     BearerAuth
-// @Failure      400  {object}  errors.AppError "Nevalidni podaci, valuta se ne poklapa ili los period otplate"
-// @Failure      401  {object}  errors.AppError "Korisnik nije ulogovan"
-// @Failure      403  {object}  errors.AppError "Račun ne pripada klijentu"
-// @Failure      404  {object}  errors.AppError "Kredit nije pronađen"
-// @Failure      500  {object}  errors.AppError "Greška na serveru"
+// @Summary Get loan details
+// @Description Returns detailed loan information including the repayment schedule.
+// @Tags loans
+// @Produce json
+// @Param clientId path int true "Client ID"
+// @Param loanId path int true "Loan ID"
+// @Success 200 {object} dto.LoanDetailsResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Failure 500 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/clients/{clientId}/loans/{loanId} [get]
 func (h *LoanHandler) GetLoanByID(c *gin.Context) {
-	clientID, err := strconv.ParseUint(c.Param("client_id"), 10, 64)
+	clientID, err := strconv.ParseUint(c.Param("clientId"), 10, 64)
 	if err != nil {
 		c.Error(errors.BadRequestErr("invalid client id"))
 		return
 	}
 
-	loanID, err := strconv.ParseUint(c.Param("loan_id"), 10, 64)
+	loanID, err := strconv.ParseUint(c.Param("loanId"), 10, 64)
 	if err != nil {
 		c.Error(errors.BadRequestErr("invalid loan id"))
 		return
@@ -120,13 +122,26 @@ func (h *LoanHandler) GetLoanByID(c *gin.Context) {
 
 	details, err := h.loanService.GetLoanDetails(c.Request.Context(), uint(clientID), uint(loanID))
 	if err != nil {
-		c.Error(errors.NotFoundErr(err.Error()))
+		c.Error(err)
 		return
 	}
 
 	c.JSON(http.StatusOK, details)
 }
 
+// ListLoanRequests godoc
+// @Summary List loan requests
+// @Description Returns a paginated list of all loan requests. Employee access only.
+// @Tags loan-requests
+// @Produce json
+// @Param page query int false "Page number"
+// @Param page_size query int false "Page size"
+// @Success 200 {object} object
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/loan-requests [get]
 func (h *LoanHandler) ListLoanRequests(c *gin.Context) {
 	var query dto.ListLoanRequestsQuery
 
@@ -155,6 +170,19 @@ func (h *LoanHandler) ListLoanRequests(c *gin.Context) {
 		"page_size": query.PageSize,
 	})
 }
+// ApproveLoanRequest godoc
+// @Summary Approve a loan request
+// @Description Approves a pending loan request. Employee access only.
+// @Tags loan-requests
+// @Produce json
+// @Param id path int true "Loan request ID"
+// @Success 200 {object} object
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/loan-requests/{id}/approve [patch]
 func (h *LoanHandler) ApproveLoanRequest(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -170,6 +198,19 @@ func (h *LoanHandler) ApproveLoanRequest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Loan request approved successfully"})
 }
 
+// RejectLoanRequest godoc
+// @Summary Reject a loan request
+// @Description Rejects a pending loan request. Employee access only.
+// @Tags loan-requests
+// @Produce json
+// @Param id path int true "Loan request ID"
+// @Success 200 {object} object
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/loan-requests/{id}/reject [patch]
 func (h *LoanHandler) RejectLoanRequest(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

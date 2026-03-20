@@ -99,7 +99,7 @@ func (f *fakeEmployeeRepo) GetAll(_ context.Context, _, _, _, _ string, _, _ int
 type fakeClientRepo struct {
 	byID         *model.Client
 	byIdentityID *model.Client
-	allClients   []*model.Client
+	allClients   []model.Client
 	allTotal     int64
 
 	findErr   error
@@ -124,7 +124,7 @@ func (f *fakeClientRepo) FindByID(_ context.Context, id uint) (*model.Client, er
 	return f.byID, f.findErr
 }
 
-func (f *fakeClientRepo) FindAll(_ context.Context, _ *dto.ListClientsQuery) ([]*model.Client, int64, error) {
+func (f *fakeClientRepo) FindAll(_ context.Context, _ *dto.ListClientsQuery) ([]model.Client, int64, error) {
 	return f.allClients, f.allTotal, f.getAllErr
 }
 

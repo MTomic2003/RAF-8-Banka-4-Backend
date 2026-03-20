@@ -2,6 +2,7 @@ package service
 
 import (
 	"banking-service/internal/client"
+	"banking-service/internal/dto"
 	"banking-service/internal/model"
 	"banking-service/internal/repository"
 	"common/pkg/auth"
@@ -62,7 +63,17 @@ func (f *fakeCardServiceAccountRepo) UpdateLimits(_ context.Context, _ string, _
 	return nil
 }
 
+func (f *fakeCardServiceAccountRepo) GetByAccountNumber(_ context.Context, accountNumber string) (*model.Account, error) {
+	return f.FindByAccountNumber(nil, accountNumber)
+}
 
+func (f *fakeCardServiceAccountRepo) Update(_ context.Context, _ *model.Account) error {
+	return nil
+}
+
+func (f *fakeCardServiceAccountRepo) FindAll(_ context.Context, _ *dto.ListAccountsQuery) ([]*model.Account, int64, error) {
+	return nil, 0, nil
+}
 
 type fakeCardServiceCardRepo struct {
 	cards        map[uint]*model.Card

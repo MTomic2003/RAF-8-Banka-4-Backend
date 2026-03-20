@@ -92,6 +92,7 @@ func (s *AccountService) Create(ctx context.Context, req dto.CreateAccountReques
 		if req.CurrencyCode == "" {
 			return nil, errors.BadRequestErr("currency code is required for foreign accounts")
 		}
+
 		currencyCode = req.CurrencyCode
 	}
 
@@ -103,6 +104,7 @@ func (s *AccountService) Create(ctx context.Context, req dto.CreateAccountReques
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
+
 	if exists {
 		return nil, errors.ConflictErr("account with this name already exists")
 	}

@@ -184,9 +184,11 @@ func (s *LoanService) ApproveLoanRequest(ctx context.Context, id uint) error {
 	if err != nil {
 		return errors.InternalErr(err)
 	}
+
 	if request == nil {
 		return errors.NotFoundErr("loan request not found")
 	}
+
 	if request.Status != model.LoanRequestPending {
 		return errors.BadRequestErr("loan request is not pending")
 	}
@@ -281,10 +283,11 @@ func (s *LoanService) RejectLoanRequest(ctx context.Context, id uint) error {
 	if err != nil {
 		return errors.InternalErr(err)
 	}
+
 	if request == nil {
 		return errors.NotFoundErr("loan request not found")
 	}
-	// obradjujemo samo zahteve koji nisu obradjeni
+
 	if request.Status != model.LoanRequestPending {
 		return errors.BadRequestErr("loan request is not pending")
 	}

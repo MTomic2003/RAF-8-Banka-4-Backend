@@ -115,11 +115,17 @@ func (s *ClientService) Register(ctx context.Context, req *dto.CreateClientReque
 	client.Identity = *identity
 	return client, nil
 }
-func (s *ClientService) GetAllClients(ctx context.Context, query *dto.ListClientsQuery) ([]*model.Client, int64, error) {
-	return s.clientRepo.FindAll(ctx, query)
+
+func (s *ClientService) GetAllClients(ctx context.Context, query *dto.ListClientsQuery) (*dto.ListClientsResponse, error) {
+	clients, total, err := s.clientRepo.FindAll(ctx, query)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+
+	return dto.ToClientResponseList(clients, total, query.Page, query.PageSize), nil
 }
 
-func (s *ClientService) UpdateClient(ctx context.Context, id uint, req *dto.UpdateClientRequest) (*model.Client, error) {
+func (s *ClientService) UpdateClient(ctx context.Context, id uint, req *dto.UpdateClientRequest) (*dto.ClientResponse, error) {
 	client, err := s.clientRepo.FindByID(ctx, id)
 	if err != nil {
 		return nil, errors.InternalErr(err)
@@ -151,7 +157,7 @@ func (s *ClientService) UpdateClient(ctx context.Context, id uint, req *dto.Upda
 		return nil, errors.InternalErr(err)
 	}
 
-	return client, nil
+	return dto.ToClientResponse(client), nil
 }
 
 func (s *ClientService) GetMobileVerificationSecret(ctx context.Context, clientID uint) (string, error) {

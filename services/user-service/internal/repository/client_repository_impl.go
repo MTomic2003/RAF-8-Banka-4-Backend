@@ -53,8 +53,8 @@ func (r *clientRepository) FindByID(ctx context.Context, id uint) (*model.Client
 	}
 	return &c, nil
 }
-func (r *clientRepository) FindAll(ctx context.Context, query *dto.ListClientsQuery) ([]*model.Client, int64, error) {
-	var clients []*model.Client
+func (r *clientRepository) FindAll(ctx context.Context, query *dto.ListClientsQuery) ([]model.Client, int64, error) {
+	var clients []model.Client
 	var count int64
 
 	db := r.db.WithContext(ctx).Model(&model.Client{})
