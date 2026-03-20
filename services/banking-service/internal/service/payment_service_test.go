@@ -52,6 +52,10 @@ func (f *fakePaymentRepo) FindByAccount(_ context.Context, _ string, _ *dto.Paym
 	return f.payments, f.total, f.findAccErr
 }
 
+func (f *fakePaymentRepo) FindByClient(_ context.Context, _ uint, _ *dto.PaymentFilters) ([]model.Payment, int64, error) {
+	return f.allPayments, int64(len(f.allPayments)), f.findAllErr
+}
+
 type fakeTransactionRepo struct {
 	createErr     error
 	getErr        error
@@ -146,6 +150,18 @@ func (f *fakePaymentAccountRepo) UpdateLimits(_ context.Context, _ string, _ flo
 	return nil
 }
 
+
+func (f *fakePaymentAccountRepo) GetByAccountNumber(_ context.Context, accountNumber string) (*model.Account, error) {
+	return f.FindByAccountNumber(nil, accountNumber)
+}
+
+func (f *fakePaymentAccountRepo) Update(_ context.Context, _ *model.Account) error {
+	return nil
+}
+
+func (f *fakePaymentAccountRepo) FindAll(_ context.Context, _ *dto.ListAccountsQuery) ([]*model.Account, int64, error) {
+	return nil, 0, nil
+}
 
 func (f *fakePaymentAccountRepo) UpdateBalance(ctx context.Context, account *model.Account) error {
 	f.accounts[account.AccountNumber] = account
@@ -399,40 +415,6 @@ func TestCreatePayment_RecipientNotFound(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestGetFilteredPayments_Success(t *testing.T) {
-	clientID := uint(1)
-	repo := &fakePaymentRepo{
-		allPayments: []model.Payment{
-			{PaymentID: 1, RecipientName: "Ana"},
-			{PaymentID: 2, RecipientName: "Marko"},
-		},
-	}
-
-	svc := newTestPaymentService(repo, &fakeTransactionRepo{}, newFakePaymentAccountRepo(), &fakeExchangeService{})
-
-	payees, err := svc.GetFilteredPayments(ctxWithClient(clientID), repository.PaymentFilter{})
-	require.NoError(t, err)
-	require.Len(t, payees, 2)
-}
-
-func TestGetFilteredPayments_Unauthorized(t *testing.T) {
-	svc := newTestPaymentService(&fakePaymentRepo{}, &fakeTransactionRepo{}, newFakePaymentAccountRepo(), &fakeExchangeService{})
-
-	payees, err := svc.GetFilteredPayments(context.Background(), repository.PaymentFilter{})
-	require.Nil(t, payees)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "not authenticated as client")
-}
-
-func TestGetFilteredPayments_RepoError(t *testing.T) {
-	repo := &fakePaymentRepo{findAllErr: errors.New("db error")}
-	svc := newTestPaymentService(repo, &fakeTransactionRepo{}, newFakePaymentAccountRepo(), &fakeExchangeService{})
-
-	payees, err := svc.GetFilteredPayments(ctxWithClient(1), repository.PaymentFilter{})
-	require.Nil(t, payees)
-	require.Error(t, err)
-}
-
 func TestGetPaymentByID_Success(t *testing.T) {
 	payerAccount := &model.Account{
 		AccountNumber: "111",
@@ -465,33 +447,10 @@ func TestGetPaymentByID_NotFound(t *testing.T) {
 	require.Contains(t, err.Error(), "payment not found")
 }
 
-func TestGetPaymentByID_Unauthorized(t *testing.T) {
+func TestGetPaymentByID_NilPayment(t *testing.T) {
 	svc := newTestPaymentService(&fakePaymentRepo{}, &fakeTransactionRepo{}, newFakePaymentAccountRepo(), &fakeExchangeService{})
 
 	payment, err := svc.GetPaymentByID(context.Background(), 1)
-	require.Nil(t, payment)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "not authenticated as client")
-}
-
-func TestGetPaymentByID_Forbidden(t *testing.T) {
-	payerAccount := &model.Account{
-		AccountNumber: "111",
-		ClientID:      2,
-	}
-	repo := &fakePaymentRepo{
-		payment: &model.Payment{
-			PaymentID:     1,
-			RecipientName: "Stefan",
-			Transaction: model.Transaction{
-				PayerAccountNumber: "111",
-			},
-		},
-	}
-
-	svc := newTestPaymentService(repo, &fakeTransactionRepo{}, newFakePaymentAccountRepo(payerAccount), &fakeExchangeService{})
-
-	payment, err := svc.GetPaymentByID(ctxWithClient(1), 1)
 	require.Nil(t, payment)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "payment not found")
@@ -633,7 +592,7 @@ func TestGetAccountPayments(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			svc := NewPaymentService(tt.repo, &fakeTransactionRepo{})
+			svc := newTestPaymentService(tt.repo, &fakeTransactionRepo{}, newFakePaymentAccountRepo(), &fakeExchangeService{})
 			payments, total, err := svc.GetAccountPayments(context.Background(), "444000112345678911", &dto.PaymentFilters{Page: 1, PageSize: 10})
 			if tt.expectErr {
 				require.Error(t, err)

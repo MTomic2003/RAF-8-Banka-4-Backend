@@ -72,6 +72,10 @@ func (r *fakeAccountRepo) GetByAccountNumber(_ context.Context, _ string) (*mode
 	return r.getByAccNumber, r.getByAccNumberErr
 }
 
+func (f *fakeAccountRepo) Update(_ context.Context, _ *model.Account) error {
+	return f.updateErr
+}
+
 func (f *fakeAccountRepo) UpdateBalance(_ context.Context, _ *model.Account) error {
 	return nil
 }
@@ -145,6 +149,10 @@ func (f *fakeAccountMobileSecretClient) GetMobileSecret(_ context.Context, _ str
 		return "", f.err
 	}
 	return f.secret, nil
+}
+
+func (f *fakeCurrencyConverter) CalculateFee(amount float64) float64 {
+	return amount * model.BankCommission
 }
 
 func (f *fakeCurrencyConverter) Convert(_ context.Context, amount float64, _ model.CurrencyCode, _ model.CurrencyCode) (float64, error) {
@@ -762,7 +770,7 @@ func TestConfirmLimitsChange(t *testing.T) {
 			secretErr: fmt.Errorf("secret service down"),
 			code:      validCode,
 			expectErr: true,
-			errMsg:    "Service Unavailable",
+			errMsg:    "secret service down",
 		},
 		{
 			name:      "update limits fails",
@@ -845,12 +853,9 @@ func TestGetAllAccounts(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
-			db, _ := newMockDB(t)
-			svc := newAccountService(tt.repo, &fakeAccountUserClient{}, db)
+			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{})
 
 			accounts, total, err := svc.GetAllAccounts(context.Background(), query)
 

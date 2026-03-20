@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 	"time"
-	"user-service/internal/model"
 
 	"user-service/internal/dto"
 	"user-service/internal/model"

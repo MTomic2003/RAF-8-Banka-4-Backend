@@ -129,6 +129,9 @@ func (s *PaymentService) GetPaymentByID(ctx context.Context, id uint) (*model.Pa
 	if err != nil {
 		return nil, errors.NotFoundErr("payment not found")
 	}
+	if payment == nil {
+		return nil, errors.NotFoundErr("payment not found")
+	}
 
 	payerAccount, err := s.accountRepo.FindByAccountNumber(ctx, payment.Transaction.PayerAccountNumber)
 	if payerAccount == nil {
