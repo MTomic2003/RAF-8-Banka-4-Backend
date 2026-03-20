@@ -137,6 +137,17 @@ definitions:
     required:
     - code
     type: object
+  dto.ConvertResponse:
+    properties:
+      amount:
+        type: number
+      from_currency:
+        type: string
+      to_currency:
+        type: string
+      total:
+        type: number
+    type: object
   dto.CreateAccountRequest:
     properties:
       account_kind:
@@ -202,6 +213,16 @@ definitions:
       status:
         $ref: '#/definitions/model.LoanRequestStatus'
     type: object
+  dto.CreatePayeeRequest:
+    properties:
+      account_number:
+        type: string
+      name:
+        type: string
+    required:
+    - account_number
+    - name
+    type: object
   dto.CreatePaymentRequest:
     properties:
       amount:
@@ -228,6 +249,19 @@ definitions:
     properties:
       id:
         type: integer
+    type: object
+  dto.ExchangeRatesResponse:
+    properties:
+      base_currency:
+        type: string
+      next_update_at:
+        type: string
+      rates:
+        items:
+          $ref: '#/definitions/dto.RateItem'
+        type: array
+      updated_at:
+        type: string
     type: object
   dto.Installment:
     properties:
@@ -312,6 +346,17 @@ definitions:
       message:
         type: string
     type: object
+  dto.PayeeResponse:
+    properties:
+      account_number:
+        type: string
+      client_d:
+        type: integer
+      name:
+        type: string
+      payee_id:
+        type: integer
+    type: object
   dto.PaymentResponse:
     properties:
       amount:
@@ -359,6 +404,17 @@ definitions:
         type: string
       status:
         type: string
+    type: object
+  dto.RateItem:
+    properties:
+      buy_rate:
+        type: number
+      currency:
+        type: string
+      middle_rate:
+        type: number
+      sell_rate:
+        type: number
     type: object
   dto.RequestCardRequest:
     properties:
@@ -419,6 +475,13 @@ definitions:
         type: string
     required:
     - name
+    type: object
+  dto.UpdatePayeeRequest:
+    properties:
+      account_number:
+        type: string
+      name:
+        type: string
     type: object
   dto.VerifyPaymentRequest:
     properties:
@@ -1735,6 +1798,217 @@ paths:
       summary: Reject a loan request
       tags:
       - loan-requests
+  /exchange/calculate:
+    get:
+      description: Converts a given amount from one currency to another using current
+        exchange rates.
+      parameters:
+      - description: Amount to convert
+        in: query
+        minimum: 0
+        name: amount
+        required: true
+        type: number
+      - description: Source currency code (e.g. USD, EUR)
+        in: query
+        name: from_currency
+        required: true
+        type: string
+      - description: Target currency code (e.g. RSD, EUR)
+        in: query
+        name: to_currency
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ConvertResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Calculate currency conversion
+      tags:
+      - exchange
+  /exchange/rates:
+    get:
+      description: Returns the latest available currency exchange rates.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ExchangeRatesResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Get exchange rates
+      tags:
+      - exchange
+  /payees:
+    get:
+      description: Returns a list of all payees for the authenticated client.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.PayeeResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List all payees
+      tags:
+      - payees
+    post:
+      consumes:
+      - application/json
+      description: Creates a new payee for the authenticated client.
+      parameters:
+      - description: Payee data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreatePayeeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.PayeeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Create a new payee
+      tags:
+      - payees
+  /payees/{id}:
+    delete:
+      description: Deletes a payee by ID.
+      parameters:
+      - description: Payee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Delete a payee
+      tags:
+      - payees
+    patch:
+      consumes:
+      - application/json
+      description: Updates an existing payee by ID.
+      parameters:
+      - description: Payee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated payee data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdatePayeeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PayeeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Update a payee
+      tags:
+      - payees
 securityDefinitions:
   BearerAuth:
     description: JWT Authorization header using the Bearer scheme.
