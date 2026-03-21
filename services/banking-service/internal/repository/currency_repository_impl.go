@@ -1,11 +1,12 @@
 package repository
 
 import (
-	"banking-service/internal/model"
-	"common/pkg/errors"
 	"context"
 
 	"gorm.io/gorm"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
 type currencyRepository struct {

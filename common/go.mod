@@ -1,4 +1,4 @@
-module common
+module github.com/RAF-SI-2025/Banka-4-Backend/common
 
 go 1.26
 

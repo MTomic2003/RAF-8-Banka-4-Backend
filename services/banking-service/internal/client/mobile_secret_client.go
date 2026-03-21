@@ -1,13 +1,14 @@
 package client
 
 import (
-	"banking-service/internal/config"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/config"
 )
 
 type MobileSecretClient interface {

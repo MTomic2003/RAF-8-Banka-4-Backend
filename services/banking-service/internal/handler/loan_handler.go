@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"banking-service/internal/dto"
-	"banking-service/internal/service"
-	"common/pkg/errors"
-
 	"github.com/gin-gonic/gin"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/service"
 )
 
 type LoanHandler struct {
@@ -170,6 +170,7 @@ func (h *LoanHandler) ListLoanRequests(c *gin.Context) {
 		"page_size": query.PageSize,
 	})
 }
+
 // ApproveLoanRequest godoc
 // @Summary Approve a loan request
 // @Description Approves a pending loan request. Employee access only.

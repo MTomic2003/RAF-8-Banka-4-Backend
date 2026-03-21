@@ -1,11 +1,6 @@
 package auth_test
 
 import (
-	"common/pkg/auth"
-	"common/pkg/errors"
-	"common/pkg/jwt"
-	"common/pkg/logging"
-	"common/pkg/permission"
 	"context"
 	"fmt"
 	"net/http"
@@ -14,6 +9,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 )
 
 type fakeTokenVerifier struct {

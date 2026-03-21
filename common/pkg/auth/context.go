@@ -1,11 +1,12 @@
 package auth
 
 import (
-	"common/pkg/errors"
-	"common/pkg/permission"
 	"context"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 )
 
 // AuthContext holds the authenticated identity and permissions.
@@ -81,7 +82,7 @@ func GetSubjectFromContext(ctx context.Context) (uint, error) {
 		if authCtx.ClientID == nil {
 			return 0, errors.UnauthorizedErr("not authenticated")
 		}
-		
+
 		return *authCtx.ClientID, nil
 	}
 

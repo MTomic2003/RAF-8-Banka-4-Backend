@@ -5,13 +5,13 @@ import (
 	"errors"
 	"log"
 	"net"
-	"user-service/internal/config"
-	service "user-service/internal/grpc"
-
-	"common/pkg/pb"
 
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/config"
+	service "github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/grpc"
 )
 
 func NewGRPCServer(

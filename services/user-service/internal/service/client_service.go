@@ -1,8 +1,6 @@
 package service
 
 import (
-	"common/pkg/auth"
-	"common/pkg/errors"
 	"context"
 	crand "crypto/rand"
 	"encoding/base32"
@@ -11,10 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"user-service/internal/config"
-	"user-service/internal/dto"
-	"user-service/internal/model"
-	"user-service/internal/repository"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/config"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/repository"
 )
 
 type ClientService struct {

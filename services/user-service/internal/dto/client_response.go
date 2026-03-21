@@ -2,28 +2,29 @@ package dto
 
 import (
 	"time"
-	"user-service/internal/model"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 )
 
 type ClientResponse struct {
-	Id          uint                    `json:"id"`
-	FirstName   string                  `json:"first_name"`
-	LastName    string                  `json:"last_name"`
-	Gender      string                  `json:"gender"`
-	DateOfBirth time.Time               `json:"date_of_birth"`
-	Email       string                  `json:"email"`
-	PhoneNumber string                  `json:"phone_number"`
-	Address     string                  `json:"address"`
-	Username    string                  `json:"username"`
-	Active      bool                    `json:"active"`
+	Id          uint      `json:"id"`
+	FirstName   string    `json:"first_name"`
+	LastName    string    `json:"last_name"`
+	Gender      string    `json:"gender"`
+	DateOfBirth time.Time `json:"date_of_birth"`
+	Email       string    `json:"email"`
+	PhoneNumber string    `json:"phone_number"`
+	Address     string    `json:"address"`
+	Username    string    `json:"username"`
+	Active      bool      `json:"active"`
 }
 
 type ListClientsResponse struct {
 	Data       []ClientResponse `json:"data"`
-	Total      int64              `json:"total"`
-	Page       int                `json:"page"`
-	PageSize   int                `json:"page_size"`
-	TotalPages int                `json:"total_pages"`
+	Total      int64            `json:"total"`
+	Page       int              `json:"page"`
+	PageSize   int              `json:"page_size"`
+	TotalPages int              `json:"total_pages"`
 }
 
 func ToClientResponse(c *model.Client) *ClientResponse {

@@ -1,16 +1,16 @@
 package service
 
 import (
-	"common/pkg/auth"
 	"context"
 	"fmt"
 	"testing"
 	"time"
 
-	"user-service/internal/dto"
-	"user-service/internal/model"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 )
 
 func newClientService(

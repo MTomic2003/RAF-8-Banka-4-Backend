@@ -1,9 +1,9 @@
 package validator
 
 import (
-	"banking-service/internal/model"
-
 	"github.com/go-playground/validator/v10"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
 func validateForeignCurrency(fl validator.FieldLevel) bool {

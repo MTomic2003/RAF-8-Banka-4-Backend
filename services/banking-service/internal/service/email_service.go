@@ -1,11 +1,12 @@
 package service
 
 import (
-	"banking-service/internal/config"
 	"fmt"
 	"net"
 	"net/smtp"
 	"strings"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/config"
 )
 
 type Mailer interface {

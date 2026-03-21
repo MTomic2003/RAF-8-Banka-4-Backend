@@ -5,7 +5,8 @@ import (
 	"net"
 	"net/smtp"
 	"strings"
-	"user-service/internal/config"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/config"
 )
 
 type Mailer interface {

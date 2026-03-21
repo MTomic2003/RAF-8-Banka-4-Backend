@@ -1,11 +1,12 @@
 package service
 
 import (
-	"banking-service/internal/model"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
 func TestGenerateCardBrand(t *testing.T) {

@@ -1,18 +1,19 @@
 package service
 
 import (
-	"banking-service/internal/client"
-	"banking-service/internal/dto"
-	"banking-service/internal/model"
-	"banking-service/internal/repository"
 	"bytes"
-	"common/pkg/auth"
-	"common/pkg/errors"
 	"context"
 	"fmt"
 	"time"
 
 	"github.com/go-pdf/fpdf"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 )
 
 type paymentTransactionProcessor interface {

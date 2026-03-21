@@ -274,8 +274,9 @@ type CreateUserRequest struct {
 package dto
 
 import (
-    "user-service/internal/model"
     "time"
+
+    "github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 )
 
 type UserResponse struct {
@@ -312,11 +313,11 @@ package handler
 import (
     "net/http"
 
-    "common/pkg/errors"
-    "user-service/internal/dto"
-    "user-service/internal/service"
-
     "github.com/gin-gonic/gin"
+
+    "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+    "github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
+    "github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/service"
 )
 
 type UserHandler struct {
@@ -363,10 +364,10 @@ package service
 import (
     "context"
 
-    "common/pkg/errors"
-    "user-service/internal/dto"
-    "user-service/internal/model"
-    "user-service/internal/repository"
+    "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+    "github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
+    "github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
+    "github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/repository"
 )
 
 type UserService struct {
@@ -421,9 +422,9 @@ package repository
 import (
     "context"
 
-    "user-service/internal/model"
-
     "gorm.io/gorm"
+
+    "github.com/RAF-SI-2025/Banka-4-Backend/user-service/internal/model"
 )
 
 type UserRepository struct {

@@ -2,8 +2,9 @@ package repository
 
 import (
 	"context"
-	"user-service/internal/dto"
-	"user-service/internal/model"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 )
 
 type ClientRepository interface {

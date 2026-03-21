@@ -1,8 +1,9 @@
 package client
 
 import (
-	"common/pkg/pb"
 	"context"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
 )
 
 type UserClient interface {

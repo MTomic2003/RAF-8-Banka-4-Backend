@@ -1,12 +1,13 @@
 package client
 
 import (
-	"banking-service/internal/config"
 	"context"
 
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/config"
 )
 
 func NewUserServiceConnection(lc fx.Lifecycle, cfg *config.Configuration) (*grpc.ClientConn, error) {

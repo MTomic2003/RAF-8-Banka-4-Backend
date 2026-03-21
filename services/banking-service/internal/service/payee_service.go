@@ -1,12 +1,13 @@
 package service
 
 import (
-	"banking-service/internal/dto"
-	"banking-service/internal/model"
-	"banking-service/internal/repository"
-	"common/pkg/auth"
-	"common/pkg/errors"
 	"context"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 )
 
 type PayeeService struct {

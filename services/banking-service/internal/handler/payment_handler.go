@@ -1,15 +1,16 @@
 package handler
 
 import (
-	"banking-service/internal/dto"
-	"banking-service/internal/service"
-	"common/pkg/errors"
 	"fmt"
 	"math"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/service"
 )
 
 type PaymentHandler struct {
@@ -235,7 +236,6 @@ func (h *PaymentHandler) GetAccountPayments(c *gin.Context) {
 		TotalPages: totalPages,
 	})
 }
-
 
 // GetClientPayments godoc
 // @Summary List all client payments

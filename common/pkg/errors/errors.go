@@ -1,13 +1,14 @@
 package errors
 
 import (
-	"common/pkg/logging"
 	stderrors "errors"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
 )
 
 // AppError represents a structured API error with an HTTP status code and message.

@@ -1,8 +1,9 @@
 package model
 
 import (
-	"common/pkg/permission"
 	"time"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 )
 
 type Employee struct {

@@ -1,10 +1,11 @@
 package repository
 
 import (
-	"banking-service/internal/model"
 	"context"
 
 	"gorm.io/gorm"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
 type companyRepository struct {
@@ -63,4 +64,3 @@ func (r *companyRepository) TaxNumberExists(ctx context.Context, taxNumber strin
 
 	return count > 0, nil
 }
-

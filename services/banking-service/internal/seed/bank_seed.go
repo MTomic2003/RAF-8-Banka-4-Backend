@@ -1,12 +1,13 @@
 package seed
 
 import (
-	"banking-service/internal/model"
 	"errors"
 	"log"
 	"time"
 
 	"gorm.io/gorm"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
 var currencies = []model.Currency{

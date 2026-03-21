@@ -2,9 +2,10 @@ package repository
 
 import (
 	"context"
-	"user-service/internal/model"
-	
+
 	"gorm.io/gorm"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 )
 
 type positionRepository struct {

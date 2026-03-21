@@ -1,9 +1,6 @@
 package service
 
 import (
-	"banking-service/internal/dto"
-	"banking-service/internal/model"
-	"common/pkg/auth"
 	"context"
 	stderrors "errors"
 	"sort"
@@ -11,6 +8,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
 type fakeTransferAccountRepo struct {

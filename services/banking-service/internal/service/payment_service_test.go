@@ -1,30 +1,31 @@
 package service
 
 import (
-	"banking-service/internal/dto"
-	"banking-service/internal/model"
-	"banking-service/internal/repository"
-	"common/pkg/auth"
 	"context"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 )
 
 // ── Fake Payment Repo ──────────────────────────────────────────────
 
 type fakePaymentRepo struct {
-	createErr   error
-	getErr      error
-  findAllErr  error
-	payment     *model.Payment
-	payments    []model.Payment
-  allPayments []model.Payment
-	findAccErr  error
-	total       int64
-  capturedFilter repository.PaymentFilter
+	createErr      error
+	getErr         error
+	findAllErr     error
+	payment        *model.Payment
+	payments       []model.Payment
+	allPayments    []model.Payment
+	findAccErr     error
+	total          int64
+	capturedFilter repository.PaymentFilter
 }
 
 func (f *fakePaymentRepo) Create(ctx context.Context, p *model.Payment) error {
@@ -95,10 +96,10 @@ func (f *fakeTransactionRepo) GetByRecipientAccountNumber(_ context.Context, _ s
 // ── Fake Payment Account Repo ──────────────────────────────────────
 
 type fakePaymentAccountRepo struct {
-	accounts map[string]*model.Account
+	accounts   map[string]*model.Account
 	accountArr []model.Account
 	account    *model.Account
-	findErr  error
+	findErr    error
 	nameExists bool
 }
 
@@ -149,7 +150,6 @@ func (f *fakePaymentAccountRepo) UpdateName(_ context.Context, _ string, _ strin
 func (f *fakePaymentAccountRepo) UpdateLimits(_ context.Context, _ string, _ float64, _ float64) error {
 	return nil
 }
-
 
 func (f *fakePaymentAccountRepo) GetByAccountNumber(_ context.Context, accountNumber string) (*model.Account, error) {
 	return f.FindByAccountNumber(nil, accountNumber)

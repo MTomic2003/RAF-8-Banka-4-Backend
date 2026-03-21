@@ -1,14 +1,15 @@
 package service
 
 import (
-	"banking-service/internal/dto"
-	"banking-service/internal/model"
-	"banking-service/internal/repository"
 	"context"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 )
 
 // ── Fake Loan Repository ─────────────────────────────────────────────
@@ -70,19 +71,21 @@ func (f *fakeLoanTypeRepo) FindByID(_ context.Context, _ uint) (*model.LoanType,
 // ── Fake Account Repository for Loan Tests ───────────────────────────
 
 type fakeLoanAccountRepo struct {
-	account  *model.Account
-	findErr  error
+	account *model.Account
+	findErr error
 }
 
-func (f *fakeLoanAccountRepo) Create(_ context.Context, _ *model.Account) error              { return nil }
-func (f *fakeLoanAccountRepo) AccountNumberExists(_ context.Context, _ string) (bool, error) { return false, nil }
+func (f *fakeLoanAccountRepo) Create(_ context.Context, _ *model.Account) error { return nil }
+func (f *fakeLoanAccountRepo) AccountNumberExists(_ context.Context, _ string) (bool, error) {
+	return false, nil
+}
 func (f *fakeLoanAccountRepo) FindByAccountNumber(_ context.Context, _ string) (*model.Account, error) {
 	return f.account, f.findErr
 }
 func (f *fakeLoanAccountRepo) GetByAccountNumber(_ context.Context, _ string) (*model.Account, error) {
 	return f.account, f.findErr
 }
-func (f *fakeLoanAccountRepo) Update(_ context.Context, _ *model.Account) error              { return nil }
+func (f *fakeLoanAccountRepo) Update(_ context.Context, _ *model.Account) error { return nil }
 func (f *fakeLoanAccountRepo) FindAllByClientID(_ context.Context, _ uint) ([]model.Account, error) {
 	return nil, nil
 }
@@ -92,11 +95,11 @@ func (f *fakeLoanAccountRepo) FindByAccountNumberAndClientID(_ context.Context, 
 func (f *fakeLoanAccountRepo) NameExistsForClient(_ context.Context, _ uint, _ string, _ string) (bool, error) {
 	return false, nil
 }
-func (f *fakeLoanAccountRepo) UpdateName(_ context.Context, _ string, _ string) error        { return nil }
+func (f *fakeLoanAccountRepo) UpdateName(_ context.Context, _ string, _ string) error { return nil }
 func (f *fakeLoanAccountRepo) UpdateLimits(_ context.Context, _ string, _ float64, _ float64) error {
 	return nil
 }
-func (f *fakeLoanAccountRepo) UpdateBalance(_ context.Context, _ *model.Account) error       { return nil }
+func (f *fakeLoanAccountRepo) UpdateBalance(_ context.Context, _ *model.Account) error { return nil }
 func (f *fakeLoanAccountRepo) FindAll(_ context.Context, _ *dto.ListAccountsQuery) ([]*model.Account, int64, error) {
 	return nil, 0, nil
 }

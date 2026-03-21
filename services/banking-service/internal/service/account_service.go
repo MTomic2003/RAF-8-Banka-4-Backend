@@ -1,15 +1,16 @@
 package service
 
 import (
-	"banking-service/internal/client"
-	"banking-service/internal/dto"
-	"banking-service/internal/model"
-	"banking-service/internal/repository"
-	"common/pkg/errors"
 	"context"
 	"fmt"
 	mathrand "math/rand"
 	"time"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 )
 
 type AccountService struct {

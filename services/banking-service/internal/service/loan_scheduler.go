@@ -5,9 +5,9 @@ import (
 	"log"
 	"time"
 
-	"banking-service/internal/client"
-	"banking-service/internal/model"
-	"banking-service/internal/repository"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 )
 
 const retryAfter = 72 * time.Hour

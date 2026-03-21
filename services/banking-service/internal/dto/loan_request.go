@@ -1,6 +1,6 @@
 package dto
 
-import "banking-service/internal/model"
+import "github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 
 // CreateLoanRequest predstavlja podatke koje klijent salje kada trazi kredit
 type CreateLoanRequest struct {

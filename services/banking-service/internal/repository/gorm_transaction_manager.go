@@ -1,10 +1,11 @@
 package repository
 
 import (
-	"common/pkg/db"
 	"context"
 
 	"gorm.io/gorm"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 )
 
 type GormTransactionManager struct {

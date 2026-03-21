@@ -1,9 +1,10 @@
 package dto
 
 import (
-	"banking-service/internal/model"
 	"math"
 	"time"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
 type RateItem struct {

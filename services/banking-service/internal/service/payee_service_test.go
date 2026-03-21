@@ -1,14 +1,15 @@
 package service
 
 import (
-	"banking-service/internal/dto"
-	"banking-service/internal/model"
-	"common/pkg/auth"
 	"context"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
 // ── Fake Payee Repo ────────────────────────────────────────────────

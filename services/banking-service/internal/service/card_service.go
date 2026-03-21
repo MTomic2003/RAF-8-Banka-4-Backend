@@ -1,17 +1,18 @@
 package service
 
 import (
-	"banking-service/internal/client"
-	"banking-service/internal/model"
-	"banking-service/internal/repository"
-	"common/pkg/auth"
-	"common/pkg/errors"
 	"context"
 	"crypto/rand"
 	"fmt"
 	"math/big"
 	"strings"
 	"time"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 )
 
 const (
@@ -36,8 +37,8 @@ type AuthorizedPersonInput struct {
 }
 
 type RequestCardInput struct {
-	AccountNumber     string
-	AuthorizedPerson  *AuthorizedPersonInput
+	AccountNumber    string
+	AuthorizedPerson *AuthorizedPersonInput
 }
 
 type AccountCardsResult struct {
@@ -50,7 +51,7 @@ type CardService struct {
 	authorizedPersonRepo repository.AuthorizedPersonRepository
 	cardRequestRepo      repository.CardRequestRepository
 	userClient           client.UserClient
-	mailer 				 Mailer
+	mailer               Mailer
 }
 
 func NewCardService(

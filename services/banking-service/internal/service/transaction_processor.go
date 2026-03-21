@@ -1,10 +1,11 @@
 package service
 
 import (
-	"banking-service/internal/model"
-	"banking-service/internal/repository"
-	"common/pkg/errors"
 	"context"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 )
 
 var BankAccounts = map[model.CurrencyCode]string{

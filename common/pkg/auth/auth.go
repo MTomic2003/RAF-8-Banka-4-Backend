@@ -1,13 +1,13 @@
 package auth
 
 import (
-	"common/pkg/permission"
 	"strconv"
 	"strings"
 
-	"common/pkg/errors"
-
 	"github.com/gin-gonic/gin"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 )
 
 // Middleware validates the Bearer token and loads the identity's permissions

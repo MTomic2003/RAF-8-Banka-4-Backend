@@ -1,10 +1,11 @@
 package grpc
 
 import (
-	"common/pkg/pb"
 	"context"
 
 	"google.golang.org/grpc"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
 )
 
 type UserServiceClient struct {

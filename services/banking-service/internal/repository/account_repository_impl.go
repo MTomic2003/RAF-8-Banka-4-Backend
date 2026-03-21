@@ -1,13 +1,14 @@
 package repository
 
 import (
-	"banking-service/internal/dto"
-	"banking-service/internal/model"
-	"common/pkg/db"
 	"context"
 	"errors"
 
 	"gorm.io/gorm"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
 type accountRepository struct {

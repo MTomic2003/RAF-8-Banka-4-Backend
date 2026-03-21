@@ -1,10 +1,11 @@
 package jwt_test
 
 import (
-	"common/pkg/jwt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
 )
 
 func TestGenerateAndVerify(t *testing.T) {
