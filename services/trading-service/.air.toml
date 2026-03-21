@@ -1,0 +1,21 @@
+# services/trading-service/.air.toml
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o tmp/trading-service ./cmd/main.go"
+bin = "tmp/trading-service"
+full_bin = "tmp/trading-service"
+delay = 1000
+exclude_dir = ["tmp", "vendor", "node_modules"]
+
+[log]
+time = true
+
+[color]
+main = "cyan"
+
+[watch]
+include_dir = [".", "../../common"]
+include_ext = ["go", "yaml", "sql"]
+exclude_dir = ["tmp", "vendor", "node_modules"]
