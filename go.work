@@ -4,4 +4,5 @@ use (
 	common
 	services/user-service
 	services/banking-service
+	services/trading-service
 )

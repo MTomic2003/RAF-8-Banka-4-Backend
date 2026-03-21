@@ -1,0 +1,29 @@
+info:
+  contact: {}
+  description: API for managing portfolios, executing trades, and handling financial
+    market operations.
+  title: Trading Service API
+  version: "1.0"
+paths:
+  /api/health:
+    get:
+      description: Returns service health status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - health
+securityDefinitions:
+  BearerAuth:
+    description: JWT Authorization header using the Bearer scheme.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
