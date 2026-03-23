@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
+
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/handler"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/config"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/permission"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/server"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/service"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
@@ -43,6 +46,10 @@ func main() {
 				return permission.NewGrpcPermissionProvider(c)
 			},
 			handler.NewHealthHandler,
+			func(cfg *config.Configuration) client.ExchangeRateClient {
+				return client.NewExchangeRateClient(cfg.ExchangeRateAPIKey)
+			},
+			service.NewForexService,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
 			return logging.Init(cfg.Env)
@@ -51,8 +58,19 @@ func main() {
 			return db.AutoMigrate(
 				&model.Listing{},
 				&model.ListingDailyPriceInfo{},
+				&model.ForexPair{},
 			)
 		}),
 		fx.Invoke(server.NewServer),
+		fx.Invoke(func(lifecycle fx.Lifecycle, forexService *service.ForexService) {
+			lifecycle.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					// Seed DB if empty and start refresh loop
+					forexService.Initialize(ctx)
+					forexService.StartBackgroundRefresh(ctx)
+					return nil
+				},
+			})
+		}),
 	).Run()
 }

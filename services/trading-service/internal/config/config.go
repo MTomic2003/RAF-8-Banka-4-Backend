@@ -35,6 +35,7 @@ type Configuration struct {
 	UserServiceAddr    string
 	UserServiceBaseURL string
 	URLs               URLConfig
+	ExchangeRateAPIKey string
 }
 
 func GetAsIntOrDefault(env string, defaultValue int) int {
@@ -88,5 +89,6 @@ func Load() *Configuration {
 			FrontendBaseURL: GetOrDefault("FRONTEND_BASE_URL", "http://localhost:5173"),
 			BackendBaseURL:  GetOrDefault("BACKEND_BASE_URL", "http://localhost:8081"),
 		},
+		ExchangeRateAPIKey: GetOrThrow("EXCHANGE_RATE_API_KEY"),
 	}
 }
