@@ -1,4 +1,4 @@
-name: Banka 4 CI - Unit Tests
+name: Unit Tests
 run-name: Unit tests for ${{ github.repository }}
 
 on:
@@ -16,7 +16,8 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version-file: ./go.work
+        go-version-file: './go.work'
+        cache-dependency-path: '**/go.mod'
     
     - name: Run unit tests
       run: |
@@ -26,7 +27,7 @@ jobs:
         go test -v ./common/...
         if [ $? -ne 0 ]; then
           echo "::endgroup::"
-          echo "::error::Failed to build $service"
+          echo "::error::Unit tests failed for ./common/"
           failed=1
         else
           echo "::endgroup::"
@@ -36,7 +37,7 @@ jobs:
           go test -v $service...
           if [ $? -ne 0 ]; then
             echo "::endgroup::"
-            echo "::error::Failed to build $service"
+            echo "::error::Unit tests failed for $service"
             failed=1
           else
             echo "::endgroup::"

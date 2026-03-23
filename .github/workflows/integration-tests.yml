@@ -1,4 +1,4 @@
-name: Banka 4 CI - Integration Tests
+name: Integration Tests
 run-name: Integration tests for ${{ github.repository }}
 
 on:
@@ -19,7 +19,8 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version-file: ./go.work
+        go-version-file: './go.work'
+        cache-dependency-path: '**/go.mod'
     
     - name: Run integration tests
       run: |
@@ -29,7 +30,7 @@ jobs:
         go test -tags=integration -v ./common/...
         if [ $? -ne 0 ]; then
           echo "::endgroup::"
-          echo "::error::Failed to build $service"
+          echo "::error::Integration tests failed for ./common/"
           failed=1
         else
           echo "::endgroup::"
@@ -39,7 +40,7 @@ jobs:
           go test -tags=integration -v $service...
           if [ $? -ne 0 ]; then
             echo "::endgroup::"
-            echo "::error::Failed to build $service"
+            echo "::error::Integration tests failed for $service"
             failed=1
           else
             echo "::endgroup::"

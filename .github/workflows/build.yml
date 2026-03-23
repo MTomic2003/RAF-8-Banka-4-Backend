@@ -1,4 +1,4 @@
-name: Banka 4 CI - Build (w/o Docker)
+name: Build (w/o Docker)
 run-name: Build for ${{ github.repository }}
 
 on:
@@ -16,7 +16,8 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version-file: ./go.work
+        go-version-file: './go.work'
+        cache-dependency-path: '**/go.mod'
 
     - name: Build the application
       run: |
@@ -27,7 +28,7 @@ jobs:
           go build -v $service/cmd/main.go
           if [ $? -ne 0 ]; then
             echo "::endgroup::"
-            echo "::error::Failed to build $service"
+            echo "::error::Build failed for $service"
             failed=1
           else
             echo "::endgroup::"
