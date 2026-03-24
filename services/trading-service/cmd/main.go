@@ -75,6 +75,7 @@ func main() {
 				svc.Initialize(context.Background())
 				svc.StartBackgroundRefresh()
 			}()
+		}),
 		fx.Invoke(func(db *gorm.DB) error {
 			return seed.RunExchangeSeed(db)
 		}),
