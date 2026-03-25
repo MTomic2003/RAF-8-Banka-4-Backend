@@ -99,7 +99,7 @@ func (s *LoanService) SubmitLoanRequest(ctx context.Context, req *dto.CreateLoan
 }
 
 func (s *LoanService) GetClientLoans(ctx context.Context, clientID uint, sortByAmountDesc bool) ([]dto.LoanResponse, error) {
-	loans, err := s.loanRequestRepo.FindByClientID(ctx, clientID, sortByAmountDesc)
+	loans, err := s.loanRepo.FindByClientID(ctx, clientID, sortByAmountDesc)
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
@@ -124,7 +124,7 @@ func (s *LoanService) GetClientLoans(ctx context.Context, clientID uint, sortByA
 }
 
 func (s *LoanService) GetLoanDetails(ctx context.Context, clientID uint, loanID uint) (*dto.LoanDetailsResponse, error) {
-	loan, err := s.loanRequestRepo.FindByIDAndClientID(ctx, loanID, clientID)
+	loan, err := s.loanRepo.FindByIDAndClientID(ctx, loanID, clientID)
 	if err != nil {
 		return nil, errors.NotFoundErr("loan not found")
 	}

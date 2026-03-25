@@ -55,30 +55,6 @@ func (r *loanRequestRepository) FindByID(ctx context.Context, id uint) (*model.L
 func (r *loanRequestRepository) Update(ctx context.Context, request *model.LoanRequest) error {
 	return r.db.WithContext(ctx).Save(request).Error
 }
-func (r *loanRequestRepository) FindByClientID(ctx context.Context, clientID uint, sortByAmountDesc bool) ([]model.LoanRequest, error) {
-	var loans []model.LoanRequest
-
-	query := r.db.WithContext(ctx).Where("client_id = ?", clientID).Preload("LoanType")
-
-	if sortByAmountDesc {
-		query = query.Order("amount DESC")
-	} else {
-		query = query.Order("amount ASC")
-	}
-
-	if err := query.Find(&loans).Error; err != nil {
-		return nil, err
-	}
-	return loans, nil
-}
-
-func (r *loanRequestRepository) FindByIDAndClientID(ctx context.Context, id uint, clientID uint) (*model.LoanRequest, error) {
-	var loan model.LoanRequest
-	if err := r.db.WithContext(ctx).Where("id = ? AND client_id = ?", id, clientID).Preload("LoanType").First(&loan).Error; err != nil {
-		return nil, err
-	}
-	return &loan, nil
-}
 
 func (r *loanRequestRepository) CreateRequest(ctx context.Context, request *model.LoanRequest) error {
 	return r.db.WithContext(ctx).Create(request).Error
