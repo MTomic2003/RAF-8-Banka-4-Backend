@@ -73,7 +73,7 @@ func main() {
 		fx.Invoke(func(lc fx.Lifecycle, svc *service.StockService) {
 			lc.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
-					svc.Initialize(ctx)
+					go svc.Initialize(context.Background())
 					svc.Start()
 					return nil
 				},
