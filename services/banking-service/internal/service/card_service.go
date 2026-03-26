@@ -292,11 +292,11 @@ func (s *CardService) ConfirmCardRequest(ctx context.Context, accountNumber, cod
 			authorizedPersonID = &person.AuthorizedPersonID
 		}
 
-		var err error
-		card, err = s.createCard(txCtx, account, authorizedPersonID)
+		createdCard, err := s.createCard(txCtx, account, authorizedPersonID)
 		if err != nil {
 			return err
 		}
+		card = createdCard
 
 		request.Used = true
 		if err := s.cardRequestRepo.Update(txCtx, request); err != nil {
