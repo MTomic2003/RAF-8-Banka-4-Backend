@@ -138,3 +138,54 @@ func (c *StockClient) GetOptionChain(symbol string) (*OptionChainResponse, error
 	}
 	return &resp, nil
 }
+
+const yahooBaseURL = "https://query1.finance.yahoo.com/v7/finance/options"
+
+type YahooOptionContract struct {
+	ContractSymbol    string  `json:"contractSymbol"`
+	Strike            float64 `json:"strike"`
+	LastPrice         float64 `json:"lastPrice"`
+	Bid               float64 `json:"bid"`
+	Ask               float64 `json:"ask"`
+	Change            float64 `json:"change"`
+	PercentChange     float64 `json:"percentChange"`
+	Volume            int     `json:"volume"`
+	OpenInterest      int     `json:"openInterest"`
+	ImpliedVolatility float64 `json:"impliedVolatility"`
+	Expiration        int64   `json:"expiration"`
+	ContractSize      string  `json:"contractSize"`
+}
+
+type YahooOptionChain struct {
+	OptionChain struct {
+		Result []struct {
+			UnderlyingSymbol string  `json:"underlyingSymbol"`
+			ExpirationDates  []int64 `json:"expirationDates"`
+			Options          []struct {
+				ExpirationDate int64                 `json:"expirationDate"`
+				Calls          []YahooOptionContract `json:"calls"`
+				Puts           []YahooOptionContract `json:"puts"`
+			} `json:"options"`
+		} `json:"result"`
+	} `json:"optionChain"`
+}
+
+func (c *StockClient) GetOptionChainYahoo(symbol string) (*YahooOptionChain, error) {
+	url := fmt.Sprintf("%s/%s", yahooBaseURL, symbol)
+
+	resp, err := c.httpClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("yahoo returned status %d", resp.StatusCode)
+	}
+
+	var chain YahooOptionChain
+	if err := json.NewDecoder(resp.Body).Decode(&chain); err != nil {
+		return nil, err
+	}
+	return &chain, nil
+}

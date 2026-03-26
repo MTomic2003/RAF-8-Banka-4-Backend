@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -122,7 +120,7 @@ func (s *StockService) SeedStocks(ctx context.Context, limit int) error {
 			break
 		}
 
-		if strings.ContainsRune(sym.Symbol, '.') {
+		if stringsContainsDot(sym.Symbol) {
 			continue
 		}
 
@@ -141,30 +139,19 @@ func (s *StockService) SeedStocks(ctx context.Context, limit int) error {
 
 		profile, err := s.client.GetProfile(sym.Symbol)
 		callsThisMinute++
-		if err != nil {
-			log.Printf("[seed] skipping %s: profile error: %v", sym.Symbol, err)
-			continue
-		}
-		if profile.Name == "" {
-			log.Printf("[seed] skipping %s: empty profile", sym.Symbol)
+		if err != nil || profile.Name == "" {
 			continue
 		}
 
 		quote, err := s.client.GetQuote(sym.Symbol)
 		callsThisMinute++
-		if err != nil {
-			log.Printf("[seed] skipping %s: quote error: %v", sym.Symbol, err)
-			continue
-		}
-		if quote.CurrentPrice == 0 {
-			log.Printf("[seed] skipping %s: no price data", sym.Symbol)
+		if err != nil || quote.CurrentPrice == 0 {
 			continue
 		}
 
 		financials, err := s.client.GetBasicFinancials(sym.Symbol)
 		callsThisMinute++
 		if err != nil {
-			log.Printf("[seed] skipping %s: financials error: %v", sym.Symbol, err)
 			continue
 		}
 
@@ -177,7 +164,6 @@ func (s *StockService) SeedStocks(ctx context.Context, limit int) error {
 			Ask:         quote.High,
 		}
 		if err := s.listingRepo.Upsert(listing); err != nil {
-			log.Printf("[seed] skipping %s: listing upsert error: %v", sym.Symbol, err)
 			continue
 		}
 
@@ -187,7 +173,6 @@ func (s *StockService) SeedStocks(ctx context.Context, limit int) error {
 			DividendYield:     financials.Metric.DividendYieldIndicatedAnnual,
 		}
 		if err := s.stockRepo.Upsert(stock); err != nil {
-			log.Printf("[seed] skipping %s: stock upsert error: %v", sym.Symbol, err)
 			continue
 		}
 
@@ -198,16 +183,22 @@ func (s *StockService) SeedStocks(ctx context.Context, limit int) error {
 	log.Printf("[seed] done. seeded %d stocks.", count)
 	return nil
 }
+
+func stringsContainsDot(s string) bool {
+	for _, c := range s {
+		if c == '.' {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *StockService) SeedOptions(ctx context.Context, limit int) error {
 	listings, err := s.listingRepo.FindAll()
 	if err != nil {
 		return fmt.Errorf("failed to load listings: %w", err)
 	}
 
-	log.Printf("[seed-options] seeding options for up to %d stocks from %d listings", limit, len(listings))
-
-	callsThisMinute := 0
-	minuteStart := time.Now()
 	stockCount := 0
 	optionCount := 0
 
@@ -215,128 +206,90 @@ func (s *StockService) SeedOptions(ctx context.Context, limit int) error {
 		if stockCount >= limit {
 			break
 		}
+		if listing.Price == 0 {
+			continue
+		}
 
-		if callsThisMinute+1 > maxCallsPerMinute {
-			elapsed := time.Since(minuteStart)
-			if elapsed < time.Minute {
-				wait := time.Minute - elapsed
-				log.Printf("[seed-options] rate limit reached, waiting %s...", wait.Round(time.Second))
-				if err := waitForNextCall(ctx, wait); err != nil {
-					return err
-				}
+		currentPrice := listing.Price
+		basePrice := roundToInt(currentPrice)
+
+		var strikes []float64
+		for i := -5; i <= 5; i++ {
+			strikes = append(strikes, float64(basePrice+i))
+		}
+
+		expirations := generateExpirationDates()
+
+		seeded := 0
+		for _, exp := range expirations {
+			for _, strike := range strikes {
+				s.seedGeneratedOption(listing, strike, exp, model.OptionTypeCall)
+				s.seedGeneratedOption(listing, strike, exp, model.OptionTypePut)
+				seeded += 2
 			}
-			callsThisMinute = 0
-			minuteStart = time.Now()
 		}
 
-		chain, err := s.client.GetOptionChain(listing.Ticker)
-		callsThisMinute++
-		if err != nil {
-			log.Printf("[seed-options] skipping %s: option chain error: %v", listing.Ticker, err)
-			continue
-		}
-		if len(chain.Data) == 0 {
-			log.Printf("[seed-options] skipping %s: no option chain data", listing.Ticker)
-			continue
-		}
-
-		expiration := chain.Data[0]
-
-		seeded := s.seedContractsFromExpiration(listing, expiration)
 		optionCount += seeded
 		stockCount++
-		log.Printf("[seed-options] [%d/%d] seeded %d options for %s (exp %s)",
-			stockCount, limit, seeded, listing.Ticker, expiration.ExpirationDate)
+		log.Printf("[seed-options] [%d/%d] seeded %d options for %s", stockCount, limit, seeded, listing.Ticker)
 	}
 
 	log.Printf("[seed-options] done. seeded %d options across %d stocks.", optionCount, stockCount)
 	return nil
 }
 
-const maxOptionsPerType = 2
-
-func (s *StockService) seedContractsFromExpiration(stockListing model.Listing, expiration client.OptionChainExpiration) int {
-	settlementDate, err := time.Parse("2006-01-02", expiration.ExpirationDate)
-	if err != nil {
-		log.Printf("[seed-options] skipping expiration %s: invalid date: %v", expiration.ExpirationDate, err)
-		return 0
+func roundToInt(price float64) int {
+	if price-float64(int(price)) >= 0.5 {
+		return int(price) + 1
 	}
-
-	count := 0
-
-	for i, contract := range expiration.Options.Call {
-		if i >= maxOptionsPerType {
-			break
-		}
-		if contract.Strike == 0 || contract.LastPrice == 0 {
-			continue
-		}
-		if s.seedSingleOption(stockListing, contract, model.OptionTypeCall, settlementDate) {
-			count++
-		}
-	}
-
-	for i, contract := range expiration.Options.Put {
-		if i >= maxOptionsPerType {
-			break
-		}
-		if contract.Strike == 0 || contract.LastPrice == 0 {
-			continue
-		}
-		if s.seedSingleOption(stockListing, contract, model.OptionTypePut, settlementDate) {
-			count++
-		}
-	}
-
-	return count
+	return int(price)
 }
 
-func (s *StockService) seedSingleOption(
-	stockListing model.Listing,
-	contract client.OptionContract,
-	optType model.OptionType,
-	settlementDate time.Time,
-) bool {
-	ticker := contract.ContractName
-	if ticker == "" {
-		ticker = fmt.Sprintf("%s:%s:%.2f", stockListing.Ticker, optType, contract.Strike)
+func generateExpirationDates() []time.Time {
+	var dates []time.Time
+	now := time.Now()
+	for i := 6; i <= 30; i += 6 {
+		dates = append(dates, now.AddDate(0, 0, i))
 	}
+	start := dates[len(dates)-1].AddDate(0, 0, 30)
+	for i := 0; i < 6; i++ {
+		dates = append(dates, start.AddDate(0, 0, 30*i))
+	}
+	return dates
+}
+
+func (s *StockService) seedGeneratedOption(
+	stockListing model.Listing,
+	strike float64,
+	expiration time.Time,
+	optType model.OptionType,
+) {
+	ticker := fmt.Sprintf("%s:%s:%.2f", stockListing.Ticker, optType, strike)
 
 	listing := &model.Listing{
 		Ticker:      ticker,
-		Name:        fmt.Sprintf("%s %s %.2f %s", stockListing.Ticker, optType, contract.Strike, settlementDate.Format("2006-01-02")),
+		Name:        fmt.Sprintf("%s %s %.2f %s", stockListing.Ticker, optType, strike, expiration.Format("2006-01-02")),
 		ExchangeMIC: stockListing.ExchangeMIC,
 		LastRefresh: time.Now(),
-		Price:       contract.LastPrice,
-		Ask:         contract.Ask,
+		Price:       strike,
+		Ask:         strike,
 	}
 	if err := s.listingRepo.Upsert(listing); err != nil {
-		log.Printf("[seed-options] failed to upsert listing for %s: %v", ticker, err)
-		return false
-	}
-
-	contractSize := 100
-	if contract.ContractSize != "" {
-		if parsed, parseErr := strconv.Atoi(contract.ContractSize); parseErr == nil {
-			contractSize = parsed
-		}
+		return
 	}
 
 	option := &model.Option{
 		ListingID:         listing.ListingID,
 		OptionType:        optType,
-		StrikePrice:       contract.Strike,
-		ContractSize:      contractSize,
-		SettlementDate:    settlementDate,
-		ImpliedVolatility: contract.ImpliedVolatility,
-		OpenInterest:      contract.OpenInterest,
+		StrikePrice:       strike,
+		ContractSize:      100,
+		SettlementDate:    expiration,
+		ImpliedVolatility: 1.0,
+		OpenInterest:      0,
 	}
 	if err := s.optionRepo.Upsert(option); err != nil {
-		log.Printf("[seed-options] failed to upsert option for %s: %v", ticker, err)
-		return false
+		return
 	}
-
-	return true
 }
 
 func (s *StockService) RefreshPrices(ctx context.Context) error {
@@ -345,8 +298,6 @@ func (s *StockService) RefreshPrices(ctx context.Context) error {
 		return fmt.Errorf("failed to load listings: %w", err)
 	}
 
-	log.Printf("[refresh] refreshing prices for %d listings", len(listings))
-
 	callsThisMinute := 0
 	minuteStart := time.Now()
 
@@ -355,7 +306,6 @@ func (s *StockService) RefreshPrices(ctx context.Context) error {
 			elapsed := time.Since(minuteStart)
 			if elapsed < time.Minute {
 				wait := time.Minute - elapsed
-				log.Printf("[refresh] rate limit reached, waiting %s...", wait.Round(time.Second))
 				if err := waitForNextCall(ctx, wait); err != nil {
 					return err
 				}
@@ -366,72 +316,55 @@ func (s *StockService) RefreshPrices(ctx context.Context) error {
 
 		quote, err := s.client.GetQuote(listing.Ticker)
 		callsThisMinute++
-		if err != nil {
-			log.Printf("[refresh] skipping %s: %v", listing.Ticker, err)
-			continue
-		}
-		if quote.CurrentPrice == 0 {
-			log.Printf("[refresh] skipping %s: no price data", listing.Ticker)
+		if err != nil || quote.CurrentPrice == 0 {
 			continue
 		}
 
 		if err := s.listingRepo.UpdatePriceAndAsk(&listing, quote.CurrentPrice, quote.High); err != nil {
-			log.Printf("[refresh] failed to update %s: %v", listing.Ticker, err)
 			continue
 		}
-
-		log.Printf("[refresh] updated %s → price=%.4f ask=%.4f", listing.Ticker, quote.CurrentPrice, quote.High)
 	}
 
-	log.Printf("[refresh] done")
 	return nil
 }
+
 func (s *StockService) RefreshOptions(ctx context.Context) error {
 	listings, err := s.listingRepo.FindAll()
 	if err != nil {
 		return fmt.Errorf("failed to load listings: %w", err)
 	}
 
-	log.Printf("[refresh-options] refreshing options data")
-
-	callsThisMinute := 0
-	minuteStart := time.Now()
-
 	for _, listing := range listings {
-		if strings.Contains(listing.Ticker, ":") {
+		if stringsContainsColon(listing.Ticker) {
 			continue
 		}
 
-		if callsThisMinute+1 > maxCallsPerMinute {
-			elapsed := time.Since(minuteStart)
-			if elapsed < time.Minute {
-				wait := time.Minute - elapsed
-				log.Printf("[refresh-options] rate limit reached, waiting %s...", wait.Round(time.Second))
-				if err := waitForNextCall(ctx, wait); err != nil {
-					return err
-				}
+		expirations := generateExpirationDates()
+		basePrice := roundToInt(listing.Price)
+
+		var strikes []float64
+		for i := -5; i <= 5; i++ {
+			strikes = append(strikes, float64(basePrice+i))
+		}
+
+		for _, exp := range expirations {
+			for _, strike := range strikes {
+				s.seedGeneratedOption(listing, strike, exp, model.OptionTypeCall)
+				s.seedGeneratedOption(listing, strike, exp, model.OptionTypePut)
 			}
-			callsThisMinute = 0
-			minuteStart = time.Now()
 		}
-
-		chain, err := s.client.GetOptionChain(listing.Ticker)
-		callsThisMinute++
-		if err != nil {
-			log.Printf("[refresh-options] skipping %s: %v", listing.Ticker, err)
-			continue
-		}
-		if len(chain.Data) == 0 {
-			continue
-		}
-
-		expiration := chain.Data[0]
-		s.seedContractsFromExpiration(listing, expiration)
-		log.Printf("[refresh-options] refreshed options for %s", listing.Ticker)
 	}
 
-	log.Printf("[refresh-options] done")
 	return nil
+}
+
+func stringsContainsColon(s string) bool {
+	for _, c := range s {
+		if c == ':' {
+			return true
+		}
+	}
+	return false
 }
 
 func waitForNextCall(ctx context.Context, wait time.Duration) error {
