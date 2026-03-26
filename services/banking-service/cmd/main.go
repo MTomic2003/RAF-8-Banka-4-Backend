@@ -132,7 +132,11 @@ func main() {
 			lc.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
 					svc.Initialize(ctx)
-					svc.StartBackgroundRefresh(ctx)
+					svc.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					svc.Stop()
 					return nil
 				},
 			})
@@ -140,7 +144,11 @@ func main() {
 		fx.Invoke(func(lc fx.Lifecycle, scheduler *service.LoanScheduler) {
 			lc.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
-					scheduler.Start(ctx)
+					scheduler.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					scheduler.Stop()
 					return nil
 				},
 			})

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
@@ -20,6 +21,9 @@ type LoanScheduler struct {
 	mailer      Mailer
 	userClient  client.UserClient
 	loanSvc     *LoanService
+
+	mu     sync.Mutex
+	cancel context.CancelFunc
 }
 
 func NewLoanScheduler(
@@ -42,9 +46,29 @@ func NewLoanScheduler(
 	}
 }
 
-func (s *LoanScheduler) Start(ctx context.Context) {
+func (s *LoanScheduler) Start() {
+	s.mu.Lock()
+	if s.cancel != nil {
+		s.mu.Unlock()
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+	s.mu.Unlock()
+
 	go s.runDailyInstallmentJob(ctx)
 	go s.runMonthlyRateAdjustmentJob(ctx)
+}
+
+func (s *LoanScheduler) Stop() {
+	s.mu.Lock()
+	cancel := s.cancel
+	s.cancel = nil
+	s.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func (s *LoanScheduler) runDailyInstallmentJob(ctx context.Context) {

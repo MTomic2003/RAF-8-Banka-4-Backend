@@ -12,6 +12,7 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/seed"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/server"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/service"
+
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
@@ -48,6 +49,11 @@ func main() {
 				return permission.NewGrpcPermissionProvider(c)
 			},
 			handler.NewHealthHandler,
+			repository.NewForexRepository,
+			func(cfg *config.Configuration) client.ExchangeRateClient {
+				return client.NewExchangeRateClient(cfg.ExchangeRateAPIKey)
+			},
+			service.NewForexService,
 
 			func(cfg *config.Configuration) *client.StockClient {
 				return client.NewStockClient(cfg.FinnhubAPIKey)
@@ -69,17 +75,42 @@ func main() {
 				&model.ListingDailyPriceInfo{},
 				&model.Exchange{},
 				&model.Order{},
+				&model.ForexPair{},
+				&model.FuturesContract{},
 			)
 		}),
-		fx.Invoke(func(svc *service.StockService) {
-			go func() {
-				svc.Initialize(context.Background())
-				svc.StartBackgroundRefresh()
-			}()
+		fx.Invoke(func(lc fx.Lifecycle, svc *service.StockService) {
+			lc.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					go svc.Initialize(context.Background())
+					svc.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					svc.Stop()
+					return nil
+				},
+			})
+		}),
+		fx.Invoke(func(db *gorm.DB) error {
+			return seed.SeedFuturesContracts(db)
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
 			return seed.RunExchangeSeed(db)
 		}),
 		fx.Invoke(server.NewServer),
+		fx.Invoke(func(lifecycle fx.Lifecycle, forexService *service.ForexService) {
+			lifecycle.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					forexService.Initialize(ctx)
+					forexService.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					forexService.Stop()
+					return nil
+				},
+			})
+		}),
 	).Run()
 }

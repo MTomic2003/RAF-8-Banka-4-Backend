@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
@@ -17,6 +18,9 @@ const refreshInterval = 2 * time.Hour
 type ExchangeService struct {
 	repo   repository.ExchangeRateRepository
 	client client.ExchangeRateClient
+
+	mu     sync.Mutex
+	cancel context.CancelFunc
 }
 
 func NewExchangeService(repo repository.ExchangeRateRepository, apiClient client.ExchangeRateClient) *ExchangeService {
@@ -35,21 +39,41 @@ func (s *ExchangeService) Initialize(ctx context.Context) {
 	}
 }
 
-func (s *ExchangeService) StartBackgroundRefresh(ctx context.Context) {
+func (s *ExchangeService) Start() {
+	s.mu.Lock()
+	if s.cancel != nil {
+		s.mu.Unlock()
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+	s.mu.Unlock()
+
 	ticker := time.NewTicker(refreshInterval)
 	go func() {
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
-				ticker.Stop()
 				return
 			case <-ticker.C:
-				if err := s.refreshFromAPI(context.Background()); err != nil {
+				if err := s.refreshFromAPI(ctx); err != nil {
 					log.Printf("exchange rate refresh failed: %v", err)
 				}
 			}
 		}
 	}()
+}
+
+func (s *ExchangeService) Stop() {
+	s.mu.Lock()
+	cancel := s.cancel
+	s.cancel = nil
+	s.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func (s *ExchangeService) refreshFromAPI(ctx context.Context) error {

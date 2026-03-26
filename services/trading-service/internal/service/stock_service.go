@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
@@ -21,6 +22,9 @@ type StockService struct {
 	listingRepo repository.ListingRepository
 	stockRepo   repository.StockRepository
 	client      *client.StockClient
+
+	mu     sync.Mutex
+	cancel context.CancelFunc
 }
 
 func NewStockService(
@@ -52,15 +56,41 @@ func (s *StockService) Initialize(ctx context.Context) {
 	}
 }
 
-func (s *StockService) StartBackgroundRefresh() {
+func (s *StockService) Start() {
+	s.mu.Lock()
+	if s.cancel != nil {
+		s.mu.Unlock()
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+	s.mu.Unlock()
+
 	ticker := time.NewTicker(priceRefreshInterval)
 	go func() {
-		for range ticker.C {
-			if err := s.RefreshPrices(context.Background()); err != nil {
-				log.Println("[refresh] failed:", err)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := s.RefreshPrices(ctx); err != nil {
+					log.Println("[refresh] failed:", err)
+				}
 			}
 		}
 	}()
+}
+
+func (s *StockService) Stop() {
+	s.mu.Lock()
+	cancel := s.cancel
+	s.cancel = nil
+	s.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func (s *StockService) SeedStocks(ctx context.Context, limit int) error {
@@ -89,7 +119,9 @@ func (s *StockService) SeedStocks(ctx context.Context, limit int) error {
 			if elapsed < time.Minute {
 				wait := time.Minute - elapsed
 				log.Printf("[seed] rate limit reached, waiting %s...", wait.Round(time.Second))
-				time.Sleep(wait)
+				if err := waitForNextCall(ctx, wait); err != nil {
+					return err
+				}
 			}
 			callsThisMinute = 0
 			minuteStart = time.Now()
@@ -172,7 +204,9 @@ func (s *StockService) RefreshPrices(ctx context.Context) error {
 			if elapsed < time.Minute {
 				wait := time.Minute - elapsed
 				log.Printf("[refresh] rate limit reached, waiting %s...", wait.Round(time.Second))
-				time.Sleep(wait)
+				if err := waitForNextCall(ctx, wait); err != nil {
+					return err
+				}
 			}
 			callsThisMinute = 0
 			minuteStart = time.Now()
@@ -199,4 +233,16 @@ func (s *StockService) RefreshPrices(ctx context.Context) error {
 
 	log.Printf("[refresh] done")
 	return nil
+}
+
+func waitForNextCall(ctx context.Context, wait time.Duration) error {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }

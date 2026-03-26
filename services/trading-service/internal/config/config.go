@@ -35,6 +35,7 @@ type Configuration struct {
 	UserServiceAddr    string
 	UserServiceBaseURL string
 	URLs               URLConfig
+	ExchangeRateAPIKey string
 	FinnhubAPIKey      string
 }
 
@@ -90,5 +91,6 @@ func Load() *Configuration {
 			FrontendBaseURL: GetOrDefault("FRONTEND_BASE_URL", "http://localhost:5173"),
 			BackendBaseURL:  GetOrDefault("BACKEND_BASE_URL", "http://localhost:8081"),
 		},
+		ExchangeRateAPIKey: GetOrThrow("EXCHANGE_RATE_API_KEY"),
 	}
 }
