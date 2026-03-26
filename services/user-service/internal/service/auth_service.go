@@ -295,9 +295,7 @@ func (s *AuthService) ConfirmPasswordReset(ctx context.Context, token, newPasswo
 	}
 
 	if resetToken.ExpiresAt.Before(time.Now()) {
-		_ = s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
-			return s.resetTokenRepo.DeleteByIdentityID(txCtx, resetToken.IdentityID)
-		})
+		_ = s.resetTokenRepo.DeleteByIdentityID(ctx, resetToken.IdentityID)
 		return errors.BadRequestErr("token has expired")
 	}
 
