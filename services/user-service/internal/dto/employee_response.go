@@ -8,19 +8,24 @@ import (
 )
 
 type EmployeeResponse struct {
-	Id          uint                    `json:"id"`
-	FirstName   string                  `json:"first_name"`
-	LastName    string                  `json:"last_name"`
-	Gender      string                  `json:"gender"`
-	DateOfBirth time.Time               `json:"date_of_birth"`
-	Email       string                  `json:"email"`
-	PhoneNumber string                  `json:"phone_number"`
-	Address     string                  `json:"address"`
-	Username    string                  `json:"username"`
-	Department  string                  `json:"department"`
-	PositionID  uint                    `json:"position_id"`
-	Active      bool                    `json:"active"`
-	Permissions []permission.Permission `json:"permissions"`
+	Id           uint                    `json:"id"`
+	FirstName    string                  `json:"first_name"`
+	LastName     string                  `json:"last_name"`
+	Gender       string                  `json:"gender"`
+	DateOfBirth  time.Time               `json:"date_of_birth"`
+	Email        string                  `json:"email"`
+	PhoneNumber  string                  `json:"phone_number"`
+	Address      string                  `json:"address"`
+	Username     string                  `json:"username"`
+	Department   string                  `json:"department"`
+	PositionID   uint                    `json:"position_id"`
+	Active       bool                    `json:"active"`
+	Permissions  []permission.Permission `json:"permissions"`
+	IsAgent      bool                    `json:"is_agent"`
+	IsSupervisor bool                    `json:"is_supervisor"`
+	Limit        float64                 `json:"limit"`
+	UsedLimit    float64                 `json:"used_limit"`
+	NeedApproval bool                    `json:"need_approval"`
 }
 
 type ListEmployeesResponse struct {
@@ -38,19 +43,24 @@ func ToEmployeeResponse(e *model.Employee) *EmployeeResponse {
 	}
 
 	return &EmployeeResponse{
-		Id:          e.EmployeeID,
-		FirstName:   e.FirstName,
-		LastName:    e.LastName,
-		Gender:      e.Gender,
-		DateOfBirth: e.DateOfBirth,
-		Email:       e.Identity.Email,
-		PhoneNumber: e.PhoneNumber,
-		Address:     e.Address,
-		Username:    e.Identity.Username,
-		Department:  e.Department,
-		PositionID:  e.PositionID,
-		Active:      e.Identity.Active,
-		Permissions: permissions,
+		Id:           e.EmployeeID,
+		FirstName:    e.FirstName,
+		LastName:     e.LastName,
+		Gender:       e.Gender,
+		DateOfBirth:  e.DateOfBirth,
+		Email:        e.Identity.Email,
+		PhoneNumber:  e.PhoneNumber,
+		Address:      e.Address,
+		Username:     e.Identity.Username,
+		Department:   e.Department,
+		PositionID:   e.PositionID,
+		Active:       e.Identity.Active,
+		Permissions:  permissions,
+		IsAgent:      e.IsAgent(),
+		IsSupervisor: e.IsSupervisor(),
+		Limit:        employeeLimit(e),
+		UsedLimit:    employeeUsedLimit(e),
+		NeedApproval: employeeNeedApproval(e),
 	}
 }
 
@@ -69,4 +79,25 @@ func ToEmployeeResponseList(employees []model.Employee, total int64, page, pageS
 		PageSize:   pageSize,
 		TotalPages: totalPages,
 	}
+}
+
+func employeeLimit(e *model.Employee) float64 {
+	if e.ActuaryInfo == nil {
+		return 0
+	}
+	return e.ActuaryInfo.Limit
+}
+
+func employeeUsedLimit(e *model.Employee) float64 {
+	if e.ActuaryInfo == nil {
+		return 0
+	}
+	return e.ActuaryInfo.UsedLimit
+}
+
+func employeeNeedApproval(e *model.Employee) bool {
+	if e.ActuaryInfo == nil {
+		return false
+	}
+	return e.ActuaryInfo.NeedApproval
 }

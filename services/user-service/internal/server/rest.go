@@ -13,13 +13,15 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/fx"
 
-	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	commonauth "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 	_ "github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/docs"
+	userauth "github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/config"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/handler"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/repository"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/validator"
 )
 
@@ -29,14 +31,16 @@ func NewServer(
 	healthHandler *handler.HealthHandler,
 	authHandler *handler.AuthHandler,
 	empHandler *handler.EmployeeHandler,
+	actuaryHandler *handler.ActuaryHandler,
 	clientHandler *handler.ClientHandler,
-	verifier auth.TokenVerifier,
-	permissions auth.PermissionProvider,
+	employeeRepo repository.EmployeeRepository,
+	verifier commonauth.TokenVerifier,
+	permissions commonauth.PermissionProvider,
 ) {
 	r := gin.New()
 
 	InitRouter(r, cfg)
-	SetupRoutes(r, healthHandler, authHandler, empHandler, clientHandler, verifier, permissions)
+	SetupRoutes(r, healthHandler, authHandler, empHandler, actuaryHandler, clientHandler, employeeRepo, verifier, permissions)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -69,9 +73,11 @@ func SetupRoutes(
 	healthHandler *handler.HealthHandler,
 	authHandler *handler.AuthHandler,
 	empHandler *handler.EmployeeHandler,
+	actuaryHandler *handler.ActuaryHandler,
 	clientHandler *handler.ClientHandler,
-	verifier auth.TokenVerifier,
-	permissions auth.PermissionProvider,
+	employeeRepo repository.EmployeeRepository,
+	verifier commonauth.TokenVerifier,
+	permissions commonauth.PermissionProvider,
 ) {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -89,30 +95,38 @@ func SetupRoutes(
 		}
 
 		authProtected := api.Group("/auth")
-		authProtected.Use(auth.Middleware(verifier, permissions))
+		authProtected.Use(commonauth.Middleware(verifier, permissions))
 		{
 			authProtected.POST("/change-password", authHandler.ChangePassword)
 		}
 
 		emp := api.Group("/employees")
-		emp.Use(auth.Middleware(verifier, permissions))
+		emp.Use(commonauth.Middleware(verifier, permissions))
 		{
-			emp.POST("/register", auth.RequirePermission(permission.EmployeeCreate), empHandler.Register)
-			emp.GET("/:id", auth.RequirePermission(permission.EmployeeView), empHandler.GetEmployee)
-			emp.PATCH("/:id", auth.RequirePermission(permission.EmployeeUpdate), empHandler.UpdateEmployee)
-			emp.GET("", auth.RequirePermission(permission.EmployeeView), empHandler.ListEmployees)
+			emp.POST("/register", commonauth.RequirePermission(permission.EmployeeCreate), empHandler.Register)
+			emp.GET("/:id", commonauth.RequirePermission(permission.EmployeeView), empHandler.GetEmployee)
+			emp.PATCH("/:id", commonauth.RequirePermission(permission.EmployeeUpdate), empHandler.UpdateEmployee)
+			emp.GET("", commonauth.RequirePermission(permission.EmployeeView), empHandler.ListEmployees)
+		}
+
+		act := api.Group("/actuaries")
+		act.Use(commonauth.Middleware(verifier, permissions))
+		{
+			act.GET("", commonauth.RequirePermission(permission.EmployeeView), actuaryHandler.ListActuaries)
+			act.PATCH("/:id", userauth.RequireSupervisor(employeeRepo), actuaryHandler.UpdateActuarySettings)
+			act.POST("/:id/reset-used-limit", userauth.RequireSupervisor(employeeRepo), actuaryHandler.ResetUsedLimit)
 		}
 
 		cli := api.Group("/clients")
-		cli.Use(auth.Middleware(verifier, permissions))
+		cli.Use(commonauth.Middleware(verifier, permissions))
 		{
-			cli.GET("", auth.RequirePermission(permission.ClientView), clientHandler.ListClients)
+			cli.GET("", commonauth.RequirePermission(permission.ClientView), clientHandler.ListClients)
 			cli.POST("/register", clientHandler.Register)
-			cli.PATCH("/:id", auth.RequirePermission(permission.ClientUpdate), clientHandler.UpdateClient)
+			cli.PATCH("/:id", commonauth.RequirePermission(permission.ClientUpdate), clientHandler.UpdateClient)
 		}
 
 		mobileSecret := api.Group("")
-		mobileSecret.Use(auth.Middleware(verifier, permissions), auth.RequireIdentityType(auth.IdentityClient))
+		mobileSecret.Use(commonauth.Middleware(verifier, permissions), commonauth.RequireIdentityType(commonauth.IdentityClient))
 		{
 			mobileSecret.GET("/secret-mobile", clientHandler.GetMobileSecret)
 		}

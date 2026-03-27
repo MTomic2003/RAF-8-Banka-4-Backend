@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+
 	"go.uber.org/fx"
 	"gorm.io/gorm"
 
@@ -42,6 +44,7 @@ func main() {
 
 			repository.NewIdentityRepository,
 			repository.NewEmployeeRepository,
+			repository.NewActuaryRepository,
 			repository.NewClientRepository,
 			repository.NewActivationTokenRepository,
 			repository.NewResetTokenRepository,
@@ -49,10 +52,13 @@ func main() {
 			repository.NewPositionRepository,
 			service.NewAuthService,
 			service.NewEmployeeService,
+			service.NewActuaryService,
 			service.NewClientService,
 			service.NewEmailService,
+			service.NewActuaryLimitScheduler,
 			handler.NewAuthHandler,
 			handler.NewEmployeeHandler,
+			handler.NewActuaryHandler,
 			handler.NewClientHandler,
 			handler.NewHealthHandler,
 			grpc.NewPermissionService,
@@ -65,6 +71,7 @@ func main() {
 			if err := db.AutoMigrate(
 				&model.Identity{},
 				&model.Employee{},
+				&model.ActuaryInfo{},
 				&model.Client{},
 				&model.Position{},
 				&model.ActivationToken{},
@@ -75,6 +82,18 @@ func main() {
 				return err
 			}
 			return seed.Run(db)
+		}),
+		fx.Invoke(func(lc fx.Lifecycle, scheduler *service.ActuaryLimitScheduler) {
+			lc.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					scheduler.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					scheduler.Stop()
+					return nil
+				},
+			})
 		}),
 		fx.Invoke(server.NewServer, server.NewGRPCServer),
 	).Run()

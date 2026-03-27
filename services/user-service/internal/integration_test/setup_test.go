@@ -97,6 +97,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	if err := db.AutoMigrate(
 		&model.Identity{},
 		&model.Employee{},
+		&model.ActuaryInfo{},
 		&model.Client{},
 		&model.Position{},
 		&model.ActivationToken{},
@@ -117,6 +118,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 
 	identityRepo := repository.NewIdentityRepository(db)
 	empRepo := repository.NewEmployeeRepository(db)
+	actuaryRepo := repository.NewActuaryRepository(db)
 	clientRepo := repository.NewClientRepository(db)
 	actTokenRepo := repository.NewActivationTokenRepository(db)
 	resetTokenRepo := repository.NewResetTokenRepository(db)
@@ -144,6 +146,10 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 		mailer,
 		cfg,
 	)
+	actuarySvc := service.NewActuaryService(
+		actuaryRepo,
+		empRepo,
+	)
 
 	clientSvc := service.NewClientService(
 		clientRepo,
@@ -155,6 +161,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 
 	authHandler := handler.NewAuthHandler(authSvc)
 	empHandler := handler.NewEmployeeHandler(empSvc)
+	actuaryHandler := handler.NewActuaryHandler(actuarySvc)
 	clientHandler := handler.NewClientHandler(clientSvc)
 	healthHandler := handler.NewHealthHandler()
 
@@ -165,7 +172,9 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 		healthHandler,
 		authHandler,
 		empHandler,
+		actuaryHandler,
 		clientHandler,
+		empRepo,
 		auth.TokenVerifier(commonjwt.NewJWTVerifier(cfg.JWTSecret)),
 		dbpermission.NewDBPermissionProvider(db),
 	)
@@ -346,16 +355,23 @@ type loginResponse struct {
 	Token        string `json:"token"`
 	RefreshToken string `json:"refresh_token"`
 	User         struct {
-		ID uint `json:"id"`
+		ID           uint `json:"id"`
+		IsAgent      bool `json:"is_agent"`
+		IsSupervisor bool `json:"is_supervisor"`
 	} `json:"user"`
 }
 
 type employeeResponse struct {
-	ID         uint   `json:"id"`
-	Email      string `json:"email"`
-	Username   string `json:"username"`
-	Department string `json:"department"`
-	PositionID uint   `json:"position_id"`
+	ID           uint    `json:"id"`
+	Email        string  `json:"email"`
+	Username     string  `json:"username"`
+	Department   string  `json:"department"`
+	PositionID   uint    `json:"position_id"`
+	IsAgent      bool    `json:"is_agent"`
+	IsSupervisor bool    `json:"is_supervisor"`
+	Limit        float64 `json:"limit"`
+	UsedLimit    float64 `json:"used_limit"`
+	NeedApproval bool    `json:"need_approval"`
 }
 
 type listEmployeesResponse struct {
@@ -369,6 +385,24 @@ type listEmployeesResponse struct {
 type appErrorResponse struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
+}
+
+type actuaryResponse struct {
+	ID           uint    `json:"id"`
+	Email        string  `json:"email"`
+	IsAgent      bool    `json:"is_agent"`
+	IsSupervisor bool    `json:"is_supervisor"`
+	Limit        float64 `json:"limit"`
+	UsedLimit    float64 `json:"used_limit"`
+	NeedApproval bool    `json:"need_approval"`
+}
+
+type listActuariesResponse struct {
+	Data       []actuaryResponse `json:"data"`
+	Total      int64             `json:"total"`
+	Page       int               `json:"page"`
+	PageSize   int               `json:"page_size"`
+	TotalPages int               `json:"total_pages"`
 }
 
 func loginEmployee(t *testing.T, router *gin.Engine, email, password string) loginResponse {

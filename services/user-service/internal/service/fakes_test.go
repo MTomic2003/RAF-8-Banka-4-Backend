@@ -63,6 +63,7 @@ func (f *fakeIdentityRepo) UsernameExists(_ context.Context, _ string) (bool, er
 type fakeEmployeeRepo struct {
 	byID         *model.Employee
 	byIdentityID *model.Employee
+	byIDs        map[uint]*model.Employee
 	allEmps      []model.Employee
 	allTotal     int64
 
@@ -75,7 +76,13 @@ type fakeEmployeeRepo struct {
 	updatedEmployee *model.Employee
 }
 
-func (f *fakeEmployeeRepo) FindByID(_ context.Context, _ uint) (*model.Employee, error) {
+func (f *fakeEmployeeRepo) FindByID(_ context.Context, id uint) (*model.Employee, error) {
+	if f.byIDs != nil {
+		if employee, ok := f.byIDs[id]; ok {
+			return employee, f.findErr
+		}
+	}
+
 	return f.byID, f.findErr
 }
 
@@ -95,6 +102,58 @@ func (f *fakeEmployeeRepo) Update(_ context.Context, emp *model.Employee) error 
 
 func (f *fakeEmployeeRepo) GetAll(_ context.Context, _, _, _, _ string, _, _ int) ([]model.Employee, int64, error) {
 	return f.allEmps, f.allTotal, f.getAllErr
+}
+
+type fakeActuaryRepo struct {
+	byEmployeeID map[uint]*model.ActuaryInfo
+	allEmployees []model.Employee
+	allTotal     int64
+
+	findErr     error
+	getAllErr   error
+	saveErr     error
+	resetErr    error
+	resetAllErr error
+}
+
+func (f *fakeActuaryRepo) FindByEmployeeID(_ context.Context, employeeID uint) (*model.ActuaryInfo, error) {
+	if f.byEmployeeID == nil {
+		return nil, f.findErr
+	}
+
+	return f.byEmployeeID[employeeID], f.findErr
+}
+
+func (f *fakeActuaryRepo) GetAll(_ context.Context, _, _, _, _, _, _ string, _, _ *bool, _, _ int) ([]model.Employee, int64, error) {
+	return f.allEmployees, f.allTotal, f.getAllErr
+}
+
+func (f *fakeActuaryRepo) Save(_ context.Context, actuary *model.ActuaryInfo) error {
+	if f.byEmployeeID == nil {
+		f.byEmployeeID = map[uint]*model.ActuaryInfo{}
+	}
+
+	copy := *actuary
+	f.byEmployeeID[actuary.EmployeeID] = &copy
+	return f.saveErr
+}
+
+func (f *fakeActuaryRepo) ResetUsedLimit(_ context.Context, employeeID uint) error {
+	if f.byEmployeeID != nil && f.byEmployeeID[employeeID] != nil {
+		f.byEmployeeID[employeeID].UsedLimit = 0
+	}
+
+	return f.resetErr
+}
+
+func (f *fakeActuaryRepo) ResetAllUsedLimits(_ context.Context) error {
+	for _, actuary := range f.byEmployeeID {
+		if actuary != nil && actuary.IsAgent {
+			actuary.UsedLimit = 0
+		}
+	}
+
+	return f.resetAllErr
 }
 
 type fakeClientRepo struct {
@@ -255,6 +314,38 @@ func activeEmployee() *model.Employee {
 	}
 }
 
+func activeSupervisor() *model.Employee {
+	employee := activeEmployee()
+	employee.EmployeeID = 2
+	employee.IdentityID = 2
+	employee.ActuaryInfo = &model.ActuaryInfo{
+		EmployeeID:   2,
+		IsSupervisor: true,
+	}
+	return employee
+}
+
+func activeAgent() *model.Employee {
+	employee := activeEmployee()
+	employee.ActuaryInfo = &model.ActuaryInfo{
+		EmployeeID:   employee.EmployeeID,
+		IsAgent:      true,
+		Limit:        100000,
+		UsedLimit:    15000,
+		NeedApproval: true,
+	}
+	return employee
+}
+
+func adminEmployee() *model.Employee {
+	employee := activeSupervisor()
+	employee.EmployeeID = 3
+	employee.IdentityID = 3
+	employee.Permissions = mapPermissions(employee.EmployeeID, permission.All)
+	employee.ActuaryInfo.EmployeeID = employee.EmployeeID
+	return employee
+}
+
 func activeClientIdentity() *model.Identity {
 	return &model.Identity{
 		ID:           2,
@@ -277,9 +368,11 @@ func activeClient() *model.Client {
 }
 
 func withAuth(ctx context.Context, identityID uint, identityType auth.IdentityType) context.Context {
+	employeeID := identityID
 	return auth.SetAuthOnContext(ctx, &auth.AuthContext{
 		IdentityID:   identityID,
 		IdentityType: identityType,
+		EmployeeID:   &employeeID,
 		Permissions:  []permission.Permission{permission.EmployeeView},
 	})
 }

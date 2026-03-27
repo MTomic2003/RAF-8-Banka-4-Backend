@@ -17,6 +17,35 @@ definitions:
     - password
     - token
     type: object
+  dto.ActuaryResponse:
+    properties:
+      active:
+        type: boolean
+      department:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      id:
+        type: integer
+      is_agent:
+        type: boolean
+      is_supervisor:
+        type: boolean
+      last_name:
+        type: string
+      limit:
+        type: number
+      need_approval:
+        type: boolean
+      position_id:
+        type: integer
+      used_limit:
+        type: number
+      username:
+        type: string
+    type: object
   dto.AuthUser:
     properties:
       email:
@@ -27,12 +56,22 @@ definitions:
         type: integer
       identity_type:
         $ref: '#/definitions/auth.IdentityType'
+      is_agent:
+        type: boolean
+      is_supervisor:
+        type: boolean
       last_name:
         type: string
+      limit:
+        type: number
+      need_approval:
+        type: boolean
       permissions:
         items:
           $ref: '#/definitions/permission.Permission'
         type: array
+      used_limit:
+        type: number
       username:
         type: string
     type: object
@@ -89,9 +128,18 @@ definitions:
         type: string
       gender:
         type: string
+      is_agent:
+        type: boolean
+      is_supervisor:
+        type: boolean
       last_name:
         maxLength: 100
         type: string
+      limit:
+        minimum: 0
+        type: number
+      need_approval:
+        type: boolean
       permissions:
         items:
           $ref: '#/definitions/permission.Permission'
@@ -127,8 +175,16 @@ definitions:
         type: string
       id:
         type: integer
+      is_agent:
+        type: boolean
+      is_supervisor:
+        type: boolean
       last_name:
         type: string
+      limit:
+        type: number
+      need_approval:
+        type: boolean
       permissions:
         items:
           $ref: '#/definitions/permission.Permission'
@@ -137,6 +193,8 @@ definitions:
         type: string
       position_id:
         type: integer
+      used_limit:
+        type: number
       username:
         type: string
     type: object
@@ -146,6 +204,21 @@ definitions:
         type: string
     required:
     - email
+    type: object
+  dto.ListActuariesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.ActuaryResponse'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
     type: object
   dto.ListEmployeesResponse:
     properties:
@@ -212,6 +285,14 @@ definitions:
     - new_password
     - token
     type: object
+  dto.UpdateActuarySettingsRequest:
+    properties:
+      limit:
+        minimum: 0
+        type: number
+      need_approval:
+        type: boolean
+    type: object
   dto.UpdateClientRequest:
     properties:
       address:
@@ -250,6 +331,10 @@ definitions:
         type: string
       gender:
         type: string
+      is_agent:
+        type: boolean
+      is_supervisor:
+        type: boolean
       last_name:
         maxLength: 100
         type: string
@@ -295,6 +380,165 @@ info:
   title: User Service API
   version: "1.0"
 paths:
+  /api/actuaries:
+    get:
+      description: Returns a paginated list of actuaries with optional filtering by
+        employee and actuary fields
+      parameters:
+      - description: Filter by email
+        in: query
+        name: email
+        type: string
+      - description: Filter by first name
+        in: query
+        name: first_name
+        type: string
+      - description: Filter by last name
+        in: query
+        name: last_name
+        type: string
+      - description: Filter by position
+        in: query
+        name: position
+        type: string
+      - description: Filter by department
+        in: query
+        name: department
+        type: string
+      - description: Filter by actuary type
+        enum:
+        - agent
+        - supervisor
+        in: query
+        name: type
+        type: string
+      - description: Filter by active status
+        in: query
+        name: active
+        type: boolean
+      - description: Filter by need approval flag
+        in: query
+        name: need_approval
+        type: boolean
+      - description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ListActuariesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List actuaries
+      tags:
+      - actuaries
+  /api/actuaries/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Updates an agent's limit and approval settings. Only supervisors
+        can perform this action.
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Actuary settings
+        in: body
+        name: settings
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateActuarySettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ActuaryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Update actuary settings
+      tags:
+      - actuaries
+  /api/actuaries/{id}/reset-used-limit:
+    post:
+      description: Resets an agent's used limit to zero. Only supervisors can perform
+        this action.
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ActuaryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Reset actuary used limit
+      tags:
+      - actuaries
   /api/auth/activate:
     post:
       consumes:

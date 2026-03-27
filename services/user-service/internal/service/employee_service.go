@@ -44,6 +44,18 @@ func NewEmployeeService(
 }
 
 func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeRequest) (*model.Employee, error) {
+	actor, err := s.currentActor(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.ensureAdminControls(actor, len(req.Permissions) > 0, req.IsAgent || req.IsSupervisor); err != nil {
+		return nil, err
+	}
+	if !req.IsAgent && !req.IsSupervisor && (req.Limit > 0 || req.NeedApproval) {
+		return nil, errors.BadRequestErr("actuary settings require agent or supervisor role")
+	}
+
 	emailExists, err := s.identityRepo.EmailExists(ctx, req.Email)
 	if err != nil {
 		return nil, errors.InternalErr(err)
@@ -95,6 +107,12 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 		Permissions: mapPermissions(0, req.Permissions),
 	}
 
+	actuaryInfo, err := buildActuaryInfo(nil, employee.IsAdmin(), req.IsAgent, req.IsSupervisor, req.Limit, req.NeedApproval)
+	if err != nil {
+		return nil, err
+	}
+	employee.ActuaryInfo = actuaryInfo
+
 	if err := s.employeeRepo.Create(ctx, employee); err != nil {
 		return nil, errors.InternalErr(err)
 	}
@@ -130,6 +148,11 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 }
 
 func (s *EmployeeService) UpdateEmployee(ctx context.Context, id uint, req *dto.UpdateEmployeeRequest) (*model.Employee, error) {
+	actor, err := s.currentActor(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	employee, err := s.employeeRepo.FindByID(ctx, id)
 	if err != nil {
 		return nil, errors.InternalErr(err)
@@ -148,9 +171,16 @@ func (s *EmployeeService) UpdateEmployee(ctx context.Context, id uint, req *dto.
 		return nil, errors.NotFoundErr("identity not found")
 	}
 
-	// TODO: Ability for other admins, or the admin themselves, to update their details?
-	if employee.IsAdmin() {
+	if employee.IsAdmin() && actor.EmployeeID != employee.EmployeeID {
 		return nil, errors.ForbiddenErr("cannot modify admin")
+	}
+
+	if err := s.ensureAdminControls(actor, req.Permissions != nil, req.IsAgent != nil || req.IsSupervisor != nil); err != nil {
+		return nil, err
+	}
+
+	if employee.IsAdmin() && (req.Permissions != nil || req.IsAgent != nil || req.IsSupervisor != nil) {
+		return nil, errors.ForbiddenErr("cannot modify admin permissions")
 	}
 
 	identityChanged := false
@@ -212,6 +242,21 @@ func (s *EmployeeService) UpdateEmployee(ctx context.Context, id uint, req *dto.
 		employee.Permissions = mapPermissions(employee.EmployeeID, *req.Permissions)
 	}
 
+	desiredIsAgent := employee.IsAgent()
+	desiredIsSupervisor := employee.ActuaryInfo != nil && employee.ActuaryInfo.IsSupervisor
+	if req.IsAgent != nil {
+		desiredIsAgent = *req.IsAgent
+	}
+	if req.IsSupervisor != nil {
+		desiredIsSupervisor = *req.IsSupervisor
+	}
+
+	actuaryInfo, err := buildActuaryInfo(employee.ActuaryInfo, employee.IsAdmin(), desiredIsAgent, desiredIsSupervisor, currentActuaryLimit(employee.ActuaryInfo), currentActuaryNeedApproval(employee.ActuaryInfo))
+	if err != nil {
+		return nil, err
+	}
+	employee.ActuaryInfo = actuaryInfo
+
 	if identityChanged {
 		if err := s.identityRepo.Update(ctx, identity); err != nil {
 			return nil, errors.InternalErr(err)
@@ -262,4 +307,88 @@ func mapPermissions(employeeID uint, permissions []permission.Permission) []mode
 		}
 	}
 	return result
+}
+
+func (s *EmployeeService) currentActor(ctx context.Context) (*model.Employee, error) {
+	authCtx := auth.GetAuthFromContext(ctx)
+	if authCtx == nil {
+		return nil, errors.UnauthorizedErr("not authenticated")
+	}
+
+	var (
+		employee *model.Employee
+		err      error
+	)
+
+	if authCtx.EmployeeID != nil {
+		employee, err = s.employeeRepo.FindByID(ctx, *authCtx.EmployeeID)
+	} else {
+		employee, err = s.employeeRepo.FindByIdentityID(ctx, authCtx.IdentityID)
+	}
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	if employee == nil {
+		return nil, errors.NotFoundErr("employee not found")
+	}
+
+	return employee, nil
+}
+
+func (s *EmployeeService) ensureAdminControls(actor *model.Employee, permissionChange, roleChange bool) error {
+	if (permissionChange || roleChange) && !actor.IsAdmin() {
+		return errors.ForbiddenErr("only admins can modify employee permissions")
+	}
+
+	return nil
+}
+
+func buildActuaryInfo(existing *model.ActuaryInfo, isAdmin, isAgent, isSupervisor bool, limit float64, needApproval bool) (*model.ActuaryInfo, error) {
+	if isAdmin {
+		isAgent = false
+		isSupervisor = true
+	}
+
+	if isAgent && isSupervisor {
+		return nil, errors.BadRequestErr("employee cannot be both agent and supervisor")
+	}
+
+	if !isAgent && !isSupervisor {
+		return nil, nil
+	}
+
+	actuary := &model.ActuaryInfo{}
+	if existing != nil {
+		*actuary = *existing
+	}
+
+	actuary.IsAgent = isAgent
+	actuary.IsSupervisor = isSupervisor
+
+	if isSupervisor {
+		actuary.Limit = 0
+		actuary.UsedLimit = 0
+		actuary.NeedApproval = false
+		return actuary, nil
+	}
+
+	actuary.Limit = limit
+	actuary.NeedApproval = needApproval
+	return actuary, nil
+}
+
+func currentActuaryLimit(actuary *model.ActuaryInfo) float64 {
+	if actuary == nil {
+		return 0
+	}
+
+	return actuary.Limit
+}
+
+func currentActuaryNeedApproval(actuary *model.ActuaryInfo) bool {
+	if actuary == nil {
+		return false
+	}
+
+	return actuary.NeedApproval
 }

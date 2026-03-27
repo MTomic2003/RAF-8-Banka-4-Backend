@@ -261,5 +261,28 @@ func Run(db *gorm.DB) error {
 		}
 	}
 
+	var adminActuary model.ActuaryInfo
+	err := db.Where("employee_id = ?", admin.EmployeeID).First(&adminActuary).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		adminActuary = model.ActuaryInfo{
+			EmployeeID:   admin.EmployeeID,
+			IsSupervisor: true,
+		}
+		if err := db.Create(&adminActuary).Error; err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else if !adminActuary.IsSupervisor || adminActuary.IsAgent || adminActuary.NeedApproval || adminActuary.Limit != 0 || adminActuary.UsedLimit != 0 {
+		adminActuary.IsAgent = false
+		adminActuary.IsSupervisor = true
+		adminActuary.Limit = 0
+		adminActuary.UsedLimit = 0
+		adminActuary.NeedApproval = false
+		if err := db.Save(&adminActuary).Error; err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

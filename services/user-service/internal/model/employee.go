@@ -21,6 +21,7 @@ type Employee struct {
 	Identity    Identity
 	Position    Position
 	Permissions []EmployeePermission `gorm:"foreignKey:EmployeeID"`
+	ActuaryInfo *ActuaryInfo         `gorm:"foreignKey:EmployeeID;references:EmployeeID"`
 }
 
 func (e *Employee) HasPermission(p permission.Permission) bool {
@@ -53,4 +54,20 @@ func (e *Employee) IsAdmin() bool {
 		}
 	}
 	return isAdmin
+}
+
+func (e *Employee) IsAgent() bool {
+	return e != nil && e.ActuaryInfo != nil && e.ActuaryInfo.IsAgent
+}
+
+func (e *Employee) IsSupervisor() bool {
+	if e == nil {
+		return false
+	}
+
+	if e.IsAdmin() {
+		return true
+	}
+
+	return e.ActuaryInfo != nil && e.ActuaryInfo.IsSupervisor
 }

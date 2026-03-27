@@ -18,13 +18,20 @@ func NewEmployeeRepository(db *gorm.DB) EmployeeRepository {
 }
 
 func (r *employeeRepository) Create(ctx context.Context, employee *model.Employee) error {
-	return r.db.WithContext(ctx).Create(employee).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Omit("ActuaryInfo").Create(employee).Error; err != nil {
+			return err
+		}
+
+		return syncActuaryInfo(tx, employee)
+	})
 }
 
 func (r *employeeRepository) FindByID(ctx context.Context, id uint) (*model.Employee, error) {
 	var e model.Employee
 	result := r.db.WithContext(ctx).
 		Preload("Permissions").
+		Preload("ActuaryInfo").
 		Preload("Identity").
 		First(&e, id)
 
@@ -41,6 +48,7 @@ func (r *employeeRepository) FindByIdentityID(ctx context.Context, identityID ui
 	var e model.Employee
 	result := r.db.WithContext(ctx).
 		Preload("Permissions").
+		Preload("ActuaryInfo").
 		Preload("Identity").
 		Where("identity_id = ?", identityID).
 		First(&e)
@@ -56,7 +64,7 @@ func (r *employeeRepository) FindByIdentityID(ctx context.Context, identityID ui
 
 func (r *employeeRepository) Update(ctx context.Context, employee *model.Employee) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Save(employee).Error; err != nil {
+		if err := tx.Omit("Permissions", "ActuaryInfo").Save(employee).Error; err != nil {
 			return err
 		}
 
@@ -70,7 +78,7 @@ func (r *employeeRepository) Update(ctx context.Context, employee *model.Employe
 			}
 		}
 
-		return nil
+		return syncActuaryInfo(tx, employee)
 	})
 }
 
@@ -82,6 +90,7 @@ func (r *employeeRepository) GetAll(ctx context.Context, email, firstName, lastN
 		Model(&model.Employee{}).
 		Preload("Position").
 		Preload("Permissions").
+		Preload("ActuaryInfo").
 		Preload("Identity").
 		Joins("LEFT JOIN positions ON positions.position_id = employees.position_id").
 		Joins("LEFT JOIN identities ON identities.id = employees.identity_id")
@@ -109,4 +118,15 @@ func (r *employeeRepository) GetAll(ctx context.Context, email, firstName, lastN
 	}
 
 	return employees, total, nil
+}
+
+func syncActuaryInfo(tx *gorm.DB, employee *model.Employee) error {
+	if employee.ActuaryInfo == nil || !employee.ActuaryInfo.HasRole() {
+		return tx.Where("employee_id = ?", employee.EmployeeID).Delete(&model.ActuaryInfo{}).Error
+	}
+
+	actuary := *employee.ActuaryInfo
+	actuary.EmployeeID = employee.EmployeeID
+
+	return tx.Save(&actuary).Error
 }

@@ -15,6 +15,246 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/actuaries": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a paginated list of actuaries with optional filtering by employee and actuary fields",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "actuaries"
+                ],
+                "summary": "List actuaries",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by email",
+                        "name": "email",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by first name",
+                        "name": "first_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by last name",
+                        "name": "last_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by position",
+                        "name": "position",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by department",
+                        "name": "department",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "agent",
+                            "supervisor"
+                        ],
+                        "type": "string",
+                        "description": "Filter by actuary type",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by active status",
+                        "name": "active",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by need approval flag",
+                        "name": "need_approval",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ListActuariesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/actuaries/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates an agent's limit and approval settings. Only supervisors can perform this action.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "actuaries"
+                ],
+                "summary": "Update actuary settings",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Employee ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Actuary settings",
+                        "name": "settings",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateActuarySettingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ActuaryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/actuaries/{id}/reset-used-limit": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Resets an agent's used limit to zero. Only supervisors can perform this action.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "actuaries"
+                ],
+                "summary": "Reset actuary used limit",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Employee ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ActuaryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/auth/activate": {
             "post": {
                 "description": "Activates an account by setting the initial password using an activation token",
@@ -821,6 +1061,50 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.ActuaryResponse": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "department": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_agent": {
+                    "type": "boolean"
+                },
+                "is_supervisor": {
+                    "type": "boolean"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "limit": {
+                    "type": "number"
+                },
+                "need_approval": {
+                    "type": "boolean"
+                },
+                "position_id": {
+                    "type": "integer"
+                },
+                "used_limit": {
+                    "type": "number"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.AuthUser": {
             "type": "object",
             "properties": {
@@ -836,14 +1120,29 @@ const docTemplate = `{
                 "identity_type": {
                     "$ref": "#/definitions/auth.IdentityType"
                 },
+                "is_agent": {
+                    "type": "boolean"
+                },
+                "is_supervisor": {
+                    "type": "boolean"
+                },
                 "last_name": {
                     "type": "string"
+                },
+                "limit": {
+                    "type": "number"
+                },
+                "need_approval": {
+                    "type": "boolean"
                 },
                 "permissions": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/permission.Permission"
                     }
+                },
+                "used_limit": {
+                    "type": "number"
                 },
                 "username": {
                     "type": "string"
@@ -934,9 +1233,22 @@ const docTemplate = `{
                 "gender": {
                     "type": "string"
                 },
+                "is_agent": {
+                    "type": "boolean"
+                },
+                "is_supervisor": {
+                    "type": "boolean"
+                },
                 "last_name": {
                     "type": "string",
                     "maxLength": 100
+                },
+                "limit": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "need_approval": {
+                    "type": "boolean"
                 },
                 "permissions": {
                     "type": "array",
@@ -982,8 +1294,20 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "is_agent": {
+                    "type": "boolean"
+                },
+                "is_supervisor": {
+                    "type": "boolean"
+                },
                 "last_name": {
                     "type": "string"
+                },
+                "limit": {
+                    "type": "number"
+                },
+                "need_approval": {
+                    "type": "boolean"
                 },
                 "permissions": {
                     "type": "array",
@@ -996,6 +1320,9 @@ const docTemplate = `{
                 },
                 "position_id": {
                     "type": "integer"
+                },
+                "used_limit": {
+                    "type": "number"
                 },
                 "username": {
                     "type": "string"
@@ -1010,6 +1337,29 @@ const docTemplate = `{
             "properties": {
                 "email": {
                     "type": "string"
+                }
+            }
+        },
+        "dto.ListActuariesResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.ActuaryResponse"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
                 }
             }
         },
@@ -1113,6 +1463,18 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.UpdateActuarySettingsRequest": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "need_approval": {
+                    "type": "boolean"
+                }
+            }
+        },
         "dto.UpdateClientRequest": {
             "type": "object",
             "properties": {
@@ -1168,6 +1530,12 @@ const docTemplate = `{
                 },
                 "gender": {
                     "type": "string"
+                },
+                "is_agent": {
+                    "type": "boolean"
+                },
+                "is_supervisor": {
+                    "type": "boolean"
                 },
                 "last_name": {
                     "type": "string",
