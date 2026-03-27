@@ -11,6 +11,13 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	commonjwt "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
@@ -23,12 +30,6 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/server"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/service"
-	"net/http/httptest"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -202,6 +203,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	transactionRepo := repository.NewTransactionRepository(db)
 	transferRepo := repository.NewTransferRepository(db)
 	loanRepo := repository.NewLoanRepository(db)
+	loanRequestRepo := repository.NewLoanRequestRepository(db)
 	loanTypeRepo := repository.NewLoanTypeRepository(db)
 	exchangeRateRepo := repository.NewExchangeRateRepository(db)
 	txManager := repository.NewGormTransactionManager(db)
@@ -214,7 +216,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	transactionProcessor := service.NewTransactionProcessor(accountRepo, transactionRepo, txManager)
 	paymentSvc := service.NewPaymentService(paymentRepo, transactionRepo, accountRepo, mobileSecretCl, converter, txManager, transactionProcessor)
 	transferSvc := service.NewTransferService(transferRepo, transactionRepo, accountRepo, converter, txManager, transactionProcessor)
-	loanSvc := service.NewLoanService(accountRepo, loanTypeRepo, loanRepo, transactionProcessor, txManager, userCl, mailer)
+	loanSvc := service.NewLoanService(accountRepo, loanTypeRepo, loanRequestRepo, loanRepo, transactionProcessor, txManager, userCl, mailer)
 
 	healthHandler := handler.NewHealthHandler()
 	accountHandler := handler.NewAccountHandler(accountSvc)

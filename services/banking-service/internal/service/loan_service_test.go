@@ -177,8 +177,7 @@ func (f *fakeLoanTransactionRepo) Create(_ context.Context, transaction *model.T
 		return f.createErr
 	}
 	transaction.TransactionID = 1
-	cloned := *transaction
-	f.transaction = &cloned
+	f.transaction = new(*transaction)
 	return nil
 }
 
@@ -201,8 +200,7 @@ func (f *fakeLoanTransactionRepo) Update(_ context.Context, transaction *model.T
 	if f.updateErr != nil {
 		return f.updateErr
 	}
-	cloned := *transaction
-	f.transaction = &cloned
+	f.transaction = new(*transaction)
 	return nil
 }
 
@@ -222,11 +220,15 @@ func newLoanService(
 				"client-account": {
 					AccountNumber:    "client-account",
 					AvailableBalance: 1_000_000,
+					DailyLimit:       10_000_000,
+					MonthlyLimit:     100_000_000,
 					Currency:         model.Currency{Code: model.RSD},
 				},
 				BankAccounts[model.RSD]: {
 					AccountNumber:    BankAccounts[model.RSD],
 					AvailableBalance: 1_000_000,
+					DailyLimit:       10_000_000,
+					MonthlyLimit:     100_000_000,
 					Currency:         model.Currency{Code: model.RSD},
 				},
 			},
@@ -466,7 +468,15 @@ func TestApproveLoanRequest(t *testing.T) {
 			name:     "success",
 			loanRepo: &fakeLoanRepo{},
 			loanRequestRepo: &fakeLoanRequestRepo{
-				request: &model.LoanRequest{ID: 1, Status: model.LoanRequestPending},
+				request: &model.LoanRequest{
+					ID:                 1,
+					Status:             model.LoanRequestPending,
+					AccountNumber:      "client-account",
+					Amount:             100000,
+					CalculatedRate:     5.5,
+					MonthlyInstallment: 4409.57,
+					RepaymentPeriod:    24,
+				},
 			},
 			userClient: &fakeUserClient{},
 			mailer:     &fakeMailer{},

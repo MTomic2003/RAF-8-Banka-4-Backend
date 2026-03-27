@@ -32,9 +32,9 @@ func (r *loanRepository) FindByClientID(ctx context.Context, clientID uint, sort
 		Preload("LoanRequest.LoanType")
 
 	if sortByAmountDesc {
-		query = query.Order("loans.amount DESC")
+		query = query.Order("loan_requests.amount DESC")
 	} else {
-		query = query.Order("loans.amount ASC")
+		query = query.Order("loan_requests.amount ASC")
 	}
 
 	if err := query.Find(&loans).Error; err != nil {
