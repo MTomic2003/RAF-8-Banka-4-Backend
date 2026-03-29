@@ -60,6 +60,7 @@ func main() {
 			},
 			repository.NewListingRepository,
 			repository.NewStockRepository,
+			repository.NewOptionRepository,
 			service.NewStockService,
 			repository.NewExchangeRepository,
 			service.NewExchangeService,
@@ -72,6 +73,7 @@ func main() {
 			return db.AutoMigrate(
 				&model.Listing{},
 				&model.Stock{},
+				&model.Option{},
 				&model.ListingDailyPriceInfo{},
 				&model.Exchange{},
 				&model.Order{},
