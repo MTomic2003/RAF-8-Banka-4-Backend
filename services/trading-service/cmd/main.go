@@ -61,7 +61,6 @@ func main() {
 				return client.NewExchangeRateClient(cfg.ExchangeRateAPIKey)
 			},
 			service.NewForexService,
-
 			func(cfg *config.Configuration) *client.StockClient {
 				return client.NewStockClient(cfg.FinnhubAPIKey)
 			},
@@ -89,6 +88,8 @@ func main() {
 				&model.Order{},
 				&model.ForexPair{},
 				&model.FuturesContract{},
+				&model.AccumulatedTax{},
+				&model.TaxCollection{},
 			)
 		}),
 		fx.Invoke(func(lc fx.Lifecycle, svc *service.StockService) {
@@ -109,6 +110,9 @@ func main() {
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
 			return seed.RunExchangeSeed(db)
+		}),
+		fx.Invoke(func(db *gorm.DB) error {
+			return seed.SeedAccumulatedTax(db)
 		}),
 		fx.Invoke(server.NewServer),
 		fx.Invoke(func(lifecycle fx.Lifecycle, forexService *service.ForexService) {
