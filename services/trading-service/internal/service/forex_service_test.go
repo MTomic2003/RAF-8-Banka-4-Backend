@@ -32,7 +32,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatal(err)
 	}
 
-	if err := db.AutoMigrate(&model.ForexPair{}); err != nil {
+	if err := db.AutoMigrate(&model.Listing{}, &model.ForexPair{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -61,7 +61,8 @@ func TestRefreshFromAPI(t *testing.T) {
 
 	mockClient := &mockExchangeClient{data: mockResp}
 	repo := repository.NewForexRepository(db)
-	service := NewForexService(repo, mockClient)
+	listingRepo := repository.NewListingRepository(db)
+	service := NewForexService(repo, listingRepo, mockClient)
 
 	if err := service.refreshFromAPI(context.Background()); err != nil {
 		t.Fatalf("refreshFromAPI failed: %v", err)
@@ -110,7 +111,8 @@ func TestInitialize_SeedsDB(t *testing.T) {
 
 	mockClient := &mockExchangeClient{data: mockResp}
 	repo := repository.NewForexRepository(db)
-	service := NewForexService(repo, mockClient)
+	listingRepo := repository.NewListingRepository(db)
+	service := NewForexService(repo, listingRepo, mockClient)
 
 	// DB prazna → Initialize seeduje sve parove
 	service.Initialize(context.Background())

@@ -4,14 +4,24 @@ import (
 	"time"
 )
 
+type ListingType string
+
+const (
+	ListingTypeStock    ListingType = "stock"
+	ListingTypeOption   ListingType = "option"
+	ListingTypeFuture   ListingType = "future"
+	ListingTypeForexPair ListingType = "forexPair"
+)
+
 type Listing struct {
-	ListingID   uint      `gorm:"primaryKey;autoIncrement"`
-	Ticker      string    `gorm:"not null;uniqueIndex;size:20"`
-	Name        string    `gorm:"not null"`
-	ExchangeMIC string    `gorm:"not null;size:100"`
-	LastRefresh time.Time `gorm:"not null"`
-	Price       float64   `gorm:"not null;default:0"`
-	Ask         float64   `gorm:"not null;default:0"`
+	ListingID   uint        `gorm:"primaryKey;autoIncrement"`
+	Ticker      string      `gorm:"not null;uniqueIndex;size:20"`
+	Name        string      `gorm:"not null"`
+	ExchangeMIC string      `gorm:"not null;size:100"`
+	LastRefresh time.Time   `gorm:"not null"`
+	Price       float64     `gorm:"not null;default:0"`
+	Ask         float64     `gorm:"not null;default:0"`
+	ListingType ListingType `gorm:"not null;size:10"`
 }
 
 type ListingDailyPriceInfo struct {

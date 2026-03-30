@@ -29,7 +29,9 @@ type fakeStockRepo struct {
 	err    error
 }
 
-func (r *fakeStockRepo) Upsert(_ *model.Stock) error { return nil }
+func (r *fakeStockRepo) Upsert(_ context.Context, _ *model.Stock) error { return nil }
+
+func (r *fakeStockRepo) FindAll(_ context.Context) ([]model.Stock, error) { return nil, nil }
 
 func (r *fakeStockRepo) FindByListingIDs(_ []uint) ([]model.Stock, error) {
 	return r.stocks, r.err
@@ -40,7 +42,7 @@ type fakeOptionRepo struct {
 	err     error
 }
 
-func (r *fakeOptionRepo) Upsert(_ *model.Option) error { return nil }
+func (r *fakeOptionRepo) Upsert(_ context.Context, _ *model.Option) error { return nil }
 
 func (r *fakeOptionRepo) FindByListingIDs(_ []uint) ([]model.Option, error) {
 	return r.options, r.err

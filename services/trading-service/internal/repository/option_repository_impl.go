@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"gorm.io/gorm"
 )
@@ -14,8 +15,8 @@ func NewOptionRepository(db *gorm.DB) OptionRepository {
 }
 
 // Upsert inserts or updates an Option matched by ListingID.
-func (r *optionRepository) Upsert(option *model.Option) error {
-	return r.db.
+func (r *optionRepository) Upsert(ctx context.Context, option *model.Option) error {
+	return r.db.WithContext(ctx).
 		Where(model.Option{ListingID: option.ListingID}).
 		Assign(*option).
 		FirstOrCreate(option).Error

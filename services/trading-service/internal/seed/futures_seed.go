@@ -71,6 +71,7 @@ func SeedFuturesContracts(db *gorm.DB) error {
 				LastRefresh: time.Now(),
 				Price:       price * size,
 				Ask:         price * size,
+				ListingType: model.ListingTypeFuture,
 			},
 		}
 

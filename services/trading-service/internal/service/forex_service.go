@@ -14,16 +14,18 @@ import (
 const refreshInterval = 1 * time.Hour
 
 type ForexService struct {
-	repo   repository.ForexRepository
-	client client.ExchangeRateClient
-	mu     sync.Mutex
-	cancel context.CancelFunc
+	repo        repository.ForexRepository
+	listingRepo repository.ListingRepository
+	client      client.ExchangeRateClient
+	mu          sync.Mutex
+	cancel      context.CancelFunc
 }
 
-func NewForexService(repo repository.ForexRepository, client client.ExchangeRateClient) *ForexService {
+func NewForexService(repo repository.ForexRepository, listingRepo repository.ListingRepository, client client.ExchangeRateClient) *ForexService {
 	return &ForexService{
-		repo:   repo,
-		client: client,
+		repo:        repo,
+		listingRepo: listingRepo,
+		client:      client,
 	}
 }
 
@@ -109,10 +111,27 @@ func (s *ForexService) refreshFromAPI(ctx context.Context) error {
 				continue
 			}
 
+			rate := quoteRate / baseRate
+			ticker := base + "/" + quote
+
+			listing := &model.Listing{
+				Ticker:      ticker,
+				Name:        ticker,
+				ExchangeMIC: "FOREX",
+				LastRefresh: time.Now(),
+				Price:       rate,
+				Ask:         rate,
+				ListingType: model.ListingTypeForexPair,
+			}
+			if err := s.listingRepo.Upsert(ctx, listing); err != nil {
+				return err
+			}
+
 			pair := model.ForexPair{
+				ListingID:            listing.ListingID,
 				Base:                 base,
 				Quote:                quote,
-				Rate:                 quoteRate / baseRate,
+				Rate:                 rate,
 				ProviderUpdatedAt:    providerUpdatedAt,
 				ProviderNextUpdateAt: providerNextUpdateAt,
 			}

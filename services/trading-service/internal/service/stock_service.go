@@ -162,8 +162,9 @@ func (s *StockService) SeedStocks(ctx context.Context, limit int) error {
 			LastRefresh: time.Now(),
 			Price:       quote.CurrentPrice,
 			Ask:         quote.High,
+			ListingType: model.ListingTypeStock,
 		}
-		if err := s.listingRepo.Upsert(listing); err != nil {
+		if err := s.listingRepo.Upsert(ctx, listing); err != nil {
 			continue
 		}
 
@@ -172,7 +173,7 @@ func (s *StockService) SeedStocks(ctx context.Context, limit int) error {
 			OutstandingShares: profile.ShareOutstanding,
 			DividendYield:     financials.Metric.DividendYieldIndicatedAnnual,
 		}
-		if err := s.stockRepo.Upsert(stock); err != nil {
+		if err := s.stockRepo.Upsert(ctx, stock); err != nil {
 			continue
 		}
 
@@ -194,23 +195,23 @@ func stringsContainsDot(s string) bool {
 }
 
 func (s *StockService) SeedOptions(ctx context.Context, limit int) error {
-	listings, err := s.listingRepo.FindAll()
+  stocks, err := s.stockRepo.FindAll(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to load listings: %w", err)
+		return fmt.Errorf("failed to load stocks: %w", err)
 	}
 
 	stockCount := 0
 	optionCount := 0
 
-	for _, listing := range listings {
+	for _, stock := range stocks {
 		if stockCount >= limit {
 			break
 		}
-		if listing.Price == 0 {
+		if stock.Listing.Price == 0 {
 			continue
 		}
 
-		currentPrice := listing.Price
+		currentPrice := stock.Listing.Price
 		basePrice := roundToInt(currentPrice)
 
 		var strikes []float64
@@ -223,15 +224,15 @@ func (s *StockService) SeedOptions(ctx context.Context, limit int) error {
 		seeded := 0
 		for _, exp := range expirations {
 			for _, strike := range strikes {
-				s.seedGeneratedOption(listing, strike, exp, model.OptionTypeCall)
-				s.seedGeneratedOption(listing, strike, exp, model.OptionTypePut)
+				s.seedGeneratedOption(ctx, stock.Listing, strike, exp, model.OptionTypeCall, stock.StockID)
+				s.seedGeneratedOption(ctx, stock.Listing, strike, exp, model.OptionTypePut, stock.StockID)
 				seeded += 2
 			}
 		}
 
 		optionCount += seeded
 		stockCount++
-		log.Printf("[seed-options] [%d/%d] seeded %d options for %s", stockCount, limit, seeded, listing.Ticker)
+		log.Printf("[seed-options] [%d/%d] seeded %d options for %s", stockCount, limit, seeded, stock.Listing.Ticker)
 	}
 
 	log.Printf("[seed-options] done. seeded %d options across %d stocks.", optionCount, stockCount)
@@ -259,10 +260,12 @@ func generateExpirationDates() []time.Time {
 }
 
 func (s *StockService) seedGeneratedOption(
+	ctx context.Context,
 	stockListing model.Listing,
 	strike float64,
 	expiration time.Time,
 	optType model.OptionType,
+	stockID uint,
 ) {
 	ticker := fmt.Sprintf("%s:%s:%.2f", stockListing.Ticker, optType, strike)
 
@@ -271,15 +274,18 @@ func (s *StockService) seedGeneratedOption(
 		Name:        fmt.Sprintf("%s %s %.2f %s", stockListing.Ticker, optType, strike, expiration.Format("2006-01-02")),
 		ExchangeMIC: stockListing.ExchangeMIC,
 		LastRefresh: time.Now(),
+		// TODO: replace with actual price calculation from black scholes
 		Price:       strike,
 		Ask:         strike,
+		ListingType: model.ListingTypeOption,
 	}
-	if err := s.listingRepo.Upsert(listing); err != nil {
+	if err := s.listingRepo.Upsert(ctx, listing); err != nil {
 		return
 	}
 
 	option := &model.Option{
 		ListingID:         listing.ListingID,
+		StockID:           stockID, 
 		OptionType:        optType,
 		StrikePrice:       strike,
 		ContractSize:      100,
@@ -287,13 +293,13 @@ func (s *StockService) seedGeneratedOption(
 		ImpliedVolatility: 1.0,
 		OpenInterest:      0,
 	}
-	if err := s.optionRepo.Upsert(option); err != nil {
+	if err := s.optionRepo.Upsert(ctx, option); err != nil {
 		return
 	}
 }
 
 func (s *StockService) RefreshPrices(ctx context.Context) error {
-	listings, err := s.listingRepo.FindAll()
+	listings, err := s.listingRepo.FindAll(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load listings: %w", err)
 	}
@@ -320,7 +326,7 @@ func (s *StockService) RefreshPrices(ctx context.Context) error {
 			continue
 		}
 
-		if err := s.listingRepo.UpdatePriceAndAsk(&listing, quote.CurrentPrice, quote.High); err != nil {
+		if err := s.listingRepo.UpdatePriceAndAsk(ctx, &listing, quote.CurrentPrice, quote.High); err != nil {
 			continue
 		}
 	}
@@ -329,18 +335,18 @@ func (s *StockService) RefreshPrices(ctx context.Context) error {
 }
 
 func (s *StockService) RefreshOptions(ctx context.Context) error {
-	listings, err := s.listingRepo.FindAll()
+	stocks, err := s.stockRepo.FindAll(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to load listings: %w", err)
+		return fmt.Errorf("failed to load stocks: %w", err)
 	}
 
-	for _, listing := range listings {
-		if stringsContainsColon(listing.Ticker) {
+	for _, stock := range stocks {
+		if stringsContainsColon(stock.Listing.Ticker) {
 			continue
 		}
 
 		expirations := generateExpirationDates()
-		basePrice := roundToInt(listing.Price)
+		basePrice := roundToInt(stock.Listing.Price)
 
 		var strikes []float64
 		for i := -5; i <= 5; i++ {
@@ -349,8 +355,8 @@ func (s *StockService) RefreshOptions(ctx context.Context) error {
 
 		for _, exp := range expirations {
 			for _, strike := range strikes {
-				s.seedGeneratedOption(listing, strike, exp, model.OptionTypeCall)
-				s.seedGeneratedOption(listing, strike, exp, model.OptionTypePut)
+				s.seedGeneratedOption(ctx, stock.Listing, strike, exp, model.OptionTypeCall, stock.StockID)
+				s.seedGeneratedOption(ctx, stock.Listing, strike, exp, model.OptionTypePut, stock.StockID)
 			}
 		}
 	}
