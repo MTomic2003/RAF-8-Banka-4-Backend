@@ -12,7 +12,6 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/seed"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/server"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/service"
-
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"gorm.io/gorm"

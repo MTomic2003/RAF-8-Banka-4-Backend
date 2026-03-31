@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	grpc2 "github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client/grpc"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
@@ -13,7 +14,6 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client"
-	clientgrpc "github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/client/grpc"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/config"
 	servicegrpc "github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/grpc"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/handler"
@@ -51,7 +51,7 @@ func main() {
 			),
 			client.NewUserServiceConnection,
 			fx.Annotate(
-				clientgrpc.NewUserServiceClient,
+				grpc2.NewUserServiceClient,
 				fx.As(new(client.UserClient)),
 			),
 			func(conn *grpc.ClientConn) pb.PermissionServiceClient {

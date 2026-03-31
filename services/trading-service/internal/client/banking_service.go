@@ -28,7 +28,6 @@ func NewBankingServiceConnection(lc fx.Lifecycle, cfg *config.Configuration) (*B
 	return &BankingConn{ClientConn: conn}, nil
 }
 
-// BankingConn wraps grpc.ClientConn to distinguish it from the user-service connection in DI.
 type BankingConn struct {
 	*grpc.ClientConn
 }
