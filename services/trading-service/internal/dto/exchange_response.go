@@ -3,16 +3,16 @@ package dto
 import "github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 
 type ExchangeResponse struct {
-	ExchangeID     uint   `json:"exchangeId"`
+	ExchangeID     uint   `json:"exchange_id"`
 	Name           string `json:"name"`
 	Acronym        string `json:"acronym"`
-	MicCode        string `json:"micCode"`
+	MicCode        string `json:"mic_code"`
 	Polity         string `json:"polity"`
 	Currency       string `json:"currency"`
-	TimeZone       int    `json:"timeZone"`
-	OpenTime       string `json:"openTime"`
-	CloseTime      string `json:"closeTime"`
-	TradingEnabled bool   `json:"tradingEnabled"`
+	TimeZone       int    `json:"time_zone"`
+	OpenTime       string `json:"open_time"`
+	CloseTime      string `json:"close_time"`
+	TradingEnabled bool   `json:"trading_enabled"`
 }
 
 func ToExchangeResponse(e model.Exchange) ExchangeResponse {

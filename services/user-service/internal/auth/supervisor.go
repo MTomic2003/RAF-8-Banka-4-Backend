@@ -44,9 +44,11 @@ func currentEmployee(c *gin.Context, employeeRepo repository.EmployeeRepository)
 	} else {
 		employee, err = employeeRepo.FindByIdentityID(c.Request.Context(), authCtx.IdentityID)
 	}
+
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
+
 	if employee == nil {
 		return nil, errors.NotFoundErr("employee not found")
 	}

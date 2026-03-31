@@ -50,6 +50,7 @@ services:
     environment:
       AIR_CONFIG_PATH: /app/services/banking-service/.air.toml
       PORT: ${BANKING_SERVICE_PORT}
+      GRPC_PORT: "50052"
       USER_SERVICE_ADDR: user_service:50051
       USER_SERVICE_BASE_URL: http://user_service:${PORT}
     depends_on:
@@ -77,6 +78,7 @@ services:
       PORT: ${TRADING_SERVICE_PORT}
       USER_SERVICE_ADDR: user_service:50051
       USER_SERVICE_BASE_URL: http://user_service:${PORT}
+      BANKING_SERVICE_ADDR: banking_service:50052
     depends_on:
       user_service_db:
         condition: service_healthy

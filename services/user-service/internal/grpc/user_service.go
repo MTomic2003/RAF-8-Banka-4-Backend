@@ -43,9 +43,19 @@ func (s *UserService) GetEmployeeById(ctx context.Context, req *pb.GetEmployeeBy
 	if employee == nil {
 		return nil, status.Errorf(codes.NotFound, "employee %d not found", req.Id)
 	}
-	return &pb.GetEmployeeByIdResponse{
-		Id:       uint64(employee.EmployeeID),
-		Email:    employee.Identity.Email,
-		FullName: employee.FirstName + " " + employee.LastName,
-	}, nil
+	resp := &pb.GetEmployeeByIdResponse{
+		Id:           uint64(employee.EmployeeID),
+		Email:        employee.Identity.Email,
+		FullName:     employee.FirstName + " " + employee.LastName,
+		IsSupervisor: employee.IsSupervisor(),
+		IsAgent:      employee.IsAgent(),
+	}
+
+	if employee.ActuaryInfo != nil {
+		resp.NeedApproval = employee.ActuaryInfo.NeedApproval
+		resp.OrderLimit = employee.ActuaryInfo.Limit
+		resp.UsedLimit = employee.ActuaryInfo.UsedLimit
+	}
+
+	return resp, nil
 }

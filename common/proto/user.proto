@@ -24,7 +24,12 @@ message GetEmployeeByIdRequest {
 }
 
 message GetEmployeeByIdResponse {
-  uint64 id        = 1;
-  string email     = 2;
-  string full_name = 3;
+  uint64 id             = 1;
+  string email          = 2;
+  string full_name      = 3;
+  bool   is_supervisor  = 4;
+  bool   is_agent       = 5;
+  bool   need_approval  = 6;
+  double order_limit    = 7;
+  double used_limit     = 8;
 }

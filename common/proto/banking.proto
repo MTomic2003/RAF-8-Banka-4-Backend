@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package banking.v1;
+
+option go_package = "common/pkg/pb;pb";
+
+service BankingService {
+  rpc GetAccountByNumber(GetAccountByNumberRequest) returns (GetAccountByNumberResponse);
+}
+
+message GetAccountByNumberRequest {
+  string account_number = 1;
+}
+
+message GetAccountByNumberResponse {
+  string account_number  = 1;
+  uint64 client_id       = 2;
+  string account_type    = 3;
+  string currency_code   = 4;
+  double available_balance = 5;
+}

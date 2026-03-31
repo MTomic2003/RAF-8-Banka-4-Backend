@@ -8,6 +8,7 @@ import (
 
 type ListingRepository interface {
 	FindAll(ctx context.Context) ([]model.Listing, error)
+	FindByID(ctx context.Context, id uint) (*model.Listing, error)
 	Upsert(ctx context.Context, listing *model.Listing) error
 	UpdatePriceAndAsk(ctx context.Context, listing *model.Listing, price, ask float64) error
 	Count(ctx context.Context) (int64, error)

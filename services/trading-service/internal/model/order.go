@@ -19,14 +19,16 @@ const (
 )
 
 const (
-	OrderStatusApproved        OrderStatus = "APPROVED"
-	OrderStatusRejected        OrderStatus = "REJECTED"
-	OrderStatusPendingApproval OrderStatus = "PENDING_APPROVAL"
+	OrderStatusPending  OrderStatus = "PENDING"
+	OrderStatusApproved OrderStatus = "APPROVED"
+	OrderStatusDeclined OrderStatus = "DECLINED"
 )
 
 type Order struct {
-	OrderID       uint           `gorm:"primaryKey;autoIncrement"`
-	ListingID     uint           `gorm:"not null;index"`
+	OrderID       uint   `gorm:"primaryKey;autoIncrement"`
+	UserID        uint   `gorm:"not null;index"`
+	AccountNumber string `gorm:"not null;size:18;index"`
+	ListingID     uint   `gorm:"not null;index"`
 	Listing       Listing
 	OrderType     OrderType      `gorm:"not null;size:20"`
 	Direction     OrderDirection `gorm:"not null;size:4"`
@@ -34,13 +36,18 @@ type Order struct {
 	FilledQty     uint           `gorm:"not null;default:0"`
 	LimitValue    *float64
 	StopValue     *float64
-	ContractSize  float64     `gorm:"not null;default:1"`
+	ContractSize  float64 `gorm:"not null;default:1"`
 	PricePerUnit  *float64
 	AllOrNone     bool        `gorm:"not null;default:false"`
 	Margin        bool        `gorm:"not null;default:false"`
 	Status        OrderStatus `gorm:"not null;size:20"`
 	ApprovedBy    *uint
-	IsDone    bool      `gorm:"not null;default:false"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	IsDone        bool `gorm:"not null;default:false"`
+	AfterHours    bool `gorm:"not null;default:false"`
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+func (o *Order) RemainingPortions() uint {
+	return o.Quantity - o.FilledQty
 }

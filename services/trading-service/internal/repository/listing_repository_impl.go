@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
@@ -22,6 +23,15 @@ func (r *listingRepository) FindAll(ctx context.Context,) ([]model.Listing, erro
 		return nil, err
 	}
 	return listings, nil
+}
+
+func (r *listingRepository) FindByID(ctx context.Context, id uint) (*model.Listing, error) {
+	var listing model.Listing
+	result := r.db.WithContext(ctx).First(&listing, id)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &listing, result.Error
 }
 
 func (r *listingRepository) Upsert(ctx context.Context, listing *model.Listing) error {

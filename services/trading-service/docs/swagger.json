@@ -7,6 +7,106 @@
         "version": "1.0"
     },
     "paths": {
+        "/api/exchange": {
+            "get": {
+                "description": "Returns a paginated list of all stock exchanges",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "exchange"
+                ],
+                "summary": "Get all exchanges",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/exchange/{micCode}/toggle": {
+            "patch": {
+                "description": "Enables or disables trading time enforcement for a specific exchange (for testing purposes)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "exchange"
+                ],
+                "summary": "Toggle trading enabled for an exchange",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Exchange MIC code",
+                        "name": "micCode",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ExchangeResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/health": {
             "get": {
                 "description": "Returns service health status",
@@ -29,6 +129,473 @@
                     }
                 }
             }
+        },
+        "/api/orders": {
+            "get": {
+                "description": "Returns a paginated and filtered list of orders. Clients see only their own orders, employees see all.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Get all orders",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status (PENDING, APPROVED, DECLINED)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by direction (BUY, SELL)",
+                        "name": "direction",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by completion status",
+                        "name": "is_done",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a buy or sell order for a listing",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Create a new order",
+                "parameters": [
+                    {
+                        "description": "Order details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/{id}/approve": {
+            "patch": {
+                "description": "Supervisor approves a pending order",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Approve a pending order",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/{id}/cancel": {
+            "patch": {
+                "description": "Cancel a pending or approved order that hasn't been fully executed",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Cancel an order",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/{id}/decline": {
+            "patch": {
+                "description": "Supervisor declines a pending order",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Decline a pending order",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "dto.CreateOrderRequest": {
+            "type": "object",
+            "required": [
+                "accountNumber",
+                "direction",
+                "listingId",
+                "orderType",
+                "quantity"
+            ],
+            "properties": {
+                "accountNumber": {
+                    "type": "string"
+                },
+                "allOrNone": {
+                    "type": "boolean"
+                },
+                "direction": {
+                    "enum": [
+                        "BUY",
+                        "SELL"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.OrderDirection"
+                        }
+                    ]
+                },
+                "limitValue": {
+                    "type": "number"
+                },
+                "listingId": {
+                    "type": "integer"
+                },
+                "margin": {
+                    "type": "boolean"
+                },
+                "orderType": {
+                    "enum": [
+                        "MARKET",
+                        "LIMIT",
+                        "STOP",
+                        "STOP_LIMIT"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.OrderType"
+                        }
+                    ]
+                },
+                "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "stopValue": {
+                    "type": "number"
+                }
+            }
+        },
+        "dto.ExchangeResponse": {
+            "type": "object",
+            "properties": {
+                "acronym": {
+                    "type": "string"
+                },
+                "closeTime": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "exchangeId": {
+                    "type": "integer"
+                },
+                "micCode": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "openTime": {
+                    "type": "string"
+                },
+                "polity": {
+                    "type": "string"
+                },
+                "timeZone": {
+                    "type": "integer"
+                },
+                "tradingEnabled": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "dto.OrderResponse": {
+            "type": "object",
+            "properties": {
+                "accountNumber": {
+                    "type": "string"
+                },
+                "afterHours": {
+                    "type": "boolean"
+                },
+                "allOrNone": {
+                    "type": "boolean"
+                },
+                "approvedBy": {
+                    "type": "integer"
+                },
+                "contractSize": {
+                    "type": "number"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "direction": {
+                    "$ref": "#/definitions/model.OrderDirection"
+                },
+                "isDone": {
+                    "type": "boolean"
+                },
+                "limitValue": {
+                    "type": "number"
+                },
+                "listingId": {
+                    "type": "integer"
+                },
+                "listingName": {
+                    "type": "string"
+                },
+                "margin": {
+                    "type": "boolean"
+                },
+                "orderId": {
+                    "type": "integer"
+                },
+                "orderType": {
+                    "$ref": "#/definitions/model.OrderType"
+                },
+                "pricePerUnit": {
+                    "type": "number"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "remainingPortions": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/model.OrderStatus"
+                },
+                "stopValue": {
+                    "type": "number"
+                },
+                "ticker": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.OrderDirection": {
+            "type": "string",
+            "enum": [
+                "BUY",
+                "SELL"
+            ],
+            "x-enum-varnames": [
+                "OrderDirectionBuy",
+                "OrderDirectionSell"
+            ]
+        },
+        "model.OrderStatus": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "APPROVED",
+                "DECLINED"
+            ],
+            "x-enum-varnames": [
+                "OrderStatusPending",
+                "OrderStatusApproved",
+                "OrderStatusDeclined"
+            ]
+        },
+        "model.OrderType": {
+            "type": "string",
+            "enum": [
+                "MARKET",
+                "LIMIT",
+                "STOP",
+                "STOP_LIMIT"
+            ],
+            "x-enum-varnames": [
+                "OrderTypeMarket",
+                "OrderTypeLimit",
+                "OrderTypeStop",
+                "OrderTypeStopLimit"
+            ]
         }
     },
     "securityDefinitions": {

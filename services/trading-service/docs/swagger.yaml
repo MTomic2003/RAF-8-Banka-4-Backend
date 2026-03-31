@@ -1,3 +1,142 @@
+definitions:
+  dto.CreateOrderRequest:
+    properties:
+      accountNumber:
+        type: string
+      allOrNone:
+        type: boolean
+      direction:
+        allOf:
+        - $ref: '#/definitions/model.OrderDirection'
+        enum:
+        - BUY
+        - SELL
+      limitValue:
+        type: number
+      listingId:
+        type: integer
+      margin:
+        type: boolean
+      orderType:
+        allOf:
+        - $ref: '#/definitions/model.OrderType'
+        enum:
+        - MARKET
+        - LIMIT
+        - STOP
+        - STOP_LIMIT
+      quantity:
+        minimum: 1
+        type: integer
+      stopValue:
+        type: number
+    required:
+    - accountNumber
+    - direction
+    - listingId
+    - orderType
+    - quantity
+    type: object
+  dto.ExchangeResponse:
+    properties:
+      acronym:
+        type: string
+      closeTime:
+        type: string
+      currency:
+        type: string
+      exchangeId:
+        type: integer
+      micCode:
+        type: string
+      name:
+        type: string
+      openTime:
+        type: string
+      polity:
+        type: string
+      timeZone:
+        type: integer
+      tradingEnabled:
+        type: boolean
+    type: object
+  dto.OrderResponse:
+    properties:
+      accountNumber:
+        type: string
+      afterHours:
+        type: boolean
+      allOrNone:
+        type: boolean
+      approvedBy:
+        type: integer
+      contractSize:
+        type: number
+      createdAt:
+        type: string
+      direction:
+        $ref: '#/definitions/model.OrderDirection'
+      isDone:
+        type: boolean
+      limitValue:
+        type: number
+      listingId:
+        type: integer
+      listingName:
+        type: string
+      margin:
+        type: boolean
+      orderId:
+        type: integer
+      orderType:
+        $ref: '#/definitions/model.OrderType'
+      pricePerUnit:
+        type: number
+      quantity:
+        type: integer
+      remainingPortions:
+        type: integer
+      status:
+        $ref: '#/definitions/model.OrderStatus'
+      stopValue:
+        type: number
+      ticker:
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: integer
+    type: object
+  model.OrderDirection:
+    enum:
+    - BUY
+    - SELL
+    type: string
+    x-enum-varnames:
+    - OrderDirectionBuy
+    - OrderDirectionSell
+  model.OrderStatus:
+    enum:
+    - PENDING
+    - APPROVED
+    - DECLINED
+    type: string
+    x-enum-varnames:
+    - OrderStatusPending
+    - OrderStatusApproved
+    - OrderStatusDeclined
+  model.OrderType:
+    enum:
+    - MARKET
+    - LIMIT
+    - STOP
+    - STOP_LIMIT
+    type: string
+    x-enum-varnames:
+    - OrderTypeMarket
+    - OrderTypeLimit
+    - OrderTypeStop
+    - OrderTypeStopLimit
 info:
   contact: {}
   description: API for managing portfolios, executing trades, and handling financial
@@ -5,6 +144,73 @@ info:
   title: Trading Service API
   version: "1.0"
 paths:
+  /api/exchange:
+    get:
+      description: Returns a paginated list of all stock exchanges
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get all exchanges
+      tags:
+      - exchange
+  /api/exchange/{micCode}/toggle:
+    patch:
+      description: Enables or disables trading time enforcement for a specific exchange
+        (for testing purposes)
+      parameters:
+      - description: Exchange MIC code
+        in: path
+        name: micCode
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ExchangeResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Toggle trading enabled for an exchange
+      tags:
+      - exchange
   /api/health:
     get:
       description: Returns service health status
@@ -20,6 +226,180 @@ paths:
       summary: Health check
       tags:
       - health
+  /api/orders:
+    get:
+      description: Returns a paginated and filtered list of orders. Clients see only
+        their own orders, employees see all.
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by status (PENDING, APPROVED, DECLINED)
+        in: query
+        name: status
+        type: string
+      - description: Filter by direction (BUY, SELL)
+        in: query
+        name: direction
+        type: string
+      - description: Filter by completion status
+        in: query
+        name: is_done
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get all orders
+      tags:
+      - orders
+    post:
+      consumes:
+      - application/json
+      description: Creates a buy or sell order for a listing
+      parameters:
+      - description: Order details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.OrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new order
+      tags:
+      - orders
+  /api/orders/{id}/approve:
+    patch:
+      description: Supervisor approves a pending order
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.OrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Approve a pending order
+      tags:
+      - orders
+  /api/orders/{id}/cancel:
+    patch:
+      description: Cancel a pending or approved order that hasn't been fully executed
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.OrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cancel an order
+      tags:
+      - orders
+  /api/orders/{id}/decline:
+    patch:
+      description: Supervisor declines a pending order
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.OrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Decline a pending order
+      tags:
+      - orders
 securityDefinitions:
   BearerAuth:
     description: JWT Authorization header using the Bearer scheme.

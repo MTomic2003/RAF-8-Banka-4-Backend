@@ -9,10 +9,10 @@ import (
 )
 
 type ExchangeService struct {
-	repo *repository.ExchangeRepository
+	repo repository.ExchangeRepository
 }
 
-func NewExchangeService(repo *repository.ExchangeRepository) *ExchangeService {
+func NewExchangeService(repo repository.ExchangeRepository) *ExchangeService {
 	return &ExchangeService{repo: repo}
 }
 

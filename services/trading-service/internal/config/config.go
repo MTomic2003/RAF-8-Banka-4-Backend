@@ -34,6 +34,7 @@ type Configuration struct {
 	GrpcPort           string // reserved for future banking-service gRPC endpoints
 	UserServiceAddr    string
 	UserServiceBaseURL string
+	BankingServiceAddr string
 	URLs               URLConfig
 	ExchangeRateAPIKey string
 	FinnhubAPIKey      string
@@ -79,6 +80,7 @@ func Load() *Configuration {
 		JWTSecret:          GetOrThrow("JWT_SECRET"),
 		UserServiceAddr:    GetOrDefault("USER_SERVICE_ADDR", "localhost:50051"),
 		UserServiceBaseURL: GetOrDefault("USER_SERVICE_BASE_URL", "http://localhost:8080"),
+		BankingServiceAddr: GetOrDefault("BANKING_SERVICE_ADDR", "localhost:50052"),
 		FinnhubAPIKey:      GetOrThrow("FINNHUB_API_KEY"),
 		DB: DBConfig{
 			Host:     GetOrThrow("DB_HOST"),
