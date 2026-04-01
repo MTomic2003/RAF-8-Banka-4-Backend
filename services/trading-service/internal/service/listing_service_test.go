@@ -37,8 +37,8 @@ func setupListingTestDB(t *testing.T) *gorm.DB {
 
 func seedListingTestData(t *testing.T, db *gorm.DB) {
 	listings := []model.Listing{
-		{Ticker: "AAPL", Name: "Apple Inc", ExchangeMIC: "XNAS", Price: 150.0, Ask: 151.0, MaintenanceMargin: 10.0, LastRefresh: time.Now()},
-		{Ticker: "GOOG", Name: "Alphabet Inc", ExchangeMIC: "XNAS", Price: 2800.0, Ask: 2801.0, MaintenanceMargin: 20.0, LastRefresh: time.Now()},
+		{Ticker: "AAPL", Name: "Apple Inc", ExchangeMIC: "XNAS", Price: 150.0, Ask: 151.0, MaintenanceMargin: 10.0, LastRefresh: time.Now(), ListingType: model.ListingTypeStock},
+		{Ticker: "GOOG", Name: "Alphabet Inc", ExchangeMIC: "XNAS", Price: 2800.0, Ask: 2801.0, MaintenanceMargin: 20.0, LastRefresh: time.Now(), ListingType: model.ListingTypeStock},
 	}
 	for i := range listings {
 		if err := db.Create(&listings[i]).Error; err != nil {
@@ -51,7 +51,7 @@ func seedListingTestData(t *testing.T, db *gorm.DB) {
 		{ListingID: listings[1].ListingID, OutstandingShares: 500000, DividendYield: 0.0},
 	}
 	for _, s := range stocks {
-		if err := db.Create(&s).Error; err != nil {
+		if err := db.Omit("Listing").Create(&s).Error; err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -61,34 +61,45 @@ func seedListingTestData(t *testing.T, db *gorm.DB) {
 		{ListingID: listings[1].ListingID, Date: time.Now(), Bid: 2799.0, Change: -5.0, Volume: 500},
 	}
 	for _, d := range dailyInfos {
-		if err := db.Create(&d).Error; err != nil {
+		if err := db.Omit("Listing").Create(&d).Error; err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	futures := []model.FuturesContract{
-		{Ticker: "CLJ26", Name: "Crude Oil", ContractSize: 1000, ContractUnit: "barrels", SettlementDate: time.Now().AddDate(0, 3, 0)},
+	futuresListing := model.Listing{
+		Ticker: "CLJ26", Name: "Crude Oil", ExchangeMIC: "XCME",
+		Price: 75.0, Ask: 75.5, MaintenanceMargin: 5.0,
+		LastRefresh: time.Now(), ListingType: model.ListingTypeFuture,
 	}
-	futuresListings := []model.Listing{
-		{Ticker: "CLJ26", Name: "Crude Oil", ExchangeMIC: "XCME", Price: 75.0, Ask: 75.5, MaintenanceMargin: 5.0, LastRefresh: time.Now()},
+	if err := db.Create(&futuresListing).Error; err != nil {
+		t.Fatal(err)
 	}
-	for i := range futuresListings {
-		if err := db.Create(&futuresListings[i]).Error; err != nil {
-			t.Fatal(err)
-		}
+	futuresContract := model.FuturesContract{
+		ListingID:      futuresListing.ListingID,
+		ContractSize:   1000,
+		ContractUnit:   "barrels",
+		SettlementDate: time.Now().AddDate(0, 3, 0),
 	}
-	for _, f := range futures {
-		if err := db.Create(&f).Error; err != nil {
+	if err := db.Create(&futuresContract).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	forexListings := []model.Listing{
+		{Ticker: "EUR/USD", Name: "EUR/USD", ExchangeMIC: "FOREX", Price: 1.08, LastRefresh: time.Now(), ListingType: model.ListingTypeForexPair},
+		{Ticker: "USD/RSD", Name: "USD/RSD", ExchangeMIC: "FOREX", Price: 117.0, LastRefresh: time.Now(), ListingType: model.ListingTypeForexPair},
+	}
+	for i := range forexListings {
+		if err := db.Create(&forexListings[i]).Error; err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	forexPairs := []model.ForexPair{
-		{Base: "EUR", Quote: "USD", Rate: 1.08},
-		{Base: "USD", Quote: "RSD", Rate: 117.0},
+		{ListingID: forexListings[0].ListingID, Base: "EUR", Quote: "USD", Rate: 1.08},
+		{ListingID: forexListings[1].ListingID, Base: "USD", Quote: "RSD", Rate: 117.0},
 	}
 	for _, p := range forexPairs {
-		if err := db.Create(&p).Error; err != nil {
+		if err := db.Omit("Listing").Create(&p).Error; err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -102,7 +113,7 @@ func TestGetStocks_ReturnsAll(t *testing.T) {
 
 	svc := NewListingService(
 		repository.NewListingRepository(db),
-		repository.NewFuturesRepository(db),
+		repository.NewFuturesContractRepository(db),
 		repository.NewForexRepository(db),
 		repository.NewOptionRepository(db),
 	)
@@ -126,7 +137,7 @@ func TestGetStocks_FilterByExchange(t *testing.T) {
 
 	svc := NewListingService(
 		repository.NewListingRepository(db),
-		repository.NewFuturesRepository(db),
+		repository.NewFuturesContractRepository(db),
 		repository.NewForexRepository(db),
 		repository.NewOptionRepository(db),
 	)
@@ -151,7 +162,7 @@ func TestGetStocks_FilterBySearch(t *testing.T) {
 
 	svc := NewListingService(
 		repository.NewListingRepository(db),
-		repository.NewFuturesRepository(db),
+		repository.NewFuturesContractRepository(db),
 		repository.NewForexRepository(db),
 		repository.NewOptionRepository(db),
 	)
@@ -179,7 +190,7 @@ func TestGetStocks_InitialMarginCost(t *testing.T) {
 
 	svc := NewListingService(
 		repository.NewListingRepository(db),
-		repository.NewFuturesRepository(db),
+		repository.NewFuturesContractRepository(db),
 		repository.NewForexRepository(db),
 		repository.NewOptionRepository(db),
 	)
@@ -205,7 +216,7 @@ func TestGetFutures_ReturnsAll(t *testing.T) {
 
 	svc := NewListingService(
 		repository.NewListingRepository(db),
-		repository.NewFuturesRepository(db),
+		repository.NewFuturesContractRepository(db),
 		repository.NewForexRepository(db),
 		repository.NewOptionRepository(db),
 	)
@@ -229,7 +240,7 @@ func TestGetFutures_ContractDataPresent(t *testing.T) {
 
 	svc := NewListingService(
 		repository.NewListingRepository(db),
-		repository.NewFuturesRepository(db),
+		repository.NewFuturesContractRepository(db),
 		repository.NewForexRepository(db),
 		repository.NewOptionRepository(db),
 	)
@@ -259,7 +270,7 @@ func TestGetForex_ReturnsAll(t *testing.T) {
 
 	svc := NewListingService(
 		repository.NewListingRepository(db),
-		repository.NewFuturesRepository(db),
+		repository.NewFuturesContractRepository(db),
 		repository.NewForexRepository(db),
 		repository.NewOptionRepository(db),
 	)
@@ -280,7 +291,7 @@ func TestGetForex_TickerFormat(t *testing.T) {
 
 	svc := NewListingService(
 		repository.NewListingRepository(db),
-		repository.NewFuturesRepository(db),
+		repository.NewFuturesContractRepository(db),
 		repository.NewForexRepository(db),
 		repository.NewOptionRepository(db),
 	)

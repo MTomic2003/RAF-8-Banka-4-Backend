@@ -154,7 +154,7 @@ func (r *listingRepository) FindFutures(ctx context.Context, filter ListingFilte
 
 	db := r.db.WithContext(ctx).
 		Model(&model.Listing{}).
-		Joins("INNER JOIN futures_contracts ON futures_contracts.ticker = listings.ticker")
+		Joins("INNER JOIN futures_contracts ON futures_contracts.listing_id = listings.listing_id")
 
 	db = joinLatestDaily(db)
 	db = applyListingFilters(db, filter)

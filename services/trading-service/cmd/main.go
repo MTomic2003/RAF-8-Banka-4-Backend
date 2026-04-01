@@ -72,7 +72,6 @@ func main() {
 			repository.NewExchangeRepository,
 			service.NewExchangeService,
 			handler.NewExchangeHandler,
-			repository.NewFuturesRepository,
 			service.NewListingService,
 			handler.NewListingHandler,
 			repository.NewOrderOwnershipRepository,

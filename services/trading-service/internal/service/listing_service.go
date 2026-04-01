@@ -11,14 +11,14 @@ import (
 
 type ListingService struct {
 	listingRepo repository.ListingRepository
-	futuresRepo repository.FuturesRepository
+	futuresRepo repository.FuturesContractRepository
 	forexRepo   repository.ForexRepository
 	optionRepo  repository.OptionRepository
 }
 
 func NewListingService(
 	listingRepo repository.ListingRepository,
-	futuresRepo repository.FuturesRepository,
+	futuresRepo repository.FuturesContractRepository,
 	forexRepo repository.ForexRepository,
 	optionRepo repository.OptionRepository,
 ) *ListingService {
@@ -139,25 +139,26 @@ func (s *ListingService) GetFutures(ctx context.Context, q dto.ListingQuery) (*d
 		return nil, commonErrors.InternalErr(err)
 	}
 
-	tickers := make([]string, len(listings))
+	// IZMENA: koristimo ListingIDs umesto tickera
+	ids := make([]uint, len(listings))
 	for i, l := range listings {
-		tickers[i] = l.Ticker
+		ids[i] = l.ListingID
 	}
 
-	contracts, err := s.futuresRepo.FindByTickers(ctx, tickers)
+	contracts, err := s.futuresRepo.FindByListingIDs(ctx, ids)
 	if err != nil {
 		return nil, commonErrors.InternalErr(err)
 	}
 
-	contractMap := make(map[string]model.FuturesContract)
+	contractMap := make(map[uint]model.FuturesContract)
 	for _, fc := range contracts {
-		contractMap[fc.Ticker] = fc
+		contractMap[fc.ListingID] = fc
 	}
 
 	data := make([]dto.FuturesResponse, len(listings))
 	for i, l := range listings {
 		daily := latestDaily(l.DailyPriceInfos)
-		fc := contractMap[l.Ticker]
+		fc := contractMap[l.ListingID] // IZMENA
 		data[i] = dto.FuturesResponse{
 			BaseListingResponse: baseResponse(l, daily),
 			SettlementDate:      fc.SettlementDate,

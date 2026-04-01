@@ -37,3 +37,11 @@ func (r *stockRepository) FindAll(ctx context.Context) ([]model.Stock, error) {
 	}
 	return stocks, nil
 }
+
+func (r *stockRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&model.Stock{}).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}

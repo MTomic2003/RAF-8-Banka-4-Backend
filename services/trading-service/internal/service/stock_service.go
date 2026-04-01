@@ -42,7 +42,7 @@ func NewStockService(
 }
 
 func (s *StockService) Initialize(ctx context.Context) {
-	count, err := s.listingRepo.Count(ctx)
+	count, err := s.stockRepo.Count(ctx)
 	if err != nil {
 		log.Printf("[seed] failed to count listings: %v", err)
 		return

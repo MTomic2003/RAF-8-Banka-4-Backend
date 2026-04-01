@@ -8,6 +8,7 @@ import (
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/repository"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,6 +36,10 @@ func (r *fakeStockRepo) FindAll(_ context.Context) ([]model.Stock, error) { retu
 
 func (r *fakeStockRepo) FindByListingIDs(_ context.Context, _ []uint) ([]model.Stock, error) {
 	return r.stocks, r.err
+}
+
+func (r *fakeStockRepo) Count(_ context.Context) (int64, error) {
+	return 0, nil
 }
 
 type fakeOptionRepo struct {
@@ -86,6 +91,10 @@ func (r *fakeForexRepo) Upsert(_ context.Context, pair model.ForexPair) error {
 	}
 	r.forex = append(r.forex, pair)
 	return nil
+}
+
+func (r *fakeForexRepo) FindAll(_ context.Context, _ repository.ListingFilter) ([]model.ForexPair, int64, error) {
+	return r.forex, int64(len(r.forex)), r.err
 }
 
 // --- Helpers ---

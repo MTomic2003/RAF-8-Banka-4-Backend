@@ -71,11 +71,12 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, exchangeHa
 		}
     
 		listings := api.Group("/listings")
+		listings.Use(auth.Middleware(verifier, permProvider))
 		{
-			listings.GET("/stocks", listingHandler.GetStocks)
-			listings.GET("/futures", listingHandler.GetFutures)
-			listings.GET("/forex", listingHandler.GetForex)
-			listings.GET("/options", listingHandler.GetOptions)
+			listings.GET("/stocks", auth.AnyOf(middleware.RequireSupervisor(userClient), middleware.RequireAgent(userClient), auth.RequireIdentityType(auth.IdentityClient)), listingHandler.GetStocks)
+			listings.GET("/futures", auth.AnyOf(middleware.RequireSupervisor(userClient), middleware.RequireAgent(userClient), auth.RequireIdentityType(auth.IdentityClient)),  listingHandler.GetFutures)
+			listings.GET("/forex", auth.AnyOf(middleware.RequireSupervisor(userClient), middleware.RequireAgent(userClient)), listingHandler.GetForex)
+			listings.GET("/options", auth.AnyOf(middleware.RequireSupervisor(userClient), middleware.RequireAgent(userClient)), listingHandler.GetOptions)
     }
 
 		authMw := auth.Middleware(verifier, permProvider)
