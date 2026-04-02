@@ -200,6 +200,24 @@ func baseExpiresAt() time.Time {
 	return time.Now().AddDate(5, 0, 0)
 }
 
+type fakeAccountServiceMailer struct {
+	sendErr error
+	sent    []sentEmail
+}
+
+func (f *fakeAccountServiceMailer) Send(to, subject, body string) error {
+	if f.sendErr != nil {
+		return f.sendErr
+	}
+
+	f.sent = append(f.sent, sentEmail{
+		to:      to,
+		subject: subject,
+		body:    body,
+	})
+	return nil
+}
+
 func newAccountService(
 	accountRepo *fakeAccountRepo,
 	vr *fakeVerificationTokenRepo,
@@ -207,11 +225,15 @@ func newAccountService(
 	userClient *fakeUserClient,
 	mobileSecretClient client.MobileSecretClient,
 	exchangeConverter *fakeCurrencyConverter,
+	mailer Mailer,
 ) *AccountService {
 	if mobileSecretClient == nil {
 		mobileSecretClient = &fakeAccountMobileSecretClient{}
 	}
-	return NewAccountService(accountRepo, currencyRepo, vr, userClient, nil, mobileSecretClient, exchangeConverter, &fakeBankingTxManager{})
+	if mailer == nil {
+		mailer = &fakeAccountServiceMailer{}
+	}
+	return NewAccountService(accountRepo, currencyRepo, vr, userClient, nil, mobileSecretClient, exchangeConverter, &fakeBankingTxManager{}, mailer)
 }
 
 func TestCreateAccount(t *testing.T) {
@@ -474,7 +496,7 @@ func TestCreateAccount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newAccountService(tt.accountRepo, &fakeVerificationTokenRepo{}, tt.currencyRepo, tt.userClient, nil, tt.exchangeConverter)
+			svc := newAccountService(tt.accountRepo, &fakeVerificationTokenRepo{}, tt.currencyRepo, tt.userClient, nil, tt.exchangeConverter, nil)
 			account, err := svc.Create(context.Background(), tt.req)
 
 			if tt.expectErr {
@@ -536,7 +558,7 @@ func TestGetClientAccounts(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{})
+			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{}, nil)
 			accounts, err := svc.GetClientAccounts(context.Background(), 1)
 			if tt.expectErr {
 				require.Error(t, err)
@@ -576,7 +598,7 @@ func TestGetAccountDetails(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{})
+			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{}, nil)
 			account, err := svc.GetAccountDetails(context.Background(), "444000112345678911", 1)
 			if tt.expectErr {
 				require.Error(t, err)
@@ -647,7 +669,7 @@ func TestUpdateAccountName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{})
+			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{}, nil)
 			err := svc.UpdateAccountName(context.Background(), "444000112345678911", 1, tt.newName)
 			if tt.expectErr {
 				require.Error(t, err)
@@ -700,7 +722,7 @@ func TestRequestLimitsChange(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			svc := newAccountService(tt.repo, tt.vr, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{})
+			svc := newAccountService(tt.repo, tt.vr, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{}, nil)
 			err := svc.RequestLimitsChange(context.Background(), "444000112345678911", 1, 500000, 2000000)
 			if tt.expectErr {
 				require.Error(t, err)
@@ -793,7 +815,7 @@ func TestConfirmLimitsChange(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			mobileClient := &fakeAccountMobileSecretClient{secret: tt.secret, err: tt.secretErr}
-			svc := newAccountService(tt.repo, tt.vr, &fakeCurrencyRepo{}, &fakeUserClient{}, mobileClient, &fakeCurrencyConverter{})
+			svc := newAccountService(tt.repo, tt.vr, &fakeCurrencyRepo{}, &fakeUserClient{}, mobileClient, &fakeCurrencyConverter{}, nil)
 			err := svc.ConfirmLimitsChange(context.Background(), "444000112345678911", 1, tt.code, "Bearer test")
 			if tt.expectErr {
 				require.Error(t, err)
@@ -862,7 +884,7 @@ func TestGetAllAccounts(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{})
+			svc := newAccountService(tt.repo, &fakeVerificationTokenRepo{}, &fakeCurrencyRepo{}, &fakeUserClient{}, nil, &fakeCurrencyConverter{}, nil)
 
 			accounts, total, err := svc.GetAllAccounts(context.Background(), query)
 
