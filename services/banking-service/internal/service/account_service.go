@@ -22,6 +22,7 @@ type AccountService struct {
 	mobileSecretClient client.MobileSecretClient
 	exchangeService    CurrencyConverter
 	txManager          repository.TransactionManager
+	mailer             Mailer
 }
 
 func NewAccountService(
@@ -165,6 +166,10 @@ func (s *AccountService) Create(ctx context.Context, req dto.CreateAccountReques
 			return nil, err
 		}
 
+		if err := s.sendAccountCreationEmail(ctx, account); err != nil {
+			return account, errors.ServiceUnavailableErr(err)
+		}
+
 		return account, nil
 	}
 
@@ -172,8 +177,38 @@ func (s *AccountService) Create(ctx context.Context, req dto.CreateAccountReques
 		return nil, errors.InternalErr(err)
 	}
 
+	if err := s.sendAccountCreationEmail(ctx, account); err != nil {
+		return account, errors.ServiceUnavailableErr(err)
+	}
+
 	return account, nil
 }
+
+func (s *AccountService) sendAccountCreationEmail(ctx context.Context, account *model.Account) error {
+	client, err := s.userClient.GetClientByID(ctx, account.ClientID)
+	if err != nil {
+		return err
+	}
+
+	body := fmt.Sprintf(
+		"Hello %s,\n\nA new %s account %s has been created successfully.\n\n"+
+			"Account name: %s\nAccount type: %s\nAccount subtype: %s\nCurrency: %s",
+		defaultContactName(client.FullName),
+		account.AccountKind,
+		account.AccountNumber,
+		account.Name,
+		account.AccountType,
+		account.Subtype,
+		account.Currency.Code,
+	)
+
+	if err := s.mailer.Send(client.Email, "Card created successfully", body); err != nil {
+		return errors.ServiceUnavailableErr(err)
+	}
+
+	return nil
+}
+
 func (s *AccountService) GetAllAccounts(ctx context.Context, query *dto.ListAccountsQuery) ([]*model.Account, int64, error) {
 	return s.repo.FindAll(ctx, query)
 }
