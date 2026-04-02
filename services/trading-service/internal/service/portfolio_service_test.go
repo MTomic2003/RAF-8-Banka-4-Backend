@@ -67,17 +67,6 @@ type fakeForexRepo struct {
 	err   error
 }
 
-func (r *fakeForexRepo) CreateDailyPriceInfo(ctx context.Context, info *model.ForexPairDailyPriceInfo) error {
-	return nil
-}
-
-func (r *fakeForexRepo) FindLastDailyPriceInfo(ctx context.Context, forexPairID uint, beforeDate time.Time) (*model.ForexPairDailyPriceInfo, error) {
-	return nil, nil
-}
-
-func (r *fakeForexRepo) FindAllForexPairs(ctx context.Context) ([]model.ForexPair, error) {
-	return r.forex, r.err
-}
 
 func (r *fakeForexRepo) FindByListingIDs(_ context.Context, _ []uint) ([]model.ForexPair, error) {
 	return r.forex, r.err

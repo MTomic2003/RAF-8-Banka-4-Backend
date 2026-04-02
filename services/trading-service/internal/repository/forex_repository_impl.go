@@ -2,8 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
-	"time"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"gorm.io/gorm"
@@ -72,26 +70,4 @@ func (r *forexRepository) FindByListingIDs(ctx context.Context, listingIDs []uin
 		return nil, err
 	}
 	return pairs, nil
-}
-
-func (r *forexRepository) CreateDailyPriceInfo(ctx context.Context, info *model.ForexPairDailyPriceInfo) error {
-	return r.db.WithContext(ctx).Create(&info).Error
-}
-
-func (r *forexRepository) FindLastDailyPriceInfo(ctx context.Context, forexPairID uint, beforeDate time.Time) (*model.ForexPairDailyPriceInfo, error) {
-	var info model.ForexPairDailyPriceInfo
-	err := r.db.WithContext(ctx).
-		Where("forex_pair_id = ? AND date < ?", forexPairID, beforeDate).
-		Order("date DESC").
-		First(&info).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	return &info, err
-}
-
-func (r *forexRepository) FindAllForexPairs(ctx context.Context) ([]model.ForexPair, error) {
-	var pairs []model.ForexPair
-	err := r.db.WithContext(ctx).Find(&pairs).Error
-	return pairs, err
 }

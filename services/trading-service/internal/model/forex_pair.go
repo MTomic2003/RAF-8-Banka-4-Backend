@@ -19,14 +19,3 @@ type ForexPair struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
-type ForexPairDailyPriceInfo struct {
-	ID          uint `gorm:"primaryKey;autoIncrement"`
-	ForexPairID uint `gorm:"not null;index"`
-	ForexPair   ForexPair
-	Date        time.Time `gorm:"not null;index"`
-	Rate        float64   `gorm:"not null;default:0"` // close rate
-	Ask         float64   `gorm:"not null;default:0"`
-	Bid         float64   `gorm:"not null;default:0"`
-	Change      float64   `gorm:"not null;default:0"`
-	Volume      uint      `gorm:"not null;default:0"`
-}
