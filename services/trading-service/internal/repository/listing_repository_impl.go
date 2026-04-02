@@ -27,7 +27,13 @@ func (r *listingRepository) FindAll(ctx context.Context) ([]model.Listing, error
 
 func (r *listingRepository) FindByID(ctx context.Context, id uint) (*model.Listing, error) {
 	var listing model.Listing
-	result := r.db.WithContext(ctx).First(&listing, id)
+	result := r.db.WithContext(ctx).
+		Preload("Stock").
+		Preload("DailyPriceInfos", func(db *gorm.DB) *gorm.DB {
+			return db.Order("date ASC")
+		}).
+		First(&listing, id)
+
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
