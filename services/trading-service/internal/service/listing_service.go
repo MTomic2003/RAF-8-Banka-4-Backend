@@ -125,6 +125,58 @@ func (s *ListingService) GetStocks(ctx context.Context, q dto.ListingQuery) (*dt
 		PageSize: q.PageSize,
 	}, nil
 }
+func (s *ListingService) GetStockDetails(ctx context.Context, listingID uint) (*dto.StockDetailedResponse, error) {
+	l, err := s.listingRepo.FindByID(ctx, listingID)
+	if err != nil {
+		return nil, commonErrors.InternalErr(err)
+	}
+	if l == nil || l.ListingType != model.ListingTypeStock || l.Stock == nil {
+		return nil, commonErrors.NotFoundErr("stock not found")
+	}
+
+	daily := latestDaily(l.DailyPriceInfos)
+	stockResp := dto.StockResponse{
+		BaseListingResponse: baseResponse(*l, daily),
+		OutstandingShares:   l.Stock.OutstandingShares,
+		DividendYield:       l.Stock.DividendYield,
+	}
+
+	history := make([]dto.DailyPriceResponse, len(l.DailyPriceInfos))
+	for i, h := range l.DailyPriceInfos {
+		history[i] = dto.DailyPriceResponse{
+			Date:   h.Date,
+			Price:  h.Price,
+			Ask:    h.Ask,
+			Bid:    h.Bid,
+			Change: h.Change,
+			Volume: h.Volume,
+		}
+	}
+
+	options, err := s.optionRepo.FindByStockID(ctx, l.Stock.StockID)
+	if err != nil {
+		return nil, commonErrors.InternalErr(err)
+	}
+
+	optionResponses := make([]dto.OptionResponse, len(options))
+	for i, o := range options {
+
+		optionResponses[i] = dto.OptionResponse{
+			BaseListingResponse: baseResponse(o.Listing, nil),
+			Strike:              o.StrikePrice,
+			OptionType:          string(o.OptionType),
+			SettlementDate:      o.SettlementDate,
+			ImpliedVolatility:   o.ImpliedVolatility,
+			OpenInterest:        o.OpenInterest,
+		}
+	}
+
+	return &dto.StockDetailedResponse{
+		StockResponse: stockResp,
+		History:       history,
+		Options:       optionResponses,
+	}, nil
+}
 
 // --- Futures ---
 

@@ -30,3 +30,15 @@ func (r *optionRepository) FindByListingIDs(ctx context.Context, listingIDs []ui
 	}
 	return options, nil
 }
+func (r *optionRepository) FindByStockID(ctx context.Context, stockID uint) ([]model.Option, error) {
+	var options []model.Option
+
+	if err := r.db.WithContext(ctx).
+		Where("stock_id = ?", stockID).
+		Preload("Listing").
+		Find(&options).Error; err != nil {
+		return nil, err
+	}
+
+	return options, nil
+}

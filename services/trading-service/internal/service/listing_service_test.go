@@ -207,6 +207,47 @@ func TestGetStocks_InitialMarginCost(t *testing.T) {
 		}
 	}
 }
+func TestGetStockDetails_Success(t *testing.T) {
+	db := setupListingTestDB(t)
+	seedListingTestData(t, db)
+
+	optionListing := model.Listing{
+		Ticker: "AAPL220404C00180000", Name: "AAPL Call", ExchangeMIC: "XNAS",
+		Price: 5.50, Ask: 5.60, ListingType: model.ListingTypeOption, LastRefresh: time.Now(),
+	}
+	db.Create(&optionListing)
+
+	option := model.Option{
+		ListingID: optionListing.ListingID, StockID: 1, OptionType: model.OptionTypeCall,
+		StrikePrice: 180.0, ContractSize: 100, SettlementDate: time.Now().AddDate(0, 1, 0),
+	}
+	db.Create(&option)
+
+	svc := NewListingService(
+		repository.NewListingRepository(db),
+		repository.NewFuturesContractRepository(db),
+		repository.NewForexRepository(db),
+		repository.NewOptionRepository(db),
+	)
+
+	result, err := svc.GetStockDetails(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("GetStockDetails failed: %v", err)
+	}
+
+	if result.Ticker != "AAPL" {
+		t.Errorf("expected ticker AAPL, got %s", result.Ticker)
+	}
+	if len(result.History) != 1 {
+		t.Errorf("expected 1 history record, got %d", len(result.History))
+	}
+	if len(result.Options) != 1 {
+		t.Fatalf("expected 1 option, got %d", len(result.Options))
+	}
+	if result.Options[0].OptionType != "CALL" {
+		t.Errorf("expected option type CALL, got %s", result.Options[0].OptionType)
+	}
+}
 
 // --- Futures ---
 
