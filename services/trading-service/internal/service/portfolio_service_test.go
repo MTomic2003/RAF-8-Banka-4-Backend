@@ -97,6 +97,10 @@ func (r *fakeForexRepo) FindAll(_ context.Context, _ repository.ListingFilter) (
 	return r.forex, int64(len(r.forex)), r.err
 }
 
+func (m *fakeOptionRepo) FindByStockID(ctx context.Context, stockID uint) ([]model.Option, error) {
+	return nil, nil
+}
+
 // --- Helpers ---
 
 func ptrF(f float64) *float64 { return &f }
