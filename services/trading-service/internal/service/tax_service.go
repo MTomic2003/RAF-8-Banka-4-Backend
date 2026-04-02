@@ -48,8 +48,7 @@ func (s *TaxService) RecordTax(ctx context.Context, accountNumber string, profit
 	return nil
 }
 
-
-//Za svaki racun koji ima nakupljeni porez, pokušava da ga uplati na racun drzave, rezultat toga (uspeh ili neuspeh) u bazu.
+// Za svaki racun koji ima nakupljeni porez, pokušava da ga uplati na racun drzave, rezultat toga (uspeh ili neuspeh) u bazu.
 func (s *TaxService) CollectTaxes(ctx context.Context) error {
 	taxes, err := s.taxRepo.FindAllPositiveAccumulatedTax(ctx)
 	if err != nil {
@@ -58,11 +57,12 @@ func (s *TaxService) CollectTaxes(ctx context.Context) error {
 	now := time.Now()
 
 	for _, tax := range taxes {
-		collectionErr := s.collectSingleTax(ctx, tax)
+		amountToCollect := tax.TaxOwedRSD
+
+		collectionErr := s.collectSingleTax(ctx, tax.AccountNumber, amountToCollect)
 
 		var status model.TaxStatus
 		var failureReason *string
-
 		if collectionErr != nil {
 			status = model.TaxStatusFailed
 			reason := collectionErr.Error()
@@ -73,43 +73,35 @@ func (s *TaxService) CollectTaxes(ctx context.Context) error {
 
 		collection := &model.TaxCollection{
 			AccountNumber:     tax.AccountNumber,
-			TaxOwedRSD:        tax.TaxOwedRSD,
+			TaxOwedRSD:        amountToCollect,
 			Status:            status,
 			FailureReason:     failureReason,
 			TaxingPeriodStart: tax.LastUpdatedAt,
 			TaxingPeriodEnd:   &now,
 		}
 
-		err = s.taxRepo.CreateTaxCollection(ctx, collection)
+		err = s.taxRepo.RecordCollectionResult(ctx, collection, collectionErr == nil, amountToCollect, now)
 		if err != nil {
 			return errors.InternalErr(err)
-		}
-
-		if collectionErr == nil {
-			err = s.taxRepo.ClearTax(ctx, tax.AccountNumber, now)
-			if err != nil {
-				return errors.InternalErr(err)
-			}
 		}
 	}
 
 	return nil
 }
 
-//prebaci X dinara sa racuna korisnika na drzavni racun
-func (s *TaxService) collectSingleTax(ctx context.Context, tax model.AccumulatedTax) error {
-	_, err := s.bankingClient.CreatePayment(ctx, &pb.CreatePaymentRequest{
-		PayerAccountNumber:     tax.AccountNumber,
+func (s *TaxService) collectSingleTax(ctx context.Context, accountNumber string, amount float64) error {
+	_, err := s.bankingClient.CreatePaymentWithoutVerification(ctx, &pb.CreatePaymentRequest{
+		PayerAccountNumber:     accountNumber,
 		RecipientAccountNumber: s.taxAccountNumber,
 		RecipientName:          "Republika Srbija",
-		Amount:                 tax.TaxOwedRSD,
+		Amount:                 amount,
 		PaymentCode:            "253",
 		Purpose:                "Porez na kapitalnu dobit",
 	})
 	return err
 }
 
-//trenutni nakupljeni porez za jedan racun iz baze
+// trenutni nakupljeni porez za jedan racun iz baze
 func (s *TaxService) GetAccumulatedTax(ctx context.Context, accountNumber string) (*model.AccumulatedTax, error) {
 	tax, err := s.taxRepo.FindAccumulatedTaxByAccountNumber(ctx, accountNumber)
 	if err != nil {
@@ -118,7 +110,7 @@ func (s *TaxService) GetAccumulatedTax(ctx context.Context, accountNumber string
 	return tax, nil
 }
 
-//istoriju svih naplatnih pokusaja poreza racuna(uspeni ili ne)
+// istoriju svih naplatnih pokusaja poreza racuna(uspeni ili ne)
 func (s *TaxService) GetTaxCollections(ctx context.Context, accountNumber string) ([]model.TaxCollection, error) {
 	collections, err := s.taxRepo.FindTaxCollectionsByAccountNumber(ctx, accountNumber)
 	if err != nil {

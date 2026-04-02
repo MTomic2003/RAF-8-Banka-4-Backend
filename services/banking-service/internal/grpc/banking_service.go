@@ -43,8 +43,8 @@ func (s *BankingService) GetAccountByNumber(ctx context.Context, req *pb.GetAcco
 	}, nil
 }
 
-func (s *BankingService) CreatePayment(ctx context.Context, req *pb.CreatePaymentRequest) (*pb.CreatePaymentResponse, error) {
-	payment, err := s.paymentService.CreatePayment(ctx, dto.CreatePaymentRequest{
+func (s *BankingService) CreatePaymentWithoutVerification(ctx context.Context, req *pb.CreatePaymentRequest) (*pb.CreatePaymentResponse, error) {
+	payment, err := s.paymentService.CreatePaymentWithoutVerification(ctx, dto.CreatePaymentRequest{
 		PayerAccountNumber:     req.PayerAccountNumber,
 		RecipientAccountNumber: req.RecipientAccountNumber,
 		RecipientName:          req.RecipientName,
@@ -62,4 +62,3 @@ func (s *BankingService) CreatePayment(ctx context.Context, req *pb.CreatePaymen
 		Status:        string(payment.Transaction.Status),
 	}, nil
 }
-

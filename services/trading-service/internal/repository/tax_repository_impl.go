@@ -91,6 +91,27 @@ func (r *taxRepositoryImpl) ClearTax(ctx context.Context, accountNumber string, 
 		}).Error
 }
 
+func (r *taxRepositoryImpl) RecordCollectionResult(ctx context.Context, collection *model.TaxCollection, clearTax bool, clearedAmount float64, clearedAt time.Time) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(collection).Error; err != nil {
+			return err
+		}
+		if clearTax {
+			if err := tx.Model(&model.AccumulatedTax{}).
+				Where("account_number = ?", collection.AccountNumber).
+				Updates(map[string]interface{}{
+					// Subtract only what was collected, not zero out
+					"tax_owed_rsd":    gorm.Expr("GREATEST(tax_owed_rsd - ?, 0)", clearedAmount),
+					"last_cleared_at": clearedAt,
+					"last_updated_at": clearedAt,
+				}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func (r *taxRepositoryImpl) SaveAccumulatedTax(ctx context.Context, tax *model.AccumulatedTax) error {
 	return r.db.WithContext(ctx).Save(tax).Error
 }

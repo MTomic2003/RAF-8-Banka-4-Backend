@@ -8,5 +8,5 @@ import (
 
 type BankingClient interface {
 	GetAccountByNumber(ctx context.Context, accountNumber string) (*pb.GetAccountByNumberResponse, error)
-	CreatePayment(ctx context.Context, req *pb.CreatePaymentRequest) (*pb.CreatePaymentResponse, error)
+	CreatePaymentWithoutVerification(ctx context.Context, req *pb.CreatePaymentRequest) (*pb.CreatePaymentResponse, error)
 }

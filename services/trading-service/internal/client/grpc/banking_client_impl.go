@@ -28,7 +28,7 @@ func (c *BankingServiceClient) GetAccountByNumber(ctx context.Context, accountNu
 	return resp, nil
 }
 
-func (c *BankingServiceClient) CreatePayment(ctx context.Context, req *pb.CreatePaymentRequest) (*pb.CreatePaymentResponse, error) {
+func (c *BankingServiceClient) CreatePaymentWithoutVerification(ctx context.Context, req *pb.CreatePaymentRequest) (*pb.CreatePaymentResponse, error) {
 	resp, err := c.stub.CreatePayment(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("banking client CreatePayment: %w", err)

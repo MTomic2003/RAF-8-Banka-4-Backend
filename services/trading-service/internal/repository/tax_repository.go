@@ -18,6 +18,8 @@ type TaxRepository interface {
 
 	ClearTax(ctx context.Context, accountNumber string, clearedAt time.Time) error
 
+	RecordCollectionResult(ctx context.Context, collection *model.TaxCollection, clearTax bool, clearedAmount float64, clearedAt time.Time) error
+
 	SaveAccumulatedTax(ctx context.Context, tax *model.AccumulatedTax) error
 
 	CreateTaxCollection(ctx context.Context, collection *model.TaxCollection) error

@@ -125,6 +125,19 @@ func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymen
 	return payment, nil
 }
 
+func (s *PaymentService) CreatePaymentWithoutVerification(ctx context.Context, req dto.CreatePaymentRequest) (*model.Payment, error) {
+	payment, err := s.CreatePayment(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.transactionProcessor.Process(ctx, payment.Transaction.TransactionID); err != nil {
+		return nil, err
+	}
+
+	return payment, nil
+}
+
 func (s *PaymentService) GetPaymentByID(ctx context.Context, id uint) (*model.Payment, error) {
 	payment, err := s.paymentRepo.GetByID(ctx, id)
 	if err != nil {
