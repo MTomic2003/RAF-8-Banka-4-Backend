@@ -190,6 +190,15 @@ func (s *LoanService) GetLoanRequests(ctx context.Context, query *dto.ListLoanRe
 
 	var response []dto.LoanRequestResponse
 	for _, r := range requests {
+		var installmentDueDate *time.Time
+
+		if r.Status == model.LoanRequestApproved {
+			loan, err := s.loanRepo.FindLoanByRequestID(ctx, r.ID)
+			if err == nil && loan != nil {
+				installmentDueDate = &loan.NextInstallmentDate
+			}
+		}
+
 		response = append(response, dto.LoanRequestResponse{
 			ID:                 r.ID,
 			ClientID:           r.ClientID,
@@ -199,6 +208,7 @@ func (s *LoanService) GetLoanRequests(ctx context.Context, query *dto.ListLoanRe
 			RepaymentPeriod:    r.RepaymentPeriod,
 			MonthlyInstallment: r.MonthlyInstallment,
 			Status:             r.Status,
+			InstallmentDueDate: installmentDueDate,
 		})
 	}
 
