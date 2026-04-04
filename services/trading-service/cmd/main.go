@@ -118,7 +118,7 @@ func main() {
 			return seed.RunExchangeSeed(db)
 		}),
 		fx.Invoke(func(db *gorm.DB) error {
-			return seed.SeedAccumulatedTax(db)
+			return seed.AccumulatedTax(db)
 		}),
 		fx.Invoke(server.NewServer),
 		fx.Invoke(func(lc fx.Lifecycle, scheduler *service.TaxScheduler) {

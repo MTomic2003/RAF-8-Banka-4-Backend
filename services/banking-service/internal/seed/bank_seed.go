@@ -298,7 +298,7 @@ var accounts = []struct {
 	{
 		AccountNumber: "444000000000000008",
 		Name:          "Republika Srbija Tax Account",
-		ClientID:      2,
+		ClientID:      1,
 		EmployeeID:    3,
 		Balance:       0,
 		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
