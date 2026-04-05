@@ -70,22 +70,9 @@ func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymen
 		return nil, errors.BadRequestErr("cannot make payment for same client accounts, that is a transfer")
 	}
 
-	// Proveri dovoljno sredstava
-	if payerAccount.AvailableBalance < req.Amount {
-		return nil, errors.BadRequestErr("insufficient funds")
-	}
-
-	// Proveri dnevni limit
-	if payerAccount.DailySpending+req.Amount > payerAccount.DailyLimit {
-		return nil, errors.BadRequestErr("daily limit exceeded")
-	}
-
-	// Proveri mesecni limit
-	if payerAccount.MonthlySpending+req.Amount > payerAccount.MonthlyLimit {
-		return nil, errors.BadRequestErr("monthly limit exceeded")
-	}
-
 	// Konverzija valuta ako su razlicite
+	commission := 0.0
+	startAmount := req.Amount
 	endAmount := req.Amount
 	endCurrencyCode := payerAccount.Currency.Code
 
@@ -94,17 +81,35 @@ func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymen
 		if err != nil {
 			return nil, errors.InternalErr(err)
 		}
+		commission = s.exchangeService.CalculateFee(req.Amount)
+		startAmount = req.Amount + commission
 		endAmount = converted
 		endCurrencyCode = recipientAccount.Currency.Code
+	}
+
+	// Proveri dovoljno sredstava
+	if payerAccount.AvailableBalance < startAmount {
+		return nil, errors.BadRequestErr("insufficient funds")
+	}
+
+	// Proveri dnevni limit
+	if payerAccount.DailySpending+startAmount > payerAccount.DailyLimit {
+		return nil, errors.BadRequestErr("daily limit exceeded")
+	}
+
+	// Proveri mesecni limit
+	if payerAccount.MonthlySpending+startAmount > payerAccount.MonthlyLimit {
+		return nil, errors.BadRequestErr("monthly limit exceeded")
 	}
 
 	transaction := &model.Transaction{
 		PayerAccountNumber:     req.PayerAccountNumber,
 		RecipientAccountNumber: req.RecipientAccountNumber,
-		StartAmount:            req.Amount,
+		StartAmount:            startAmount,
 		StartCurrencyCode:      payerAccount.Currency.Code,
 		EndAmount:              endAmount,
 		EndCurrencyCode:        endCurrencyCode,
+		Commission:             commission,
 		Status:                 model.TransactionProcessing,
 	}
 
