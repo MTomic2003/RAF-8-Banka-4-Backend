@@ -83,7 +83,7 @@ var loanTypes = []model.LoanType{
 		BankMargin:         1.75,
 		BaseInterestRate:   5.0,
 		MinRepaymentPeriod: 6,
-		MaxRepaymentPeriod: 60,
+		MaxRepaymentPeriod: 84,
 	},
 	{
 		Name:               "Mortgage Loan",

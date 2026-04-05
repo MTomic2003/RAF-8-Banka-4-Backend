@@ -51,20 +51,21 @@ var activatableClients = []struct {
 }
 
 var clients = []struct {
-	FirstName   string
-	LastName    string
-	Gender      string
-	DateOfBirth string
-	Email       string
-	Username    string
-	PhoneNumber string
-	Address     string
-	Password    string
+	FirstName                string
+	LastName                 string
+	Gender                   string
+	DateOfBirth              string
+	Email                    string
+	Username                 string
+	PhoneNumber              string
+	Address                  string
+	Password                 string
+	MobileVerificationSecret string
 }{
-	{"Banka", "Četiri", "M", "1992-03-15", "banka4@raf.rs", "banka4", "+381600000000", "Bankarska ulica 1, Beograd", "Banka123"},
-	{"Marko", "Markovic", "M", "1992-03-15", "marko.markovic@example.com", "marko.markovic", "+381601234567", "Knez Mihailova 10, Beograd", "password123"},
-	{"Ana", "Anic", "F", "1995-07-22", "ana.anic@example.com", "ana.anic", "+381609876543", "Bulevar Oslobodjenja 20, Novi Sad", "password123"},
-	{"Stefan", "Stefanovic", "M", "1988-11-30", "stefan.stefanovic@example.com", "stefan.stefanovic", "+381611112222", "Trg Republike 5, Beograd", "password123"},
+	{"Banka", "Četiri", "M", "1992-03-15", "banka4@raf.rs", "banka4", "+381600000000", "Bankarska ulica 1, Beograd", "Banka123", "AAAAAAAAAAAAAAAAAAAA"},
+	{"Marko", "Markovic", "M", "1992-03-15", "marko.markovic@example.com", "marko.markovic", "+381601234567", "Knez Mihailova 10, Beograd", "password123", "AAAAAAAAAAAAAAAAAAAA"},
+	{"Ana", "Anic", "F", "1995-07-22", "ana.anic@example.com", "ana.anic", "+381609876543", "Bulevar Oslobodjenja 20, Novi Sad", "password123", "AAAAAAAAAAAAAAAAAAAA"},
+	{"Stefan", "Stefanovic", "M", "1988-11-30", "stefan.stefanovic@example.com", "stefan.stefanovic", "+381611112222", "Trg Republike 5, Beograd", "password123", "AAAAAAAAAAAAAAAAAAAA"},
 }
 
 func Run(db *gorm.DB) error {
@@ -156,13 +157,14 @@ func Run(db *gorm.DB) error {
 		}
 
 		client := model.Client{
-			IdentityID:  identity.ID,
-			FirstName:   c.FirstName,
-			LastName:    c.LastName,
-			Gender:      c.Gender,
-			DateOfBirth: dob,
-			PhoneNumber: c.PhoneNumber,
-			Address:     c.Address,
+			IdentityID:               identity.ID,
+			FirstName:                c.FirstName,
+			LastName:                 c.LastName,
+			Gender:                   c.Gender,
+			DateOfBirth:              dob,
+			PhoneNumber:              c.PhoneNumber,
+			Address:                  c.Address,
+			MobileVerificationSecret: c.MobileVerificationSecret,
 		}
 		if err := db.Create(&client).Error; err != nil {
 			return err
