@@ -5,8 +5,8 @@ import (
 	"encoding/csv"
 	"errors"
 	"log"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -60,7 +60,7 @@ func SeedFuturesContracts(db *gorm.DB) error {
 			Listing: model.Listing{
 				Ticker:      row[0],
 				Name:        row[1],
-				ExchangeMIC: row[6],
+				ExchangeMIC: resolveExistingExchangeMIC(db, row[6]),
 				LastRefresh: time.Now(),
 				Price:       price * size,
 				Ask:         price * size,

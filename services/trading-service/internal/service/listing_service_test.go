@@ -23,6 +23,7 @@ func setupListingTestDB(t *testing.T) *gorm.DB {
 	}
 
 	if err := db.AutoMigrate(
+		&model.Exchange{},
 		&model.Listing{},
 		&model.Stock{},
 		&model.FuturesContract{},
@@ -36,7 +37,23 @@ func setupListingTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
+func seedListingTestExchanges(t *testing.T, db *gorm.DB) {
+	exchanges := []model.Exchange{
+		{Name: "Nasdaq", Acronym: "NASDAQ", MicCode: "XNAS", Polity: "USA", Currency: "USD", TimeZone: -4, OpenTime: "09:30", CloseTime: "16:00", TradingEnabled: true},
+		{Name: "Chicago Mercantile Exchange", Acronym: "CME", MicCode: "XCME", Polity: "USA", Currency: "USD", TimeZone: -4, OpenTime: "09:30", CloseTime: "16:00", TradingEnabled: true},
+		{Name: "Simulation Exchange", Acronym: "SIM", MicCode: model.SimulatedExchangeMIC, Polity: "International", Currency: "USD", TimeZone: 0, OpenTime: "00:00", CloseTime: "23:59", TradingEnabled: true},
+	}
+
+	for i := range exchanges {
+		if err := db.Create(&exchanges[i]).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func seedListingTestData(t *testing.T, db *gorm.DB) {
+	seedListingTestExchanges(t, db)
+
 	listings := []model.Listing{
 		{Ticker: "AAPL", Name: "Apple Inc", ExchangeMIC: "XNAS", Price: 150.0, Ask: 151.0, MaintenanceMargin: 10.0, LastRefresh: time.Now(), ListingType: model.ListingTypeStock},
 		{Ticker: "GOOG", Name: "Alphabet Inc", ExchangeMIC: "XNAS", Price: 2800.0, Ask: 2801.0, MaintenanceMargin: 20.0, LastRefresh: time.Now(), ListingType: model.ListingTypeStock},
@@ -86,8 +103,8 @@ func seedListingTestData(t *testing.T, db *gorm.DB) {
 	}
 
 	forexListings := []model.Listing{
-		{Ticker: "EUR/USD", Name: "EUR/USD", ExchangeMIC: "FOREX", Price: 1.08, LastRefresh: time.Now(), ListingType: model.ListingTypeForexPair},
-		{Ticker: "USD/RSD", Name: "USD/RSD", ExchangeMIC: "FOREX", Price: 117.0, LastRefresh: time.Now(), ListingType: model.ListingTypeForexPair},
+		{Ticker: "EUR/USD", Name: "EUR/USD", ExchangeMIC: model.SimulatedExchangeMIC, Price: 1.08, LastRefresh: time.Now(), ListingType: model.ListingTypeForexPair},
+		{Ticker: "USD/RSD", Name: "USD/RSD", ExchangeMIC: model.SimulatedExchangeMIC, Price: 117.0, LastRefresh: time.Now(), ListingType: model.ListingTypeForexPair},
 	}
 	for i := range forexListings {
 		if err := db.Create(&forexListings[i]).Error; err != nil {

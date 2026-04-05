@@ -278,7 +278,7 @@ func (s *ListingService) GetForex(ctx context.Context, q dto.ListingQuery) (*dto
 		base := baseResponse(p.Listing, daily)
 		base.Ticker = p.Base + "/" + p.Quote
 		base.Name = p.Base + "/" + p.Quote
-		base.Exchange = "FOREX"
+		base.Exchange = p.Listing.ExchangeMIC
 		base.Price = p.Rate
 
 		data[i] = dto.ForexResponse{

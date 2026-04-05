@@ -117,7 +117,7 @@ func (s *ForexService) refreshFromAPI(ctx context.Context) error {
 			listing := &model.Listing{
 				Ticker:      ticker,
 				Name:        ticker,
-				ExchangeMIC: "FOREX",
+				ExchangeMIC: model.SimulatedExchangeMIC,
 				LastRefresh: time.Now(),
 				Price:       rate,
 				Ask:         rate,

@@ -1,0 +1,41 @@
+name: Swagger
+run-name: Check docs for ${{ github.repository }}
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  docs:
+    name: Swagger ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - ./services/banking-service
+          - ./services/user-service
+          - ./services/trading-service
+
+    steps:
+      - name: Check out ${{ github.ref }} after a ${{ github.event_name }} event
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ./go.work
+          cache-dependency-path: '**/go.mod'
+
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate docs for ${{ matrix.target }}
+        run: cd ${{ matrix.target }} && swag init -g cmd/main.go -d ./,../../common
+
+      - name: Check git diff for ${{ matrix.target }} docs
+        run: git diff --exit-code ${{ matrix.target }}/docs

@@ -48,7 +48,7 @@ func (r *loanRepository) FindByIDAndClientID(ctx context.Context, id uint, clien
 	err := r.db.WithContext(ctx).
 		Joins("JOIN loan_requests ON loan_requests.id = loans.loan_request_id").
 		Where("loans.id = ? AND loan_requests.client_id = ?", id, clientID).
-		Preload("LoanRequest.LoanType").
+		Preload("LoanRequest.LoanType").Preload("Installments").
 		First(&loan).Error
 	if err != nil {
 		return nil, err

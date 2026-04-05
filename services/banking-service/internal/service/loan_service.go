@@ -154,11 +154,12 @@ func (s *LoanService) GetLoanDetails(ctx context.Context, clientID uint, loanID 
 	}
 
 	var installments []dto.Installment
-	for i := 1; i <= loan.RepaymentPeriod; i++ {
+	for _, inst := range loan.Installments {
 		installments = append(installments, dto.Installment{
-			Number: i,
-			Amount: loan.MonthlyInstallment,
-			Status: "UPCOMING",
+			Number:  inst.InstallmentNumber,
+			Amount:  inst.Amount,
+			Status:  string(inst.Status),
+			DueDate: inst.DueDate,
 		})
 	}
 
@@ -190,6 +191,15 @@ func (s *LoanService) GetLoanRequests(ctx context.Context, query *dto.ListLoanRe
 
 	var response []dto.LoanRequestResponse
 	for _, r := range requests {
+		var installmentDueDate *time.Time
+
+		if r.Status == model.LoanRequestApproved {
+			loan, err := s.loanRepo.FindLoanByRequestID(ctx, r.ID)
+			if err == nil && loan != nil {
+				installmentDueDate = &loan.NextInstallmentDate
+			}
+		}
+
 		response = append(response, dto.LoanRequestResponse{
 			ID:                 r.ID,
 			ClientID:           r.ClientID,
@@ -199,6 +209,7 @@ func (s *LoanService) GetLoanRequests(ctx context.Context, query *dto.ListLoanRe
 			RepaymentPeriod:    r.RepaymentPeriod,
 			MonthlyInstallment: r.MonthlyInstallment,
 			Status:             r.Status,
+			InstallmentDueDate: installmentDueDate,
 		})
 	}
 
