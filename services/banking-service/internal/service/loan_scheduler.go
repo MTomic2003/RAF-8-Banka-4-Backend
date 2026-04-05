@@ -18,6 +18,7 @@ type LoanScheduler struct {
 	accountRepo repository.AccountRepository
 	txRepo      repository.TransactionRepository
 	txProcessor *TransactionProcessor
+	txManager   repository.TransactionManager
 	mailer      Mailer
 	userClient  client.UserClient
 	loanSvc     *LoanService
@@ -31,6 +32,7 @@ func NewLoanScheduler(
 	accountRepo repository.AccountRepository,
 	txRepo repository.TransactionRepository,
 	txProcessor *TransactionProcessor,
+	txManager repository.TransactionManager,
 	mailer Mailer,
 	userClient client.UserClient,
 	loanSvc *LoanService,
@@ -40,6 +42,7 @@ func NewLoanScheduler(
 		accountRepo: accountRepo,
 		txRepo:      txRepo,
 		txProcessor: txProcessor,
+		txManager:   txManager,
 		mailer:      mailer,
 		userClient:  userClient,
 		loanSvc:     loanSvc,
@@ -154,21 +157,30 @@ func (s *LoanScheduler) processInstallment(ctx context.Context, installment *mod
 		Status:                 model.TransactionProcessing,
 	}
 
-	if err := s.txRepo.Create(ctx, transaction); err != nil {
-		log.Printf("[LoanScheduler] failed to create transaction for installment %d: %v", installment.ID, err)
-		return
-	}
+	if err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.txRepo.Create(txCtx, transaction); err != nil {
+			log.Printf("[LoanScheduler] failed to create transaction for installment %d: %v", installment.ID, err)
+			return err
+		}
 
-	if err := s.txProcessor.ProcessLoanInstallment(ctx, transaction.TransactionID); err != nil {
-		log.Printf("[LoanScheduler] installment %d payment failed: %v", installment.ID, err)
+		if err := s.txProcessor.ProcessLoanInstallment(txCtx, transaction.TransactionID); err != nil {
+			log.Printf("[LoanScheduler] installment %d payment failed: %v", installment.ID, err)
+			return err
+		}
+
+		if err := s.onInstallmentPaid(txCtx, installment, loan, transaction.TransactionID); err != nil {
+			log.Printf("[LoanScheduler] installment %d payment failed: %v", installment.ID, err)
+			return err
+		}
+
+		return nil
+	}); err != nil {
 		s.onInstallmentFailed(ctx, installment, loan)
 		return
 	}
-
-	s.onInstallmentPaid(ctx, installment, loan, transaction.TransactionID)
 }
 
-func (s *LoanScheduler) onInstallmentPaid(ctx context.Context, installment *model.LoanInstallment, loan *model.Loan, transactionID uint) {
+func (s *LoanScheduler) onInstallmentPaid(ctx context.Context, installment *model.LoanInstallment, loan *model.Loan, transactionID uint) error {
 	now := time.Now()
 	installment.Status = model.InstallmentStatusPaid
 	installment.PaidAt = &now
@@ -176,8 +188,7 @@ func (s *LoanScheduler) onInstallmentPaid(ctx context.Context, installment *mode
 	installment.TransactionID = &transactionID
 
 	if err := s.loanRepo.UpdateInstallment(ctx, installment); err != nil {
-		log.Printf("[LoanScheduler] UpdateInstallment (paid) error: %v", err)
-		return
+		return err
 	}
 
 	loan.RemainingDebt -= installment.Amount
@@ -194,10 +205,11 @@ func (s *LoanScheduler) onInstallmentPaid(ctx context.Context, installment *mode
 	}
 
 	if err := s.loanRepo.UpdateLoan(ctx, loan); err != nil {
-		log.Printf("[LoanScheduler] UpdateLoan (paid) error: %v", err)
+		return err
 	}
 
 	log.Printf("[LoanScheduler] installment %d paid, loan %d remaining debt: %.2f", installment.ID, loan.ID, loan.RemainingDebt)
+	return nil
 }
 
 func (s *LoanScheduler) onInstallmentFailed(ctx context.Context, installment *model.LoanInstallment, loan *model.Loan) {

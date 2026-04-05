@@ -1,0 +1,66 @@
+//go:build schema
+
+package model
+
+import (
+	"context"
+	"testing"
+
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	gormpostgres "gorm.io/driver/postgres"
+	"gorm.io/gorm"
+)
+
+func TestSchemaAutoMigrate_BankingService(t *testing.T) {
+	ctx := context.Background()
+	container, err := tcpostgres.Run(
+		ctx,
+		"postgres:16-alpine",
+		tcpostgres.WithDatabase("banking_service_schema_check"),
+		tcpostgres.WithUsername("postgres"),
+		tcpostgres.WithPassword("postgres"),
+		tcpostgres.BasicWaitStrategies(),
+	)
+	if err != nil {
+		t.Fatalf("start postgres container: %v", err)
+	}
+	defer func() {
+		_ = container.Terminate(context.Background())
+	}()
+
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		t.Fatalf("build connection string: %v", err)
+	}
+
+	db, err := gorm.Open(gormpostgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+
+	if err := db.AutoMigrate(
+		&Currency{},
+		&WorkCode{},
+		&Company{},
+		&Account{},
+		&AuthorizedPerson{},
+		&Card{},
+		&CardRequest{},
+		&Transaction{},
+		&Payment{},
+		&Transfer{},
+		&Payee{},
+		&LoanType{},
+		&LoanRequest{},
+		&VerificationToken{},
+		&ExchangeRate{},
+		&Loan{},
+		&LoanInstallment{},
+	); err != nil {
+		t.Fatalf("auto migrate schema: %v", err)
+	}
+
+	if !db.Migrator().HasTable(&Account{}) || !db.Migrator().HasTable(&Transaction{}) {
+		t.Fatal("expected key banking-service tables to exist after AutoMigrate")
+	}
+}

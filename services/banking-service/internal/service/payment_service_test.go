@@ -229,6 +229,7 @@ func newTestPaymentService(
 		accountRepo:          accountRepo,
 		exchangeService:      exchangeSvc,
 		mobileSecretClient:   &fakeMobileSecretClient{},
+		txManager:            &fakeBankingTxManager{},
 		transactionProcessor: &fakeVerifyTransactionProcessor{},
 		now:                  time.Now,
 	}
@@ -522,6 +523,73 @@ func TestVerifyPayment_InvalidCode(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid verification code")
 	require.Empty(t, processor.processed)
+}
+
+func TestVerifyPayment_CancelAfter3FailedAttempts(t *testing.T) {
+	txRepo := &fakeTransactionRepo{}
+	paymentRepo := &fakePaymentRepo{
+		payment: &model.Payment{
+			PaymentID:      1,
+			FailedAttempts: 2,
+			Transaction: model.Transaction{
+				TransactionID:      42,
+				PayerAccountNumber: "87654321",
+				Status:             model.TransactionProcessing,
+			},
+		},
+	}
+
+	processor := &fakeVerifyTransactionProcessor{}
+	authCtx := auth.SetAuthOnContext(context.Background(), &auth.AuthContext{ClientID: uintPtr(11)})
+	svc := &PaymentService{
+		paymentRepo:          paymentRepo,
+		transactionRepo:      txRepo,
+		accountRepo:          newFakePaymentAccountRepo(&model.Account{AccountNumber: "87654321", ClientID: 11}),
+		mobileSecretClient:   &fakeMobileSecretClient{secret: "JBSWY3DPEHPK3PXP"},
+		transactionProcessor: processor,
+		now:                  func() time.Time { return time.Unix(59, 0) },
+	}
+
+	payment, err := svc.VerifyPayment(authCtx, 1, "000000", "Bearer token")
+	require.Nil(t, payment)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "payment cancelled")
+	require.Empty(t, processor.processed)
+	require.Equal(t, model.TransactionRejected, txRepo.transaction.Status)
+}
+
+func TestVerifyPayment_FailedAttemptsBelow3DoNotCancel(t *testing.T) {
+	txRepo := &fakeTransactionRepo{}
+	paymentRepo := &fakePaymentRepo{
+		payment: &model.Payment{
+			PaymentID:      1,
+			FailedAttempts: 1,
+			Transaction: model.Transaction{
+				TransactionID:      42,
+				PayerAccountNumber: "87654321",
+				Status:             model.TransactionProcessing,
+			},
+		},
+	}
+
+	processor := &fakeVerifyTransactionProcessor{}
+	authCtx := auth.SetAuthOnContext(context.Background(), &auth.AuthContext{ClientID: uintPtr(11)})
+	svc := &PaymentService{
+		paymentRepo:          paymentRepo,
+		transactionRepo:      txRepo,
+		accountRepo:          newFakePaymentAccountRepo(&model.Account{AccountNumber: "87654321", ClientID: 11}),
+		mobileSecretClient:   &fakeMobileSecretClient{secret: "JBSWY3DPEHPK3PXP"},
+		transactionProcessor: processor,
+		now:                  func() time.Time { return time.Unix(59, 0) },
+	}
+
+	payment, err := svc.VerifyPayment(authCtx, 1, "000000", "Bearer token")
+	require.Nil(t, payment)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid verification code")
+	require.Empty(t, processor.processed)
+	// transaction not cancelled — txRepo.transaction is nil (Update not called for transaction)
+	require.Nil(t, txRepo.transaction)
 }
 
 func TestVerifyPayment_Success(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	"banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,6 +18,8 @@ func TestCreatePayee(t *testing.T) {
 
 	db := setupTestDB(t)
 	router := setupTestRouter(t, db)
+	rsd := seedCurrency(t, db, model.RSD)
+	payeeAccount := seedAccount(t, db, 200, rsd.CurrencyID, 1000)
 
 	clientAuth := authHeaderForClient(t, 10, 100)
 	employeeAuth := authHeaderForEmployee(t, 1, 1)
@@ -32,7 +34,7 @@ func TestCreatePayee(t *testing.T) {
 			name: "happy path",
 			body: map[string]any{
 				"name":           "Test Payee",
-				"account_number": "111000000000000001",
+				"account_number": payeeAccount.AccountNumber,
 			},
 			auth:       clientAuth,
 			wantStatus: http.StatusCreated,
@@ -40,7 +42,7 @@ func TestCreatePayee(t *testing.T) {
 		{
 			name: "missing name",
 			body: map[string]any{
-				"account_number": "111000000000000002",
+				"account_number": payeeAccount.AccountNumber,
 			},
 			auth:       clientAuth,
 			wantStatus: http.StatusBadRequest,
@@ -63,7 +65,7 @@ func TestCreatePayee(t *testing.T) {
 			name: "employee cannot create payee",
 			body: map[string]any{
 				"name":           "Employee Payee",
-				"account_number": "111000000000000003",
+				"account_number": payeeAccount.AccountNumber,
 			},
 			auth:       employeeAuth,
 			wantStatus: http.StatusForbidden,
@@ -90,17 +92,20 @@ func TestGetAllPayees(t *testing.T) {
 
 	db := setupTestDB(t)
 	router := setupTestRouter(t, db)
+	rsd := seedCurrency(t, db, model.RSD)
+	payeeAccount1 := seedAccount(t, db, 200, rsd.CurrencyID, 1000)
+	payeeAccount2 := seedAccount(t, db, 201, rsd.CurrencyID, 1000)
 
 	clientAuth := authHeaderForClient(t, 10, 100)
 
 	performRequest(t, router, http.MethodPost, "/api/payees", map[string]any{
 		"name":           "Payee 1",
-		"account_number": "111000000000000001",
+		"account_number": payeeAccount1.AccountNumber,
 	}, clientAuth)
 
 	performRequest(t, router, http.MethodPost, "/api/payees", map[string]any{
 		"name":           "Payee 2",
-		"account_number": "111000000000000002",
+		"account_number": payeeAccount2.AccountNumber,
 	}, clientAuth)
 
 	recorder := performRequest(t, router, http.MethodGet, "/api/payees", nil, clientAuth)
@@ -122,13 +127,16 @@ func TestUpdatePayee(t *testing.T) {
 
 	db := setupTestDB(t)
 	router := setupTestRouter(t, db)
+	rsd := seedCurrency(t, db, model.RSD)
+	originalAccount := seedAccount(t, db, 200, rsd.CurrencyID, 1000)
+	updatedAccount := seedAccount(t, db, 201, rsd.CurrencyID, 1000)
 
 	clientAuth := authHeaderForClient(t, 10, 100)
 	otherClientAuth := authHeaderForClient(t, 20, 200)
 
 	createResp := performRequest(t, router, http.MethodPost, "/api/payees", map[string]any{
 		"name":           "Original Name",
-		"account_number": "111000000000000001",
+		"account_number": originalAccount.AccountNumber,
 	}, clientAuth)
 	requireStatus(t, createResp, http.StatusCreated)
 
@@ -152,7 +160,7 @@ func TestUpdatePayee(t *testing.T) {
 		{
 			name:       "update account number",
 			payeeID:    payeeID,
-			body:       map[string]any{"account_number": "222000000000000001"},
+			body:       map[string]any{"account_number": updatedAccount.AccountNumber},
 			auth:       clientAuth,
 			wantStatus: http.StatusOK,
 		},
@@ -191,7 +199,7 @@ func TestUpdatePayee(t *testing.T) {
 	var payee model.Payee
 	require.NoError(t, db.First(&payee, payeeID).Error)
 	assert.Equal(t, "Updated Name", payee.Name)
-	assert.Equal(t, "222000000000000001", payee.AccountNumber)
+	assert.Equal(t, updatedAccount.AccountNumber, payee.AccountNumber)
 }
 
 func TestDeletePayee(t *testing.T) {
@@ -199,13 +207,15 @@ func TestDeletePayee(t *testing.T) {
 
 	db := setupTestDB(t)
 	router := setupTestRouter(t, db)
+	rsd := seedCurrency(t, db, model.RSD)
+	payeeAccount := seedAccount(t, db, 200, rsd.CurrencyID, 1000)
 
 	clientAuth := authHeaderForClient(t, 10, 100)
 	otherClientAuth := authHeaderForClient(t, 20, 200)
 
 	createResp := performRequest(t, router, http.MethodPost, "/api/payees", map[string]any{
 		"name":           "To Delete",
-		"account_number": "111000000000000001",
+		"account_number": payeeAccount.AccountNumber,
 	}, clientAuth)
 	requireStatus(t, createResp, http.StatusCreated)
 

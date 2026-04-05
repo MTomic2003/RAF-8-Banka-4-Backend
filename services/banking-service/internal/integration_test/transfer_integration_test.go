@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -38,7 +38,7 @@ type Configuration struct {
 	Env                string
 	Port               string
 	DB                 DBConfig
-  SMTP SMTPConfig
+	SMTP               SMTPConfig
 	JWTSecret          string
 	GrpcPort           string // reserved for future banking-service gRPC endpoints
 	UserServiceAddr    string

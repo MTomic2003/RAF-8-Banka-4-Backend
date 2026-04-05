@@ -3,6 +3,8 @@
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.1
 // source: banking.proto
+// 	protoc        v7.34.1
+// source: common/proto/banking.proto
 
 package pb
 
@@ -21,6 +23,55 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type TradeSettlementDirection int32
+
+const (
+	TradeSettlementDirection_TRADE_SETTLEMENT_DIRECTION_UNSPECIFIED TradeSettlementDirection = 0
+	TradeSettlementDirection_TRADE_SETTLEMENT_DIRECTION_BUY         TradeSettlementDirection = 1
+	TradeSettlementDirection_TRADE_SETTLEMENT_DIRECTION_SELL        TradeSettlementDirection = 2
+)
+
+// Enum value maps for TradeSettlementDirection.
+var (
+	TradeSettlementDirection_name = map[int32]string{
+		0: "TRADE_SETTLEMENT_DIRECTION_UNSPECIFIED",
+		1: "TRADE_SETTLEMENT_DIRECTION_BUY",
+		2: "TRADE_SETTLEMENT_DIRECTION_SELL",
+	}
+	TradeSettlementDirection_value = map[string]int32{
+		"TRADE_SETTLEMENT_DIRECTION_UNSPECIFIED": 0,
+		"TRADE_SETTLEMENT_DIRECTION_BUY":         1,
+		"TRADE_SETTLEMENT_DIRECTION_SELL":        2,
+	}
+)
+
+func (x TradeSettlementDirection) Enum() *TradeSettlementDirection {
+	p := new(TradeSettlementDirection)
+	*p = x
+	return p
+}
+
+func (x TradeSettlementDirection) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TradeSettlementDirection) Descriptor() protoreflect.EnumDescriptor {
+	return file_common_proto_banking_proto_enumTypes[0].Descriptor()
+}
+
+func (TradeSettlementDirection) Type() protoreflect.EnumType {
+	return &file_common_proto_banking_proto_enumTypes[0]
+}
+
+func (x TradeSettlementDirection) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TradeSettlementDirection.Descriptor instead.
+func (TradeSettlementDirection) EnumDescriptor() ([]byte, []int) {
+	return file_common_proto_banking_proto_rawDescGZIP(), []int{0}
+}
+
 type GetAccountByNumberRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AccountNumber string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
@@ -30,7 +81,7 @@ type GetAccountByNumberRequest struct {
 
 func (x *GetAccountByNumberRequest) Reset() {
 	*x = GetAccountByNumberRequest{}
-	mi := &file_banking_proto_msgTypes[0]
+	mi := &file_common_proto_banking_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -42,7 +93,7 @@ func (x *GetAccountByNumberRequest) String() string {
 func (*GetAccountByNumberRequest) ProtoMessage() {}
 
 func (x *GetAccountByNumberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_banking_proto_msgTypes[0]
+	mi := &file_common_proto_banking_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -55,7 +106,7 @@ func (x *GetAccountByNumberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountByNumberRequest.ProtoReflect.Descriptor instead.
 func (*GetAccountByNumberRequest) Descriptor() ([]byte, []int) {
-	return file_banking_proto_rawDescGZIP(), []int{0}
+	return file_common_proto_banking_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GetAccountByNumberRequest) GetAccountNumber() string {
@@ -78,7 +129,7 @@ type GetAccountByNumberResponse struct {
 
 func (x *GetAccountByNumberResponse) Reset() {
 	*x = GetAccountByNumberResponse{}
-	mi := &file_banking_proto_msgTypes[1]
+	mi := &file_common_proto_banking_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -90,7 +141,7 @@ func (x *GetAccountByNumberResponse) String() string {
 func (*GetAccountByNumberResponse) ProtoMessage() {}
 
 func (x *GetAccountByNumberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_banking_proto_msgTypes[1]
+	mi := &file_common_proto_banking_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -103,7 +154,7 @@ func (x *GetAccountByNumberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountByNumberResponse.ProtoReflect.Descriptor instead.
 func (*GetAccountByNumberResponse) Descriptor() ([]byte, []int) {
-	return file_banking_proto_rawDescGZIP(), []int{1}
+	return file_common_proto_banking_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetAccountByNumberResponse) GetAccountNumber() string {
@@ -157,6 +208,19 @@ type CreatePaymentRequest struct {
 func (x *CreatePaymentRequest) Reset() {
 	*x = CreatePaymentRequest{}
 	mi := &file_banking_proto_msgTypes[2]
+type ExecuteTradeSettlementRequest struct {
+	state             protoimpl.MessageState   `protogen:"open.v1"`
+	AccountNumber     string                   `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
+	TradeCurrencyCode string                   `protobuf:"bytes,2,opt,name=trade_currency_code,json=tradeCurrencyCode,proto3" json:"trade_currency_code,omitempty"`
+	Direction         TradeSettlementDirection `protobuf:"varint,3,opt,name=direction,proto3,enum=banking.v1.TradeSettlementDirection" json:"direction,omitempty"`
+	Amount            float64                  `protobuf:"fixed64,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ExecuteTradeSettlementRequest) Reset() {
+	*x = ExecuteTradeSettlementRequest{}
+	mi := &file_common_proto_banking_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -169,6 +233,14 @@ func (*CreatePaymentRequest) ProtoMessage() {}
 
 func (x *CreatePaymentRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_banking_proto_msgTypes[2]
+func (x *ExecuteTradeSettlementRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecuteTradeSettlementRequest) ProtoMessage() {}
+
+func (x *ExecuteTradeSettlementRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_banking_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -187,6 +259,14 @@ func (*CreatePaymentRequest) Descriptor() ([]byte, []int) {
 func (x *CreatePaymentRequest) GetPayerAccountNumber() string {
 	if x != nil {
 		return x.PayerAccountNumber
+// Deprecated: Use ExecuteTradeSettlementRequest.ProtoReflect.Descriptor instead.
+func (*ExecuteTradeSettlementRequest) Descriptor() ([]byte, []int) {
+	return file_common_proto_banking_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ExecuteTradeSettlementRequest) GetAccountNumber() string {
+	if x != nil {
+		return x.AccountNumber
 	}
 	return ""
 }
@@ -194,6 +274,9 @@ func (x *CreatePaymentRequest) GetPayerAccountNumber() string {
 func (x *CreatePaymentRequest) GetRecipientAccountNumber() string {
 	if x != nil {
 		return x.RecipientAccountNumber
+func (x *ExecuteTradeSettlementRequest) GetTradeCurrencyCode() string {
+	if x != nil {
+		return x.TradeCurrencyCode
 	}
 	return ""
 }
@@ -206,6 +289,14 @@ func (x *CreatePaymentRequest) GetRecipientName() string {
 }
 
 func (x *CreatePaymentRequest) GetAmount() float64 {
+func (x *ExecuteTradeSettlementRequest) GetDirection() TradeSettlementDirection {
+	if x != nil {
+		return x.Direction
+	}
+	return TradeSettlementDirection_TRADE_SETTLEMENT_DIRECTION_UNSPECIFIED
+}
+
+func (x *ExecuteTradeSettlementRequest) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -245,6 +336,20 @@ type CreatePaymentResponse struct {
 func (x *CreatePaymentResponse) Reset() {
 	*x = CreatePaymentResponse{}
 	mi := &file_banking_proto_msgTypes[3]
+type ExecuteTradeSettlementResponse struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	TransactionId           uint64                 `protobuf:"varint,1,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
+	SourceAmount            float64                `protobuf:"fixed64,2,opt,name=source_amount,json=sourceAmount,proto3" json:"source_amount,omitempty"`
+	SourceCurrencyCode      string                 `protobuf:"bytes,3,opt,name=source_currency_code,json=sourceCurrencyCode,proto3" json:"source_currency_code,omitempty"`
+	DestinationAmount       float64                `protobuf:"fixed64,4,opt,name=destination_amount,json=destinationAmount,proto3" json:"destination_amount,omitempty"`
+	DestinationCurrencyCode string                 `protobuf:"bytes,5,opt,name=destination_currency_code,json=destinationCurrencyCode,proto3" json:"destination_currency_code,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *ExecuteTradeSettlementResponse) Reset() {
+	*x = ExecuteTradeSettlementResponse{}
+	mi := &file_common_proto_banking_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -257,6 +362,14 @@ func (*CreatePaymentResponse) ProtoMessage() {}
 
 func (x *CreatePaymentResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_banking_proto_msgTypes[3]
+func (x *ExecuteTradeSettlementResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecuteTradeSettlementResponse) ProtoMessage() {}
+
+func (x *ExecuteTradeSettlementResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_banking_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -280,6 +393,12 @@ func (x *CreatePaymentResponse) GetPaymentId() uint64 {
 }
 
 func (x *CreatePaymentResponse) GetTransactionId() uint64 {
+// Deprecated: Use ExecuteTradeSettlementResponse.ProtoReflect.Descriptor instead.
+func (*ExecuteTradeSettlementResponse) Descriptor() ([]byte, []int) {
+	return file_common_proto_banking_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ExecuteTradeSettlementResponse) GetTransactionId() uint64 {
 	if x != nil {
 		return x.TransactionId
 	}
@@ -333,6 +452,9 @@ func (*GetAccountsByClientIDRequest) Descriptor() ([]byte, []int) {
 func (x *GetAccountsByClientIDRequest) GetClientId() uint64 {
 	if x != nil {
 		return x.ClientId
+func (x *ExecuteTradeSettlementResponse) GetSourceAmount() float64 {
+	if x != nil {
+		return x.SourceAmount
 	}
 	return 0
 }
@@ -429,6 +551,9 @@ func (x *AccountInfo) GetAccountNumber() string {
 func (x *AccountInfo) GetCurrencyCode() string {
 	if x != nil {
 		return x.CurrencyCode
+func (x *ExecuteTradeSettlementResponse) GetSourceCurrencyCode() string {
+	if x != nil {
+		return x.SourceCurrencyCode
 	}
 	return ""
 }
@@ -475,6 +600,9 @@ func (*ConvertCurrencyRequest) Descriptor() ([]byte, []int) {
 func (x *ConvertCurrencyRequest) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
+func (x *ExecuteTradeSettlementResponse) GetDestinationAmount() float64 {
+	if x != nil {
+		return x.DestinationAmount
 	}
 	return 0
 }
@@ -489,6 +617,9 @@ func (x *ConvertCurrencyRequest) GetFromCode() string {
 func (x *ConvertCurrencyRequest) GetToCode() string {
 	if x != nil {
 		return x.ToCode
+func (x *ExecuteTradeSettlementResponse) GetDestinationCurrencyCode() string {
+	if x != nil {
+		return x.DestinationCurrencyCode
 	}
 	return ""
 }
@@ -538,10 +669,11 @@ func (x *ConvertCurrencyResponse) GetConvertedAmount() float64 {
 }
 
 var File_banking_proto protoreflect.FileDescriptor
+var File_common_proto_banking_proto protoreflect.FileDescriptor
 
-const file_banking_proto_rawDesc = "" +
+const file_common_proto_banking_proto_rawDesc = "" +
 	"\n" +
-	"\rbanking.proto\x12\n" +
+	"\x1acommon/proto/banking.proto\x12\n" +
 	"banking.v1\"B\n" +
 	"\x19GetAccountByNumberRequest\x12%\n" +
 	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\"\xd5\x01\n" +
@@ -582,17 +714,36 @@ const file_banking_proto_rawDesc = "" +
 	" CreatePaymentWithoutVerification\x12 .banking.v1.CreatePaymentRequest\x1a!.banking.v1.CreatePaymentResponse\x12l\n" +
 	"\x15GetAccountsByClientID\x12(.banking.v1.GetAccountsByClientIDRequest\x1a).banking.v1.GetAccountsByClientIDResponse\x12Z\n" +
 	"\x0fConvertCurrency\x12\".banking.v1.ConvertCurrencyRequest\x1a#.banking.v1.ConvertCurrencyResponseB\x12Z\x10common/pkg/pb;pbb\x06proto3"
+	"\x11available_balance\x18\x05 \x01(\x01R\x10availableBalance\"\xd2\x01\n" +
+	"\x1dExecuteTradeSettlementRequest\x12%\n" +
+	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12.\n" +
+	"\x13trade_currency_code\x18\x02 \x01(\tR\x11tradeCurrencyCode\x12B\n" +
+	"\tdirection\x18\x03 \x01(\x0e2$.banking.v1.TradeSettlementDirectionR\tdirection\x12\x16\n" +
+	"\x06amount\x18\x04 \x01(\x01R\x06amount\"\x89\x02\n" +
+	"\x1eExecuteTradeSettlementResponse\x12%\n" +
+	"\x0etransaction_id\x18\x01 \x01(\x04R\rtransactionId\x12#\n" +
+	"\rsource_amount\x18\x02 \x01(\x01R\fsourceAmount\x120\n" +
+	"\x14source_currency_code\x18\x03 \x01(\tR\x12sourceCurrencyCode\x12-\n" +
+	"\x12destination_amount\x18\x04 \x01(\x01R\x11destinationAmount\x12:\n" +
+	"\x19destination_currency_code\x18\x05 \x01(\tR\x17destinationCurrencyCode*\x8f\x01\n" +
+	"\x18TradeSettlementDirection\x12*\n" +
+	"&TRADE_SETTLEMENT_DIRECTION_UNSPECIFIED\x10\x00\x12\"\n" +
+	"\x1eTRADE_SETTLEMENT_DIRECTION_BUY\x10\x01\x12#\n" +
+	"\x1fTRADE_SETTLEMENT_DIRECTION_SELL\x10\x022\xe6\x01\n" +
+	"\x0eBankingService\x12c\n" +
+	"\x12GetAccountByNumber\x12%.banking.v1.GetAccountByNumberRequest\x1a&.banking.v1.GetAccountByNumberResponse\x12o\n" +
+	"\x16ExecuteTradeSettlement\x12).banking.v1.ExecuteTradeSettlementRequest\x1a*.banking.v1.ExecuteTradeSettlementResponseB\x12Z\x10common/pkg/pb;pbb\x06proto3"
 
 var (
-	file_banking_proto_rawDescOnce sync.Once
-	file_banking_proto_rawDescData []byte
+	file_common_proto_banking_proto_rawDescOnce sync.Once
+	file_common_proto_banking_proto_rawDescData []byte
 )
 
-func file_banking_proto_rawDescGZIP() []byte {
-	file_banking_proto_rawDescOnce.Do(func() {
-		file_banking_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_banking_proto_rawDesc), len(file_banking_proto_rawDesc)))
+func file_common_proto_banking_proto_rawDescGZIP() []byte {
+	file_common_proto_banking_proto_rawDescOnce.Do(func() {
+		file_common_proto_banking_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_common_proto_banking_proto_rawDesc), len(file_common_proto_banking_proto_rawDesc)))
 	})
-	return file_banking_proto_rawDescData
+	return file_common_proto_banking_proto_rawDescData
 }
 
 var file_banking_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
@@ -619,14 +770,31 @@ var file_banking_proto_depIdxs = []int32{
 	8, // 8: banking.v1.BankingService.ConvertCurrency:output_type -> banking.v1.ConvertCurrencyResponse
 	5, // [5:9] is the sub-list for method output_type
 	1, // [1:5] is the sub-list for method input_type
+var file_common_proto_banking_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_common_proto_banking_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_common_proto_banking_proto_goTypes = []any{
+	(TradeSettlementDirection)(0),          // 0: banking.v1.TradeSettlementDirection
+	(*GetAccountByNumberRequest)(nil),      // 1: banking.v1.GetAccountByNumberRequest
+	(*GetAccountByNumberResponse)(nil),     // 2: banking.v1.GetAccountByNumberResponse
+	(*ExecuteTradeSettlementRequest)(nil),  // 3: banking.v1.ExecuteTradeSettlementRequest
+	(*ExecuteTradeSettlementResponse)(nil), // 4: banking.v1.ExecuteTradeSettlementResponse
+}
+var file_common_proto_banking_proto_depIdxs = []int32{
+	0, // 0: banking.v1.ExecuteTradeSettlementRequest.direction:type_name -> banking.v1.TradeSettlementDirection
+	1, // 1: banking.v1.BankingService.GetAccountByNumber:input_type -> banking.v1.GetAccountByNumberRequest
+	3, // 2: banking.v1.BankingService.ExecuteTradeSettlement:input_type -> banking.v1.ExecuteTradeSettlementRequest
+	2, // 3: banking.v1.BankingService.GetAccountByNumber:output_type -> banking.v1.GetAccountByNumberResponse
+	4, // 4: banking.v1.BankingService.ExecuteTradeSettlement:output_type -> banking.v1.ExecuteTradeSettlementResponse
+	3, // [3:5] is the sub-list for method output_type
+	1, // [1:3] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_banking_proto_init() }
-func file_banking_proto_init() {
-	if File_banking_proto != nil {
+func init() { file_common_proto_banking_proto_init() }
+func file_common_proto_banking_proto_init() {
+	if File_common_proto_banking_proto != nil {
 		return
 	}
 	type x struct{}
@@ -636,14 +804,18 @@ func file_banking_proto_init() {
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_banking_proto_rawDesc), len(file_banking_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   9,
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_common_proto_banking_proto_rawDesc), len(file_common_proto_banking_proto_rawDesc)),
+			NumEnums:      1,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_banking_proto_goTypes,
-		DependencyIndexes: file_banking_proto_depIdxs,
-		MessageInfos:      file_banking_proto_msgTypes,
+		GoTypes:           file_common_proto_banking_proto_goTypes,
+		DependencyIndexes: file_common_proto_banking_proto_depIdxs,
+		EnumInfos:         file_common_proto_banking_proto_enumTypes,
+		MessageInfos:      file_common_proto_banking_proto_msgTypes,
 	}.Build()
-	File_banking_proto = out.File
-	file_banking_proto_goTypes = nil
-	file_banking_proto_depIdxs = nil
+	File_common_proto_banking_proto = out.File
+	file_common_proto_banking_proto_goTypes = nil
+	file_common_proto_banking_proto_depIdxs = nil
 }

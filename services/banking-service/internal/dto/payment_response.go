@@ -26,6 +26,7 @@ type PaymentResponse struct {
 	CurrencyCode           string    `json:"currency_code"`
 	Status                 string    `json:"status"`
 	CreatedAt              time.Time `json:"created_at"`
+	Commission             float64   `json:"commission"`
 }
 
 func ToPaymentResponse(p *model.Payment) PaymentResponse {
@@ -37,9 +38,10 @@ func ToPaymentResponse(p *model.Payment) PaymentResponse {
 		Purpose:                p.Purpose,
 		PayerAccountNumber:     p.Transaction.PayerAccountNumber,
 		RecipientAccountNumber: p.Transaction.RecipientAccountNumber,
-		Amount:                 p.Transaction.StartAmount,
+		Amount:                 p.Transaction.StartAmount - p.Transaction.Commission,
 		CurrencyCode:           string(p.Transaction.StartCurrencyCode),
 		Status:                 string(p.Transaction.Status),
 		CreatedAt:              p.Transaction.CreatedAt,
+		Commission:             p.Transaction.Commission,
 	}
 }

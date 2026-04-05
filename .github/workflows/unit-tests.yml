@@ -3,11 +3,20 @@ run-name: Unit tests for ${{ github.repository }}
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
 
 jobs:
   unit-tests:
+    name: Unit tests ${{ matrix.target }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - ./common
+          - ./services/banking-service
+          - ./services/trading-service
+          - ./services/user-service
     
     steps:
     - name: Check out ${{ github.ref }} after a ${{ github.event_name }} event
@@ -19,30 +28,5 @@ jobs:
         go-version-file: './go.work'
         cache-dependency-path: '**/go.mod'
     
-    - name: Run unit tests
-      run: |
-        set +e
-        failed=0
-        echo "::group::Running unit tests for ./common/..."
-        go test -v ./common/...
-        if [ $? -ne 0 ]; then
-          echo "::endgroup::"
-          echo "::error::Unit tests failed for ./common/"
-          failed=1
-        else
-          echo "::endgroup::"
-        fi
-        for service in $(ls -d ./services/*/); do
-          echo "::group::Running unit tests for $service..."
-          go test -v $service...
-          if [ $? -ne 0 ]; then
-            echo "::endgroup::"
-            echo "::error::Unit tests failed for $service"
-            failed=1
-          else
-            echo "::endgroup::"
-          fi
-        done
-        if [ $failed != 0 ]; then
-          exit 1
-        fi
+    - name: Run unit tests for ${{ matrix.target }}
+      run: go test -v ${{ matrix.target }}/...

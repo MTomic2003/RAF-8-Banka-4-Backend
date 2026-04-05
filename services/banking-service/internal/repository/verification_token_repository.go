@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
@@ -24,7 +25,8 @@ func NewVerificationTokenRepository(db *gorm.DB) VerificationTokenRepository {
 }
 
 func (r *verificationTokenRepository) Create(ctx context.Context, token *model.VerificationToken) error {
-	return r.db.WithContext(ctx).Create(token).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Create(token).Error
 }
 
 func (r *verificationTokenRepository) FindByAccountAndClient(ctx context.Context, accountNumber string, clientID uint) (*model.VerificationToken, error) {
@@ -39,7 +41,8 @@ func (r *verificationTokenRepository) FindByAccountAndClient(ctx context.Context
 }
 
 func (r *verificationTokenRepository) DeleteByAccountAndClient(ctx context.Context, accountNumber string, clientID uint) error {
-	return r.db.WithContext(ctx).
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).
 		Where("account_number = ? AND client_id = ?", accountNumber, clientID).
 		Delete(&model.VerificationToken{}).Error
 }

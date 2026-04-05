@@ -25,6 +25,7 @@ func newClientService(
 		activationTokenRepo,
 		mailer,
 		testConfig(),
+		&fakeTxManager{},
 	)
 }
 

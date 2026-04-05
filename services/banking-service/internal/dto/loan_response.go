@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+import (
+	"time"
+
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+)
 
 // LoanResponse za listu svih kredita (osnovne informacije)
 type LoanResponse struct {
@@ -14,9 +18,10 @@ type LoanResponse struct {
 
 // Rata za plan otplate
 type Installment struct {
-	Number int     `json:"number"`
-	Amount float64 `json:"amount"`
-	Status string  `json:"status"` // npr. "PAID", "UPCOMING"
+	Number  int       `json:"number"`
+	Amount  float64   `json:"amount"`
+	Status  string    `json:"status"` // npr. "PAID", "UPCOMING"
+	DueDate time.Time `json:"due_date"`
 }
 
 // LoanDetailsResponse za specifičan kredit sa planom otplate

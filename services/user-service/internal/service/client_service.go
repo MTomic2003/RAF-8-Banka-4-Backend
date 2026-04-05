@@ -23,6 +23,7 @@ type ClientService struct {
 	activationTokenRepo repository.ActivationTokenRepository
 	emailService        Mailer
 	cfg                 *config.Configuration
+	txManager           repository.TransactionManager
 }
 
 func NewClientService(
@@ -31,6 +32,7 @@ func NewClientService(
 	activationTokenRepo repository.ActivationTokenRepository,
 	emailService Mailer,
 	cfg *config.Configuration,
+	txManager repository.TransactionManager,
 ) *ClientService {
 	return &ClientService{
 		clientRepo:          clientRepo,
@@ -38,6 +40,7 @@ func NewClientService(
 		activationTokenRepo: activationTokenRepo,
 		emailService:        emailService,
 		cfg:                 cfg,
+		txManager:           txManager,
 	}
 }
 
@@ -64,10 +67,6 @@ func (s *ClientService) Register(ctx context.Context, req *dto.CreateClientReque
 		Type:     auth.IdentityClient,
 		Active:   false,
 	}
-	if err := s.identityRepo.Create(ctx, identity); err != nil {
-		return nil, errors.InternalErr(err)
-	}
-
 	mobileSecret, err := generateMobileVerificationSecret()
 	if err != nil {
 		return nil, errors.InternalErr(err)
@@ -83,10 +82,6 @@ func (s *ClientService) Register(ctx context.Context, req *dto.CreateClientReque
 		PhoneNumber:              req.PhoneNumber,
 		Address:                  req.Address,
 	}
-	if err := s.clientRepo.Create(ctx, client); err != nil {
-		return nil, errors.InternalErr(err)
-	}
-
 	tokenStr, err := generateSecureToken(16)
 	if err != nil {
 		return nil, errors.InternalErr(err)
@@ -97,8 +92,24 @@ func (s *ClientService) Register(ctx context.Context, req *dto.CreateClientReque
 		Token:      tokenStr,
 		ExpiresAt:  time.Now().Add(24 * time.Hour),
 	}
-	if err := s.activationTokenRepo.Create(ctx, activationToken); err != nil {
-		return nil, errors.InternalErr(err)
+	if err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.identityRepo.Create(txCtx, identity); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		client.IdentityID = identity.ID
+		if err := s.clientRepo.Create(txCtx, client); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		activationToken.IdentityID = identity.ID
+		if err := s.activationTokenRepo.Create(txCtx, activationToken); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	activationBase := strings.TrimRight(s.cfg.URLs.FrontendBaseURL, "/")

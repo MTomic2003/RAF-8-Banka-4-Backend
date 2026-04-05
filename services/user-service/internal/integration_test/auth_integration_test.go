@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 
 	"github.com/stretchr/testify/assert"
 )

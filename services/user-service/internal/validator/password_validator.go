@@ -26,4 +26,3 @@ func validatePassword(fl validator.FieldLevel) bool {
 
 	return upper >= 1 && lower >= 1 && digits >= 2
 }
-

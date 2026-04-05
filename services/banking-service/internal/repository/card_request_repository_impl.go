@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
@@ -19,7 +20,8 @@ func NewCardRequestRepository(db *gorm.DB) CardRequestRepository {
 }
 
 func (r *cardRequestRepository) Create(ctx context.Context, request *model.CardRequest) error {
-	return r.db.WithContext(ctx).Create(request).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Create(request).Error
 }
 
 func (r *cardRequestRepository) FindByAccountNumberAndCode(ctx context.Context, accountNumber string, code string) (*model.CardRequest, error) {
@@ -61,5 +63,6 @@ func (r *cardRequestRepository) FindLatestPendingByAccountNumber(ctx context.Con
 }
 
 func (r *cardRequestRepository) Update(ctx context.Context, request *model.CardRequest) error {
-	return r.db.WithContext(ctx).Save(request).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Save(request).Error
 }

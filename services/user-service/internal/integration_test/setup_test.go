@@ -15,17 +15,17 @@ import (
 	"testing"
 	"time"
 
-	"common/pkg/auth"
-	commonjwt "common/pkg/jwt"
-	"common/pkg/logging"
-	commonpermission "common/pkg/permission"
-	"user-service/internal/config"
-	"user-service/internal/handler"
-	"user-service/internal/model"
-	dbpermission "user-service/internal/permission"
-	"user-service/internal/repository"
-	"user-service/internal/server"
-	"user-service/internal/service"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	commonjwt "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
+	commonpermission "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/config"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/handler"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
+	dbpermission "github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/permission"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/repository"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/server"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/service"
 
 	"github.com/gin-gonic/gin"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -124,6 +124,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	resetTokenRepo := repository.NewResetTokenRepository(db)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(db)
 	positionRepo := repository.NewPositionRepository(db)
+	txManager := repository.NewGormTransactionManager(db)
 
 	mailer := &fakeMailer{}
 
@@ -136,6 +137,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 		refreshTokenRepo,
 		mailer,
 		cfg,
+		txManager,
 	)
 
 	empSvc := service.NewEmployeeService(
@@ -145,6 +147,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 		positionRepo,
 		mailer,
 		cfg,
+		txManager,
 	)
 	actuarySvc := service.NewActuaryService(
 		actuaryRepo,
@@ -157,6 +160,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 		actTokenRepo,
 		mailer,
 		cfg,
+		txManager,
 	)
 
 	authHandler := handler.NewAuthHandler(authSvc)

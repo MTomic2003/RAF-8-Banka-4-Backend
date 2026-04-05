@@ -52,6 +52,7 @@ type CardService struct {
 	cardRequestRepo      repository.CardRequestRepository
 	userClient           client.UserClient
 	mailer               Mailer
+	txManager            repository.TransactionManager
 }
 
 func NewCardService(
@@ -61,6 +62,7 @@ func NewCardService(
 	cardRequestRepo repository.CardRequestRepository,
 	userClient client.UserClient,
 	mailer Mailer,
+	txManager repository.TransactionManager,
 ) *CardService {
 	return &CardService{
 		accountRepo:          accountRepo,
@@ -69,6 +71,7 @@ func NewCardService(
 		cardRequestRepo:      cardRequestRepo,
 		userClient:           userClient,
 		mailer:               mailer,
+		txManager:            txManager,
 	}
 }
 
@@ -239,7 +242,10 @@ func (s *CardService) ConfirmCardRequest(ctx context.Context, accountNumber, cod
 		return nil, errors.BadRequestErr("invalid or expired confirmation code")
 	}
 
-	var authorizedPersonID *uint
+	var (
+		authorizedPersonID *uint
+		card               *model.Card
+	)
 
 	if account.AccountType == model.AccountTypePersonal {
 		count, err := s.cardRepo.CountNonDeactivatedByAccountNumber(ctx, account.AccountNumber)
@@ -252,6 +258,18 @@ func (s *CardService) ConfirmCardRequest(ctx context.Context, accountNumber, cod
 	}
 
 	if account.AccountType == model.AccountTypeBusiness {
+		if !request.ForAuthorizedPerson {
+			count, err := s.cardRepo.CountNonDeactivatedByAccountNumberAndAuthorizedPersonID(ctx, account.AccountNumber, nil)
+			if err != nil {
+				return nil, errors.InternalErr(err)
+			}
+			if count >= model.MaxBusinessCardsPerPerson {
+				return nil, errors.ConflictErr("business account owner already has a card")
+			}
+		}
+	}
+
+	if err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
 		if request.ForAuthorizedPerson {
 			person := &model.AuthorizedPerson{
 				AccountNumber: account.AccountNumber,
@@ -265,32 +283,29 @@ func (s *CardService) ConfirmCardRequest(ctx context.Context, accountNumber, cod
 			}
 
 			if strings.TrimSpace(person.FirstName) == "" || strings.TrimSpace(person.LastName) == "" || strings.TrimSpace(person.Email) == "" {
-				return nil, errors.InternalErr(fmt.Errorf("authorized person data is incomplete"))
+				return errors.InternalErr(fmt.Errorf("authorized person data is incomplete"))
 			}
 
-			if err := s.authorizedPersonRepo.Create(ctx, person); err != nil {
-				return nil, errors.InternalErr(err)
+			if err := s.authorizedPersonRepo.Create(txCtx, person); err != nil {
+				return errors.InternalErr(err)
 			}
 			authorizedPersonID = &person.AuthorizedPersonID
-		} else {
-			count, err := s.cardRepo.CountNonDeactivatedByAccountNumberAndAuthorizedPersonID(ctx, account.AccountNumber, nil)
-			if err != nil {
-				return nil, errors.InternalErr(err)
-			}
-			if count >= model.MaxBusinessCardsPerPerson {
-				return nil, errors.ConflictErr("business account owner already has a card")
-			}
 		}
-	}
 
-	card, err := s.createCard(ctx, account, authorizedPersonID)
-	if err != nil {
+		createdCard, err := s.createCard(txCtx, account, authorizedPersonID)
+		if err != nil {
+			return err
+		}
+		card = createdCard
+
+		request.Used = true
+		if err := s.cardRequestRepo.Update(txCtx, request); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		return nil
+	}); err != nil {
 		return nil, err
-	}
-
-	request.Used = true
-	if err := s.cardRequestRepo.Update(ctx, request); err != nil {
-		return nil, errors.InternalErr(err)
 	}
 
 	if err := s.sendCardCreatedEmail(ctx, account, card); err != nil {

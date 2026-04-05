@@ -1,0 +1,42 @@
+name: Proto Check
+run-name: Proto check for ${{ github.repository }}
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  proto-check:
+    name: Proto staleness check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out ${{ github.ref }} after a ${{ github.event_name }} event
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ./go.work
+          cache-dependency-path: '**/go.mod'
+
+      - name: Set up protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: '34.0'
+
+      - name: Install protoc plugins
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
+
+      - name: Generate protos
+        run: make proto
+
+      - name: Check generated proto diff
+        run: |
+          if ! git diff --exit-code -- common/pkg/pb; then
+            echo "::error::Generated proto code is out of date. Run 'make proto' and commit the result."
+            exit 1
+          fi
+

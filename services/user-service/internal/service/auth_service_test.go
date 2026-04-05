@@ -32,6 +32,7 @@ func newAuthService(
 		refreshTokenRepo,
 		mailer,
 		testConfig(),
+		&fakeTxManager{},
 	)
 }
 

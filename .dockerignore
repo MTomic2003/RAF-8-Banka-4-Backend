@@ -1,0 +1,36 @@
+.git
+.github
+.idea
+.vscode
+
+# Local build outputs and temp folders
+bin/
+obj/
+tmp/
+**/tmp/
+vendor/
+
+# Logs and OS/editor artifacts
+*.log
+*.swp
+*.swo
+.DS_Store
+
+# Local compiled artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test files are not needed in runtime image builds.
+*_test.go
+
+# Local env and compose overrides
+.env
+.env.*
+!env.example
+
+docker-compose*.override.yml
+
+

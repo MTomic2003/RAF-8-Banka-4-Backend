@@ -32,7 +32,23 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatal(err)
 	}
 
-	if err := db.AutoMigrate(&model.ForexPair{}); err != nil {
+	if err := db.AutoMigrate(&model.Exchange{}, &model.Listing{}, &model.ForexPair{}); err != nil {
+		t.Fatal(err)
+	}
+
+	exchange := model.Exchange{
+		Name:           "Simulation Exchange",
+		Acronym:        "SIM",
+		MicCode:        model.SimulatedExchangeMIC,
+		Polity:         "International",
+		Currency:       "USD",
+		TimeZone:       0,
+		OpenTime:       "00:00",
+		CloseTime:      "23:59",
+		TradingEnabled: true,
+	}
+
+	if err := db.Create(&exchange).Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -61,7 +77,8 @@ func TestRefreshFromAPI(t *testing.T) {
 
 	mockClient := &mockExchangeClient{data: mockResp}
 	repo := repository.NewForexRepository(db)
-	service := NewForexService(repo, mockClient)
+	listingRepo := repository.NewListingRepository(db)
+	service := NewForexService(repo, listingRepo, mockClient)
 
 	if err := service.refreshFromAPI(context.Background()); err != nil {
 		t.Fatalf("refreshFromAPI failed: %v", err)
@@ -85,6 +102,15 @@ func TestRefreshFromAPI(t *testing.T) {
 		if pair.Rate <= 0 {
 			t.Errorf("rate should be positive for %s/%s, got %f", pair.Base, pair.Quote, pair.Rate)
 		}
+	}
+
+	var listing model.Listing
+	if err := db.Where("ticker = ?", "EUR/USD").First(&listing).Error; err != nil {
+		t.Fatalf("failed loading seeded listing: %v", err)
+	}
+
+	if listing.ExchangeMIC != model.SimulatedExchangeMIC {
+		t.Fatalf("expected forex listing exchange %s, got %s", model.SimulatedExchangeMIC, listing.ExchangeMIC)
 	}
 }
 
@@ -110,7 +136,8 @@ func TestInitialize_SeedsDB(t *testing.T) {
 
 	mockClient := &mockExchangeClient{data: mockResp}
 	repo := repository.NewForexRepository(db)
-	service := NewForexService(repo, mockClient)
+	listingRepo := repository.NewListingRepository(db)
+	service := NewForexService(repo, listingRepo, mockClient)
 
 	// DB prazna → Initialize seeduje sve parove
 	service.Initialize(context.Background())

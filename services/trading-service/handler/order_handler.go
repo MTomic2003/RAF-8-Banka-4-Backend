@@ -19,6 +19,48 @@ func NewOrderHandler(service *service.OrderService) *OrderHandler {
 	return &OrderHandler{service: service}
 }
 
+// GetOrders godoc
+// @Summary Get all orders
+// @Description Returns a paginated and filtered list of orders. Clients see only their own orders, employees see all.
+// @Tags orders
+// @Produce json
+// @Param page query int false "Page number"
+// @Param page_size query int false "Page size"
+// @Param status query string false "Filter by status (PENDING, APPROVED, DECLINED)"
+// @Param direction query string false "Filter by direction (BUY, SELL)"
+// @Param is_done query bool false "Filter by completion status"
+// @Success 200 {object} dto.ListOrdersResponse
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Router /api/orders [get]
+func (h *OrderHandler) GetOrders(c *gin.Context) {
+	var query dto.ListOrdersQuery
+	if err := c.ShouldBindQuery(&query); err != nil {
+		c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+
+	if query.Page <= 0 {
+		query.Page = 1
+	}
+	if query.PageSize <= 0 {
+		query.PageSize = 10
+	}
+
+	orders, total, err := h.service.GetOrders(c.Request.Context(), query)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ListOrdersResponse{
+		Data:     dto.ToOrderSummaryResponseList(orders),
+		Total:    total,
+		Page:     query.Page,
+		PageSize: query.PageSize,
+	})
+}
+
 // CreateOrder godoc
 // @Summary Create a new order
 // @Description Creates a buy or sell order for a listing

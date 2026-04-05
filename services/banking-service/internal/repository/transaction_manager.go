@@ -4,7 +4,6 @@ import (
 	"context"
 )
 
-
 type TransactionManager interface {
-    WithinTransaction(ctx context.Context, fn func(ctx context.Context) error) error
+	WithinTransaction(ctx context.Context, fn func(ctx context.Context) error) error
 }

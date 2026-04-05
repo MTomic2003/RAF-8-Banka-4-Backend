@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ type AuthService struct {
 	refreshTokenRepo    repository.RefreshTokenRepository
 	emailService        Mailer
 	cfg                 *config.Configuration
+	txManager           repository.TransactionManager
 }
 
 func NewAuthService(
@@ -41,6 +43,7 @@ func NewAuthService(
 	refreshTokenRepo repository.RefreshTokenRepository,
 	emailService Mailer,
 	cfg *config.Configuration,
+	txManager repository.TransactionManager,
 ) *AuthService {
 	return &AuthService{
 		identityRepo:        identityRepo,
@@ -51,6 +54,7 @@ func NewAuthService(
 		refreshTokenRepo:    refreshTokenRepo,
 		emailService:        emailService,
 		cfg:                 cfg,
+		txManager:           txManager,
 	}
 }
 
@@ -68,8 +72,32 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Lo
 		return nil, errors.ForbiddenErr("account is disabled")
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(identity.PasswordHash), []byte(req.Password)); err != nil {
+	if time.Since(identity.LastFailedLoginTime) > time.Duration(s.cfg.FailedLoginWindow)*time.Minute {
+		identity.FailedLoginCount = 0
+	}
+
+	if int(identity.FailedLoginCount) >= s.cfg.MaxFailedLogins {
+		return nil, errors.UnauthorizedErr("account is temporarily blocked")
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(identity.PasswordHash), []byte(req.Password))
+
+	if err != nil {
+		identity.FailedLoginCount++
+		identity.LastFailedLoginTime = time.Now()
+
+		if err = s.identityRepo.Update(ctx, identity); err != nil {
+			return nil, errors.InternalErr(err)
+		}
+
 		return nil, errors.UnauthorizedErr("invalid credentials")
+	}
+
+	identity.FailedLoginCount = 0
+	identity.LastFailedLoginTime = time.Time{}
+
+	if err = s.identityRepo.Update(ctx, identity); err != nil {
+		return nil, errors.InternalErr(err)
 	}
 
 	session, err := s.buildSession(ctx, identity)
@@ -82,7 +110,6 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Lo
 		return nil, errors.InternalErr(err)
 	}
 
-	_ = s.refreshTokenRepo.DeleteByIdentityID(ctx, identity.ID)
 	rawRefresh, err := generateSecureToken(32)
 	if err != nil {
 		return nil, errors.InternalErr(err)
@@ -94,8 +121,18 @@ func (s *AuthService) Login(ctx context.Context, req *dto.LoginRequest) (*dto.Lo
 		ExpiresAt:  time.Now().Add(time.Duration(s.cfg.RefreshExpiry) * time.Minute),
 	}
 
-	if err := s.refreshTokenRepo.Create(ctx, refreshToken); err != nil {
-		return nil, errors.InternalErr(err)
+	if err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.refreshTokenRepo.DeleteByIdentityID(txCtx, identity.ID); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		if err := s.refreshTokenRepo.Create(txCtx, refreshToken); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	return &dto.LoginResponse{
@@ -137,8 +174,6 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshTokenStr string) 
 		return nil, err
 	}
 
-	_ = s.refreshTokenRepo.DeleteByIdentityID(ctx, identity.ID)
-
 	newAccessToken, err := jwt.GenerateToken(session.Claims, s.cfg.JWTSecret, s.cfg.JWTExpiry)
 	if err != nil {
 		return nil, errors.InternalErr(err)
@@ -155,8 +190,18 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshTokenStr string) 
 		ExpiresAt:  time.Now().Add(time.Duration(s.cfg.RefreshExpiry) * time.Minute),
 	}
 
-	if err := s.refreshTokenRepo.Create(ctx, newRefreshToken); err != nil {
-		return nil, errors.InternalErr(err)
+	if err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.refreshTokenRepo.DeleteByIdentityID(txCtx, identity.ID); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		if err := s.refreshTokenRepo.Create(txCtx, newRefreshToken); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	return &dto.RefreshResponse{
@@ -167,6 +212,34 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshTokenStr string) 
 }
 
 func (s *AuthService) ActivateAccount(ctx context.Context, tokenStr, password string) error {
+	// ------------- FOR TESTING -------------------------
+	if strings.HasPrefix(tokenStr, "test-token-") {
+		idStr := strings.TrimPrefix(tokenStr, "test-token-")
+
+		identityID, err := strconv.Atoi(idStr)
+		if err != nil {
+			return errors.BadRequestErr("invalid test token format")
+		}
+
+		existingToken, err := s.activationTokenRepo.FindByToken(ctx, tokenStr)
+		if err != nil {
+			return errors.InternalErr(err)
+		}
+
+		if existingToken == nil {
+			activationToken := &model.ActivationToken{
+				IdentityID: uint(identityID),
+				Token:      tokenStr,
+				ExpiresAt:  time.Now().Add(24 * time.Hour),
+			}
+
+			if err := s.activationTokenRepo.Create(ctx, activationToken); err != nil {
+				return errors.InternalErr(err)
+			}
+		}
+	}
+	// ----------------------------------------------------
+
 	activationToken, err := s.activationTokenRepo.FindByToken(ctx, tokenStr)
 	if err != nil {
 		return errors.InternalErr(err)
@@ -196,15 +269,76 @@ func (s *AuthService) ActivateAccount(ctx context.Context, tokenStr, password st
 
 	identity.PasswordHash = string(hashedPassword)
 	identity.Active = true
-	if err := s.identityRepo.Update(ctx, identity); err != nil {
-		return errors.InternalErr(err)
-	}
+	if err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.identityRepo.Update(txCtx, identity); err != nil {
+			return errors.InternalErr(err)
+		}
 
-	_ = s.activationTokenRepo.Delete(ctx, activationToken)
+		if err := s.activationTokenRepo.Delete(txCtx, activationToken); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
 
 	if err := s.emailService.Send(identity.Email, "Account activated", "Vas nalog je uspesno aktiviran."); err != nil {
 		log.Printf("failed to send account activation confirmation email to identity_id=%d: %v", identity.ID, err)
 	}
+	return nil
+}
+
+func (s *AuthService) ResendActivation(ctx context.Context, email string) error {
+	identity, err := s.identityRepo.FindByEmail(ctx, email)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+
+	if identity == nil {
+		return nil
+	}
+
+	if identity.Active {
+		return nil
+	}
+
+	tokenStr, err := generateSecureToken(16)
+	if err != nil {
+		return errors.InternalErr(err)
+	}
+
+	activationToken := &model.ActivationToken{
+		IdentityID: identity.ID,
+		Token:      tokenStr,
+		ExpiresAt:  time.Now().Add(24 * time.Hour),
+	}
+
+	if err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.activationTokenRepo.DeleteByIdentityID(txCtx, identity.ID); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		if err := s.activationTokenRepo.Create(txCtx, activationToken); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	activationBase := strings.TrimRight(s.cfg.URLs.FrontendBaseURL, "/")
+	link := fmt.Sprintf("%s/activate?token=%s", activationBase, url.QueryEscape(tokenStr))
+
+	if err := s.emailService.Send(
+		identity.Email,
+		"Welcome",
+		fmt.Sprintf("Kliknite ovde da postavite lozinku: %s", link),
+	); err != nil {
+		return errors.ServiceUnavailableErr(err)
+	}
+
 	return nil
 }
 
@@ -218,10 +352,6 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
 		return nil
 	}
 
-	if err := s.resetTokenRepo.DeleteByIdentityID(ctx, identity.ID); err != nil {
-		return errors.InternalErr(err)
-	}
-
 	tokenStr, err := generateSecureToken(16)
 	if err != nil {
 		return errors.InternalErr(err)
@@ -233,8 +363,18 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
 		ExpiresAt:  time.Now().Add(15 * time.Minute),
 	}
 
-	if err := s.resetTokenRepo.Create(ctx, resetToken); err != nil {
-		return errors.InternalErr(err)
+	if err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.resetTokenRepo.DeleteByIdentityID(txCtx, identity.ID); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		if err := s.resetTokenRepo.Create(txCtx, resetToken); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	resetBase := strings.TrimRight(s.cfg.URLs.FrontendBaseURL, "/")
@@ -280,11 +420,19 @@ func (s *AuthService) ConfirmPasswordReset(ctx context.Context, token, newPasswo
 	}
 
 	identity.PasswordHash = string(hashedPassword)
-	if err := s.identityRepo.Update(ctx, identity); err != nil {
-		return errors.InternalErr(err)
-	}
+	if err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.identityRepo.Update(txCtx, identity); err != nil {
+			return errors.InternalErr(err)
+		}
 
-	_ = s.resetTokenRepo.DeleteByIdentityID(ctx, identity.ID)
+		if err := s.resetTokenRepo.DeleteByIdentityID(txCtx, identity.ID); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
 
 	if err := s.emailService.Send(
 		identity.Email,

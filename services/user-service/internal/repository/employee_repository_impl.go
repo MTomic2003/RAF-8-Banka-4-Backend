@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 )
 
@@ -18,7 +19,8 @@ func NewEmployeeRepository(db *gorm.DB) EmployeeRepository {
 }
 
 func (r *employeeRepository) Create(ctx context.Context, employee *model.Employee) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Omit("ActuaryInfo").Create(employee).Error; err != nil {
 			return err
 		}
@@ -63,7 +65,8 @@ func (r *employeeRepository) FindByIdentityID(ctx context.Context, identityID ui
 }
 
 func (r *employeeRepository) Update(ctx context.Context, employee *model.Employee) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	currentDB := db.DBFromContext(ctx, r.db)
+	return currentDB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Omit("Permissions", "ActuaryInfo").Save(employee).Error; err != nil {
 			return err
 		}

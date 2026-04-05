@@ -7,7 +7,15 @@ on:
 
 jobs:
   build:
+    name: Build ${{ matrix.service }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - banking-service
+          - trading-service
+          - user-service
 
     steps:
     - name: Check out ${{ github.ref }} after a ${{ github.event_name }} event
@@ -19,21 +27,5 @@ jobs:
         go-version-file: './go.work'
         cache-dependency-path: '**/go.mod'
 
-    - name: Build the application
-      run: |
-        set +e
-        failed=0
-        for service in $(ls -d ./services/*/); do
-          echo "::group::Building $service..."
-          go build -v $service/cmd/main.go
-          if [ $? -ne 0 ]; then
-            echo "::endgroup::"
-            echo "::error::Build failed for $service"
-            failed=1
-          else
-            echo "::endgroup::"
-          fi
-        done
-        if [ $failed != 0 ]; then
-          exit 1
-        fi
+    - name: Build ${{ matrix.service }}
+      run: go build -v ./services/${{ matrix.service }}/cmd/main.go

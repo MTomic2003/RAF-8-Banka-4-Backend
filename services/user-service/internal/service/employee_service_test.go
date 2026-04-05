@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 )
@@ -26,6 +27,7 @@ func newEmployeeService(
 		positionRepo,
 		mailer,
 		testConfig(),
+		&fakeTxManager{},
 	)
 }
 
@@ -287,6 +289,67 @@ func TestGetAllEmployees(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, int64(1), res.Total)
 				require.Len(t, res.Data, 1)
+			}
+		})
+	}
+}
+
+func TestDeactivateEmployee(t *testing.T) {
+	t.Parallel()
+
+	active := activeEmployee()
+	adminEmp := activeEmployee()
+	adminEmp.Permissions = mapPermissions(adminEmp.EmployeeID, permission.All)
+
+	identity := activeIdentity()
+
+	tests := []struct {
+		name         string
+		empRepo      *fakeEmployeeRepo
+		identityRepo *fakeIdentityRepo
+		id           uint
+		expectErr    bool
+		errMsg       string
+	}{
+		{
+			name:         "successful deactivation",
+			empRepo:      &fakeEmployeeRepo{byID: active},
+			identityRepo: &fakeIdentityRepo{byID: identity},
+			id:           1,
+		},
+		{
+			name:         "employee not found",
+			empRepo:      &fakeEmployeeRepo{byID: nil},
+			identityRepo: &fakeIdentityRepo{},
+			id:           999,
+			expectErr:    true,
+			errMsg:       "employee not found",
+		},
+		{
+			name:         "cannot deactivate admin",
+			empRepo:      &fakeEmployeeRepo{byID: adminEmp},
+			identityRepo: &fakeIdentityRepo{byID: identity},
+			id:           1,
+			expectErr:    true,
+			errMsg:       "cannot deactivate admin",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newEmployeeService(tt.empRepo, tt.identityRepo, &fakeActivationTokenRepo{}, &fakePositionRepo{}, &fakeMailer{})
+
+			err := svc.DeactivateEmployee(context.Background(), tt.id)
+
+			if tt.expectErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					require.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, tt.identityRepo.updatedIdentity)
+				require.False(t, tt.identityRepo.updatedIdentity.Active)
 			}
 		})
 	}

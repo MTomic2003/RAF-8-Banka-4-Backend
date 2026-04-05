@@ -120,6 +120,31 @@ definitions:
       status:
         type: string
     type: object
+  dto.CompanyResponse:
+    properties:
+      address:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      owner_id:
+        type: integer
+      registration_number:
+        maxLength: 8
+        type: string
+      tax_number:
+        maxLength: 9
+        type: string
+      work_code_id:
+        type: integer
+    required:
+    - name
+    - owner_id
+    - registration_number
+    - tax_number
+    - work_code_id
+    type: object
   dto.ConfirmCardRequest:
     properties:
       account_number:
@@ -186,6 +211,28 @@ definitions:
     - employee_id
     - expires_at
     - name
+    type: object
+  dto.CreateCompanyRequest:
+    properties:
+      address:
+        type: string
+      name:
+        type: string
+      owner_id:
+        type: integer
+      registration_number:
+        maxLength: 8
+        type: string
+      tax_number:
+        maxLength: 9
+        type: string
+      work_code_id:
+        type: integer
+    required:
+    - name
+    - owner_id
+    - registration_number
+    - tax_number
     type: object
   dto.CreateLoanRequest:
     properties:
@@ -267,6 +314,8 @@ definitions:
     properties:
       amount:
         type: number
+      due_date:
+        type: string
       number:
         type: integer
       status:
@@ -360,6 +409,8 @@ definitions:
   dto.PaymentResponse:
     properties:
       amount:
+        type: number
+      commission:
         type: number
       created_at:
         type: string
@@ -492,6 +543,15 @@ definitions:
     type: object
   dto.VerifyPaymentResponse:
     properties:
+      id:
+        type: integer
+    type: object
+  dto.WorkCodeResponse:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
       id:
         type: integer
     type: object
@@ -1672,6 +1732,111 @@ paths:
       summary: Execute an internal transfer
       tags:
       - transfers
+  /api/companies:
+    get:
+      description: Returns all companies. Employee access only.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.CompanyResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List all companies
+      tags:
+      - companies
+    post:
+      consumes:
+      - application/json
+      description: Creates a new company. Employee access only.
+      parameters:
+      - description: Company creation data
+        in: body
+        name: company
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateCompanyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.CompanyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Create a new company
+      tags:
+      - companies
+  /api/companies/work-codes:
+    get:
+      description: Returns all available company work codes for frontend selection.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.WorkCodeResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: List all work codes
+      tags:
+      - companies
   /api/health:
     get:
       description: Returns service health status

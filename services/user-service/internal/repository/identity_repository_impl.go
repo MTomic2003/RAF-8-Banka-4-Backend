@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 )
 
@@ -18,7 +19,8 @@ func NewIdentityRepository(db *gorm.DB) IdentityRepository {
 }
 
 func (r *identityRepository) Create(ctx context.Context, identity *model.Identity) error {
-	return r.db.WithContext(ctx).Create(identity).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Create(identity).Error
 }
 
 func (r *identityRepository) FindByID(ctx context.Context, id uint) (*model.Identity, error) {
@@ -55,7 +57,8 @@ func (r *identityRepository) FindByUsername(ctx context.Context, username string
 }
 
 func (r *identityRepository) Update(ctx context.Context, identity *model.Identity) error {
-	return r.db.WithContext(ctx).Save(identity).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Save(identity).Error
 }
 
 func (r *identityRepository) EmailExists(ctx context.Context, email string) (bool, error) {

@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
@@ -18,7 +19,8 @@ func NewAuthorizedPersonRepository(db *gorm.DB) AuthorizedPersonRepository {
 }
 
 func (r *authorizedPersonRepository) Create(ctx context.Context, person *model.AuthorizedPerson) error {
-	return r.db.WithContext(ctx).Create(person).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Create(person).Error
 }
 
 func (r *authorizedPersonRepository) FindByID(ctx context.Context, id uint) (*model.AuthorizedPerson, error) {

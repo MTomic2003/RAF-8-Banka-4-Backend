@@ -1,0 +1,32 @@
+name: Mod Files Check
+run-name: Mod files check for ${{ github.repository }}
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  mod-tidy:
+    name: Mod files check ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - ./common
+          - ./services/banking-service
+          - ./services/trading-service
+          - ./services/user-service
+
+    steps:
+    - name: Check out ${{ github.ref }} after a ${{ github.event_name }} event
+      uses: actions/checkout@v6
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version-file: './go.work'
+        cache-dependency-path: '**/go.mod'
+
+    - name: Mod files check ${{ matrix.service }}
+      run: cd ${{ matrix.service }} && go mod tidy -diff

@@ -9,6 +9,13 @@ service BankingService {
   rpc CreatePaymentWithoutVerification(CreatePaymentRequest) returns (CreatePaymentResponse);
   rpc GetAccountsByClientID(GetAccountsByClientIDRequest) returns (GetAccountsByClientIDResponse);
   rpc ConvertCurrency(ConvertCurrencyRequest) returns (ConvertCurrencyResponse);
+  rpc ExecuteTradeSettlement(ExecuteTradeSettlementRequest) returns (ExecuteTradeSettlementResponse);
+}
+
+enum TradeSettlementDirection {
+  TRADE_SETTLEMENT_DIRECTION_UNSPECIFIED = 0;
+  TRADE_SETTLEMENT_DIRECTION_BUY = 1;
+  TRADE_SETTLEMENT_DIRECTION_SELL = 2;
 }
 
 message GetAccountByNumberRequest {
@@ -60,4 +67,18 @@ message ConvertCurrencyRequest {
 
 message ConvertCurrencyResponse {
   double converted_amount = 1;
+}
+message ExecuteTradeSettlementRequest {
+  string account_number = 1;
+  string trade_currency_code = 2;
+  TradeSettlementDirection direction = 3;
+  double amount = 4;
+}
+
+message ExecuteTradeSettlementResponse {
+  uint64 transaction_id = 1;
+  double source_amount = 2;
+  string source_currency_code = 3;
+  double destination_amount = 4;
+  string destination_currency_code = 5;
 }

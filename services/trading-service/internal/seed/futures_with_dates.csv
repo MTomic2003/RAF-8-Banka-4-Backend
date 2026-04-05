@@ -1,53 +1,53 @@
-Ticker,Name,ContractSize,ContractUnit,SettlementDate
-ZCJ26,Corn Futures,5000,bushel,2026-04-30
-ZSJ26,Soybean Futures,5000,bushel,2026-04-30
-ZLJ26,Soybean Oil Futures,60000,pound,2026-04-30
-ZMJ26,Soybean Meal Futures,180000,pound,2026-04-30
-ZWJ26,Chicago Wheat Futures,5000,bushel,2026-04-30
-LEJ26,Live Cattle Futures,40000,pound,2026-04-30
-KEJ26,Wheat Futures,5000,bushel,2026-04-30
-GFJ26,Feeder Cattle Futures,50000,pound,2026-04-30
-HEJ26,Lean Hog Futures,40000,pound,2026-04-30
-GPJ26,Pork Cutout Futures,40000,pound,2026-04-30
-GNJ26,Nonfat Dry Milk Futures,44000,pound,2026-04-30
-DCJ26,Class III Milk Futures,200000,pound,2026-04-30
-GDKJ26,Class IV Milk Futures,200000,pound,2026-04-30
-CLM26,Crude Oil Futures,1000,barrel,2026-06-30
-NGM26,Natural Gas Futures,10000,MMBtu,2026-06-27
-RBM26,Gasoline Futures,42000,gallon,2026-06-30
-QMM26,E-Mini Crude Oil Futures,500,barrel,2026-06-30
-HOM26,NY Harbor ULSD Futures,42000,gallon,2026-06-30
-MCLM26,Micro Crude Oil Futures,100,barrel,2026-06-30
-HHM26,Henry Hub Natural Gas Futures,10000,MMBtu,2026-06-27
-BKJM26,Buckeye Jet Fuel Futures,42000,gallon,2026-06-30
-GCM26,Gold Futures,100,troy ounce,2026-06-27
-SIM26,Silver Futures,5000,troy ounce,2026-06-27
-PLM26,Platinum Futures,50,troy ounce,2026-06-27
-HGM26,Copper Futures,25000,pound,2026-06-27
-ALIM26,Aluminum Futures,50000,pound,2026-06-27
-QCM26,E-Mini Copper Futures,12500,pound,2026-06-27
-GDBM26,Cash-Settled Butter Futures,20000,pound,2026-06-30
-GDCM26,Cash-Settled Cheese Futures,20000,pound,2026-06-30
-BCM26,Block Cheese Futures,2000,pound,2026-06-30
-ZOU26,Oats Futures,5000,bushel,2026-09-30
-ZRU26,Rough Rice Futures,180000,pound,2026-09-30
-URMU26,Urea Futures,200000,pound,2026-09-30
-LBU26,Lumber Futures,27500,board feet,2026-09-30
-CPMU26,Copper Mini Futures,12500,pound,2026-09-30
-SIMU26,Silver Mini Futures,1000,troy ounce,2026-09-30
-PLMU26,Platinum Mini Futures,10,troy ounce,2026-09-30
-OGU26,Gold Options Futures,100,troy ounce,2026-09-30
-SOU26,Silver Options Futures,5000,troy ounce,2026-09-30
-PAOU26,Palladium Options Futures,100,troy ounce,2026-09-30
-CTU26,Cotton Futures,50000,pound,2026-09-30
-KCU26,Coffee Futures,37500,pound,2026-09-30
-SBU26,Sugar Futures,112000,pound,2026-09-30
-CCU26,Cocoa Futures,10,metric ton,2026-09-30
-OJU26,Orange Juice Futures,15000,pound,2026-09-30
-LOU26,Lumber Options Futures,1100,board feet,2026-09-30
-LHOZ26,Lean Hog Options Futures,40000,pound,2026-12-31
-LCOZ26,Live Cattle Options Futures,40000,pound,2026-12-31
-FCOZ26,Feeder Cattle Options Futures,50000,pound,2026-12-31
-BOOZ26,Butter Options Futures,20000,pound,2026-12-31
-CHOZ26,Cheese Options Futures,20000,pound,2026-12-31
-PBOZ26,Pork Belly Options Futures,40000,pound,2026-12-31
+Ticker,Name,ContractSize,ContractUnit,SettlementDate,PriceRSD,ExchangeMIC
+ZCJ26,Corn Futures,5000,bushel,2026-04-30,871.65,CME
+ZSJ26,Soybean Futures,5000,bushel,2026-04-30,1790.10,CME
+ZLJ26,Soybean Oil Futures,60000,pound,2026-04-30,72.54,CME
+ZMJ26,Soybean Meal Futures,180000,pound,2026-04-30,49.14,CME
+ZWJ26,Chicago Wheat Futures,5000,bushel,2026-04-30,947.70,CME
+LEJ26,Live Cattle Futures,40000,pound,2026-04-30,216.45,CME
+KEJ26,Wheat Futures,5000,bushel,2026-04-30,924.30,CME
+GFJ26,Feeder Cattle Futures,50000,pound,2026-04-30,224.64,CME
+HEJ26,Lean Hog Futures,40000,pound,2026-04-30,112.32,CME
+GPJ26,Pork Cutout Futures,40000,pound,2026-04-30,123.15,CME
+GNJ26,Nonfat Dry Milk Futures,44000,pound,2026-04-30,161.46,CME
+DCJ26,Class III Milk Futures,200000,pound,2026-04-30,64.35,CME
+GDKJ26,Class IV Milk Futures,200000,pound,2026-04-30,71.37,CME
+CLM26,Crude Oil Futures,1000,barrel,2026-06-30,9662.50,NYMEX
+NGM26,Natural Gas Futures,10000,MMBtu,2026-06-27,438.75,NYMEX
+RBM26,Gasoline Futures,42000,gallon,2026-06-30,274.95,NYMEX
+QMM26,E-Mini Crude Oil Futures,500,barrel,2026-06-30,9664.20,NYMEX
+HOM26,NY Harbor ULSD Futures,42000,gallon,2026-06-30,251.55,NYMEX
+MCLM26,Micro Crude Oil Futures,100,barrel,2026-06-30,9656.65,NYMEX
+HHM26,Henry Hub Natural Gas Futures,10000,MMBtu,2026-06-27,442.26,NYMEX
+BKJM26,Buckeye Jet Fuel Futures,42000,gallon,2026-06-30,260.74,NYMEX
+GCM26,Gold Futures,100,troy ounce,2026-06-27,231660.00,COMEX
+SIM26,Silver Futures,5000,troy ounce,2026-06-27,2983.50,COMEX
+PLM26,Platinum Futures,50,troy ounce,2026-06-27,114660.00,NYMEX
+HGM26,Copper Futures,25000,pound,2026-06-27,473.85,COMEX
+ALIM26,Aluminum Futures,50000,pound,2026-06-27,216.45,LME
+QCM26,E-Mini Copper Futures,12500,pound,2026-06-27,479.70,COMEX
+GDBM26,Cash-Settled Butter Futures,20000,pound,2026-06-30,321.75,CME
+GDCM26,Cash-Settled Cheese Futures,20000,pound,2026-06-30,245.40,CME
+BCM26,Block Cheese Futures,2000,pound,2026-06-30,243.36,CME
+ZOU26,Oats Futures,5000,bushel,2026-09-30,760.50,CME
+ZRU26,Rough Rice Futures,180000,pound,2026-09-30,59.28,CME
+URMU26,Urea Futures,200000,pound,2026-09-30,52.65,ICE
+LBU26,Lumber Futures,27500,board feet,2026-09-30,108.06,CME
+CPMU26,Copper Mini Futures,12500,pound,2026-09-30,475.36,COMEX
+SIMU26,Silver Mini Futures,1000,troy ounce,2026-09-30,2990.35,COMEX
+PLMU26,Platinum Mini Futures,10,troy ounce,2026-09-30,114894.00,NYMEX
+OGU26,Gold Options Futures,100,troy ounce,2026-09-30,232245.00,COMEX
+SOU26,Silver Options Futures,5000,troy ounce,2026-09-30,3000.15,COMEX
+PAOU26,Palladium Options Futures,100,troy ounce,2026-09-30,169650.00,NYMEX
+CTU26,Cotton Futures,50000,pound,2026-09-30,107.64,ICE
+KCU26,Coffee Futures,37500,pound,2026-09-30,204.75,ICE
+SBU26,Sugar Futures,112000,pound,2026-09-30,39.09,ICE
+CCU26,Cocoa Futures,10,metric ton,2026-09-30,292500.00,ICE
+OJU26,Orange Juice Futures,15000,pound,2026-09-30,131.04,ICE
+LOU26,Lumber Options Futures,1100,board feet,2026-09-30,111.15,CME
+LHOZ26,Lean Hog Options Futures,40000,pound,2026-12-31,113.49,CME
+LCOZ26,Live Cattle Options Futures,40000,pound,2026-12-31,220.32,CME
+FCOZ26,Feeder Cattle Options Futures,50000,pound,2026-12-31,228.15,CME
+BOOZ26,Butter Options Futures,20000,pound,2026-12-31,325.26,CME
+CHOZ26,Cheese Options Futures,20000,pound,2026-12-31,247.96,CME
+PBOZ26,Pork Belly Options Futures,40000,pound,2026-12-31,124.02,CME

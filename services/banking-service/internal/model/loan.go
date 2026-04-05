@@ -23,7 +23,7 @@ type LoanType struct {
 type LoanRequest struct {
 	ID                 uint    `gorm:"primaryKey"`
 	ClientID           uint    `gorm:"not null"`
-	AccountNumber      string  `gorm:"size:20;not null"`
+	AccountNumber      string  `gorm:"size:18;not null"`
 	LoanTypeID         uint    `gorm:"not null"`
 	Amount             float64 `gorm:"not null"`
 	RepaymentPeriod    int     `gorm:"not null"`
@@ -57,6 +57,7 @@ type Loan struct {
 	LoanRequest   LoanRequest
 
 	TransactionID *uint `gorm:"index"`
+	Transaction   *Transaction
 
 	MonthlyInstallment float64 `gorm:"not null"`
 	InterestRate       float64 `gorm:"not null"`
@@ -87,6 +88,7 @@ type LoanInstallment struct {
 	InterestRate      float64 `gorm:"not null"`
 
 	TransactionID *uint
+	Transaction   Transaction
 
 	DueDate time.Time `gorm:"not null;index"`
 	PaidAt  *time.Time

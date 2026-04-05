@@ -35,15 +35,17 @@ func (c *DBConfig) DSN() string {
 }
 
 type Configuration struct {
-	Env           string
-	Port          string
-	DB            DBConfig
-	GrpcPort      string // unused for now until we add multiple microservices
-	JWTSecret     string // Dodato za JWT
-	JWTExpiry     int    // U minutima
-	SMTP          SMTPConfig
-	URLs          URLConfig
-	RefreshExpiry int // refresh token
+	Env               string
+	Port              string
+	DB                DBConfig
+	GrpcPort          string // unused for now until we add multiple microservices
+	JWTSecret         string // Dodato za JWT
+	JWTExpiry         int    // U minutima
+	SMTP              SMTPConfig
+	URLs              URLConfig
+	RefreshExpiry     int // refresh token
+	FailedLoginWindow int
+	MaxFailedLogins   int
 }
 
 func GetAsIntOrDefault(env string, defaultValue int) int {
@@ -91,9 +93,11 @@ func Load() *Configuration {
 			Password: GetOrThrow("DB_PASS"),
 			DBName:   GetOrThrow("DB_NAME"),
 		},
-		JWTSecret:     GetOrThrow("JWT_SECRET"),
-		JWTExpiry:     GetAsIntOrDefault("JWT_EXPIRY", 15),
-		RefreshExpiry: GetAsIntOrDefault("REFRESH_EXPIRY_MINUTES", 10080),
+		JWTSecret:         GetOrThrow("JWT_SECRET"),
+		JWTExpiry:         GetAsIntOrDefault("JWT_EXPIRY", 15),
+		RefreshExpiry:     GetAsIntOrDefault("REFRESH_EXPIRY_MINUTES", 10080),
+		FailedLoginWindow: GetAsIntOrDefault("FAILED_LOGIN_WINDOW_MINUTES", 5),
+		MaxFailedLogins:   GetAsIntOrDefault("MAX_FAILED_LOGINS", 4),
 		SMTP: SMTPConfig{
 			Host: GetOrThrow("SMTP_HOST"),
 			Port: GetOrDefault("SMTP_PORT", "587"),

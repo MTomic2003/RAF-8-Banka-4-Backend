@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	"banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,6 +20,7 @@ func TestSubmitLoanRequest(t *testing.T) {
 	router := setupTestRouter(t, db)
 
 	rsd := seedCurrency(t, db, model.RSD)
+	seedBankAccounts(t, db, rsd.CurrencyID)
 	account := seedAccount(t, db, 100, rsd.CurrencyID, 50000)
 	loanType := seedLoanType(t, db)
 
@@ -125,6 +126,7 @@ func TestGetClientLoans(t *testing.T) {
 	router := setupTestRouter(t, db)
 
 	rsd := seedCurrency(t, db, model.RSD)
+	seedBankAccounts(t, db, rsd.CurrencyID)
 	account := seedAccount(t, db, 100, rsd.CurrencyID, 50000)
 	loanType := seedLoanType(t, db)
 
@@ -180,6 +182,7 @@ func TestApproveLoanRequest(t *testing.T) {
 	router := setupTestRouter(t, db)
 
 	rsd := seedCurrency(t, db, model.RSD)
+	seedBankAccounts(t, db, rsd.CurrencyID)
 	account := seedAccount(t, db, 100, rsd.CurrencyID, 50000)
 	loanType := seedLoanType(t, db)
 

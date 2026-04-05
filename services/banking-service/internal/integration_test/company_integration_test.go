@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"testing"
 
-	"banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateCompany(t *testing.T) {
@@ -121,4 +122,84 @@ func TestCreateCompany(t *testing.T) {
 	var count int64
 	db.Model(&model.Company{}).Count(&count)
 	assert.Equal(t, int64(1), count)
+}
+
+func TestGetWorkCodes(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+
+	workCodeOne := &model.WorkCode{Code: "64.1", Description: "Banking"}
+	workCodeTwo := &model.WorkCode{Code: "62.0", Description: "Software development"}
+	require.NoError(t, db.Create(workCodeOne).Error)
+	require.NoError(t, db.Create(workCodeTwo).Error)
+
+	employeeAuth := authHeaderForEmployee(t, 1, 1)
+	clientAuth := authHeaderForClient(t, 10, 100)
+
+	t.Run("employee can fetch work codes", func(t *testing.T) {
+		recorder := performRequest(t, router, http.MethodGet, "/api/companies/work-codes", nil, employeeAuth)
+		requireStatus(t, recorder, http.StatusOK)
+
+		resp := decodeResponse[[]map[string]any](t, recorder)
+		require.Len(t, resp, 2)
+		assert.Equal(t, "62.0", resp[0]["code"])
+		assert.Equal(t, "Software development", resp[0]["description"])
+		assert.Equal(t, "64.1", resp[1]["code"])
+	})
+
+	t.Run("client cannot fetch work codes", func(t *testing.T) {
+		recorder := performRequest(t, router, http.MethodGet, "/api/companies/work-codes", nil, clientAuth)
+		requireStatus(t, recorder, http.StatusForbidden)
+	})
+
+	t.Run("missing auth", func(t *testing.T) {
+		recorder := performRequest(t, router, http.MethodGet, "/api/companies/work-codes", nil, "")
+		requireStatus(t, recorder, http.StatusUnauthorized)
+	})
+}
+
+func TestGetCompanies(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+
+	workCode := seedWorkCode(t, db)
+	companyOne := seedCompany(t, db, 100, workCode.WorkCodeID)
+	companyTwo := &model.Company{
+		Name:               uniqueValue(t, "company"),
+		RegistrationNumber: "87654321",
+		TaxNumber:          "987654321",
+		WorkCodeID:         workCode.WorkCodeID,
+		Address:            "Second Street 2",
+		OwnerID:            101,
+	}
+	require.NoError(t, db.Create(companyTwo).Error)
+
+	employeeAuth := authHeaderForEmployee(t, 1, 1)
+	clientAuth := authHeaderForClient(t, 10, 100)
+
+	t.Run("employee can fetch companies", func(t *testing.T) {
+		recorder := performRequest(t, router, http.MethodGet, "/api/companies", nil, employeeAuth)
+		requireStatus(t, recorder, http.StatusOK)
+
+		resp := decodeResponse[[]map[string]any](t, recorder)
+		require.Len(t, resp, 2)
+		assert.Equal(t, float64(companyOne.CompanyID), resp[0]["id"])
+		assert.Equal(t, companyOne.Name, resp[0]["name"])
+		assert.Equal(t, float64(companyTwo.CompanyID), resp[1]["id"])
+		assert.Equal(t, companyTwo.Name, resp[1]["name"])
+	})
+
+	t.Run("client cannot fetch companies", func(t *testing.T) {
+		recorder := performRequest(t, router, http.MethodGet, "/api/companies", nil, clientAuth)
+		requireStatus(t, recorder, http.StatusForbidden)
+	})
+
+	t.Run("missing auth", func(t *testing.T) {
+		recorder := performRequest(t, router, http.MethodGet, "/api/companies", nil, "")
+		requireStatus(t, recorder, http.StatusUnauthorized)
+	})
 }

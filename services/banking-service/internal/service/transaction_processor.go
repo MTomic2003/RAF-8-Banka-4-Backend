@@ -122,6 +122,51 @@ func (tp *TransactionProcessor) Process(ctx context.Context, transactionID uint)
 		return tp.transactionRepo.Update(ctx, transaction)
 	})
 }
+
+func (tp *TransactionProcessor) ProcessTradeSettlement(ctx context.Context, transactionID uint) error {
+	return tp.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
+		transaction, err := tp.transactionRepo.GetByID(ctx, transactionID)
+		if err != nil {
+			return errors.InternalErr(err)
+		}
+
+		if transaction.Status != model.TransactionProcessing {
+			return errors.BadRequestErr("transaction already processed")
+		}
+
+		payer, err := tp.accountRepo.FindByAccountNumber(ctx, transaction.PayerAccountNumber)
+		if err != nil {
+			return errors.InternalErr(err)
+		}
+
+		recipient, err := tp.accountRepo.FindByAccountNumber(ctx, transaction.RecipientAccountNumber)
+		if err != nil {
+			return errors.InternalErr(err)
+		}
+
+		if payer.AccountNumber == recipient.AccountNumber {
+			return errors.BadRequestErr("cannot settle trade to the same account")
+		}
+
+		if payer.AvailableBalance < transaction.StartAmount {
+			return errors.BadRequestErr("insufficient payer funds")
+		}
+
+		model.UpdateBalances(payer, -transaction.StartAmount)
+		model.UpdateBalances(recipient, transaction.EndAmount)
+
+		if err := tp.accountRepo.UpdateBalance(ctx, payer); err != nil {
+			return errors.InternalErr(err)
+		}
+		if err := tp.accountRepo.UpdateBalance(ctx, recipient); err != nil {
+			return errors.InternalErr(err)
+		}
+
+		transaction.Status = model.TransactionCompleted
+		return tp.transactionRepo.Update(ctx, transaction)
+	})
+}
+
 func (tp *TransactionProcessor) ProcessLoanInstallment(ctx context.Context, transactionID uint) error {
 	return tp.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
 		transaction, err := tp.transactionRepo.GetByID(ctx, transactionID)

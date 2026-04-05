@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 )
 
@@ -18,7 +19,8 @@ func NewRefreshTokenRepository(db *gorm.DB) RefreshTokenRepository {
 }
 
 func (r *refreshTokenRepository) Create(ctx context.Context, token *model.RefreshToken) error {
-	return r.db.WithContext(ctx).Create(token).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Create(token).Error
 }
 
 func (r *refreshTokenRepository) FindByToken(ctx context.Context, token string) (*model.RefreshToken, error) {
@@ -34,5 +36,6 @@ func (r *refreshTokenRepository) FindByToken(ctx context.Context, token string) 
 }
 
 func (r *refreshTokenRepository) DeleteByIdentityID(ctx context.Context, identityID uint) error {
-	return r.db.WithContext(ctx).Where("identity_id = ?", identityID).Delete(&model.RefreshToken{}).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Where("identity_id = ?", identityID).Delete(&model.RefreshToken{}).Error
 }

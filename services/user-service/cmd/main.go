@@ -49,6 +49,7 @@ func main() {
 			repository.NewActivationTokenRepository,
 			repository.NewResetTokenRepository,
 			repository.NewRefreshTokenRepository,
+			repository.NewGormTransactionManager,
 			repository.NewPositionRepository,
 			service.NewAuthService,
 			service.NewEmployeeService,

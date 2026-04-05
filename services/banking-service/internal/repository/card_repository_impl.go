@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
 
@@ -18,7 +19,8 @@ func NewCardRepository(db *gorm.DB) CardRepository {
 }
 
 func (r *cardRepository) Create(ctx context.Context, card *model.Card) error {
-	return r.db.WithContext(ctx).Create(card).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Create(card).Error
 }
 
 func (r *cardRepository) FindByID(ctx context.Context, id uint) (*model.Card, error) {
@@ -142,5 +144,6 @@ func (r *cardRepository) CardNumberExists(ctx context.Context, cardNumber string
 }
 
 func (r *cardRepository) Update(ctx context.Context, card *model.Card) error {
-	return r.db.WithContext(ctx).Save(card).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Save(card).Error
 }

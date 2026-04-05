@@ -66,7 +66,7 @@ func InitRouter(r *gin.Engine, cfg *config.Configuration) {
 	r.Use(gin.Recovery())
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{cfg.URLs.FrontendBaseURL},
+		AllowOrigins:     []string{cfg.URLs.FrontendBaseURL, "https://banka-4-frontend.vercel.app"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -157,6 +157,8 @@ func SetupRoutes(
 		companies := api.Group("/companies")
 		companies.Use(auth.Middleware(verifier, permissions))
 		{
+			companies.GET("", auth.RequireIdentityType(auth.IdentityEmployee), companyHandler.GetCompanies)
+			companies.GET("/work-codes", auth.RequireIdentityType(auth.IdentityEmployee), companyHandler.GetWorkCodes)
 			companies.POST("", auth.RequireIdentityType(auth.IdentityEmployee), companyHandler.Create)
 		}
 

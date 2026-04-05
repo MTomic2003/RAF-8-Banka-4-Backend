@@ -100,6 +100,32 @@ func (h *AuthHandler) Activate(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Password set successfully"})
 }
 
+// ResendActivation godoc
+// @Summary Resend activation email
+// @Description Resends an activation email
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param activation body dto.ResendActivationRequest true "Email"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Router /api/auth/resend-activation [post]
+func (h *AuthHandler) ResendActivation(c *gin.Context) {
+	var req dto.ResendActivationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errors.BadRequestErr(err.Error()))
+		return
+	}
+
+	if err := h.service.ResendActivation(c.Request.Context(), req.Email); err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "If that email is registered, an activation link has been sent"})
+}
+
 // ForgotPassword godoc
 // @Summary Request password reset
 // @Description Sends a password reset token to the email if it exists

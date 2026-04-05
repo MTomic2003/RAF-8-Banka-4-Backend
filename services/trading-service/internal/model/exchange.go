@@ -1,5 +1,7 @@
 package model
 
+const SimulatedExchangeMIC = "XSIM"
+
 type Exchange struct {
 	ExchangeID     uint   `gorm:"primaryKey;autoIncrement"`
 	Name           string `gorm:"not null;size:100"`

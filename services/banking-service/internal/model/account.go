@@ -76,8 +76,8 @@ var ValidBusinessSubtypes = map[Subtype]bool{
 
 type Account struct {
 	AccountNumber string `gorm:"primaryKey;size:18"`
-	Name          string `gorm:"uniqueIndex"`
-	ClientID      uint   `gorm:"not null;index"`
+	Name          string
+	ClientID      uint `gorm:"not null;index"`
 
 	CompanyID *uint `gorm:"index"`
 	Company   *Company
@@ -104,6 +104,15 @@ type Account struct {
 	MonthlyLimit    float64 `gorm:"not null;default:0"`
 	DailySpending   float64 `gorm:"not null;default:0"`
 	MonthlySpending float64 `gorm:"not null;default:0"`
+
+	Payees                []Payee             `gorm:"foreignKey:AccountNumber"`
+	VerificationTokens    []VerificationToken `gorm:"foreignKey:AccountNumber"`
+	CardRequests          []CardRequest       `gorm:"foreignKey:AccountNumber"`
+	AuthorizedPersons     []AuthorizedPerson  `gorm:"foreignKey:AccountNumber"`
+	LoanRequests          []LoanRequest       `gorm:"foreignKey:AccountNumber"`
+	TransactionsRecipient []Transaction       `gorm:"foreignKey:RecipientAccountNumber"`
+	TransactionsPayer     []Transaction       `gorm:"foreignKey:PayerAccountNumber"`
+	Cards                 []Card              `gorm:"foreignKey:AccountNumber"`
 }
 
 func GetTypeCode(accountKind AccountKind, accountType AccountType, subtype Subtype) string {

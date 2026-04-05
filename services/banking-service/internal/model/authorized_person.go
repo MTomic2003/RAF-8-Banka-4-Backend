@@ -3,10 +3,10 @@ package model
 import "time"
 
 type AuthorizedPerson struct {
-	AuthorizedPersonID uint    `gorm:"primaryKey"`
-	AccountNumber      string  `gorm:"not null;index"`
-	FirstName          string  `gorm:"not null;size:20"`
-	LastName           string  `gorm:"not null;size:100"`
+	AuthorizedPersonID uint   `gorm:"primaryKey"`
+	AccountNumber      string `gorm:"not null;index;size:18"`
+	FirstName          string `gorm:"not null;size:20"`
+	LastName           string `gorm:"not null;size:100"`
 	DateOfBirth        time.Time
 	Gender             string `gorm:"size:10"`
 	Email              string `gorm:"not null;size:100"`

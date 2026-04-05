@@ -10,4 +10,5 @@ type ActivationTokenRepository interface {
 	Create(ctx context.Context, token *model.ActivationToken) error
 	FindByToken(ctx context.Context, token string) (*model.ActivationToken, error)
 	Delete(ctx context.Context, token *model.ActivationToken) error
+	DeleteByIdentityID(ctx context.Context, identityID uint) error
 }

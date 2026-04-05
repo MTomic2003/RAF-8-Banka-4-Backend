@@ -1,13 +1,12 @@
 package seed
 
 import (
+	_ "embed"
 	"encoding/csv"
 	"errors"
 	"log"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -15,17 +14,11 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 )
 
+//go:embed futures_with_dates.csv
+var futuresCSV string
+
 func SeedFuturesContracts(db *gorm.DB) error {
-	_, filename, _, _ := runtime.Caller(0)
-	csvPath := filepath.Join(filepath.Dir(filename), "futures_with_dates.csv")
-
-	f, err := os.Open(csvPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	reader := csv.NewReader(f)
+	reader := csv.NewReader(strings.NewReader(futuresCSV))
 	records, err := reader.ReadAll()
 	if err != nil {
 		return err
@@ -37,7 +30,7 @@ func SeedFuturesContracts(db *gorm.DB) error {
 			continue
 		}
 
-		if len(row) != 5 {
+		if len(row) != 7 {
 			log.Printf("invalid row length at line %d", i+1)
 			continue
 		}
@@ -48,6 +41,12 @@ func SeedFuturesContracts(db *gorm.DB) error {
 			continue
 		}
 
+		price, err := strconv.ParseFloat(row[5], 64)
+		if err != nil {
+			log.Printf("invalid price at line %d: %v", i+1, err)
+			continue
+		}
+
 		date, err := time.Parse("2006-01-02", row[4])
 		if err != nil {
 			log.Printf("invalid date at line %d: %v", i+1, err)
@@ -55,17 +54,24 @@ func SeedFuturesContracts(db *gorm.DB) error {
 		}
 
 		contract := model.FuturesContract{
-			Ticker:         row[0],
-			Name:           row[1],
 			ContractSize:   size,
 			ContractUnit:   row[3],
 			SettlementDate: date,
+			Listing: model.Listing{
+				Ticker:      row[0],
+				Name:        row[1],
+				ExchangeMIC: resolveExistingExchangeMIC(db, row[6]),
+				LastRefresh: time.Now(),
+				Price:       price * size,
+				Ask:         price * size,
+				ListingType: model.ListingTypeFuture,
+			},
 		}
 
-		var existing model.FuturesContract
-		err = db.Where("ticker = ?", contract.Ticker).First(&existing).Error
+		var existingListing model.Listing
+		err = db.Where("ticker = ?", contract.Listing.Ticker).First(&existingListing).Error
 		if err == nil {
-			continue // Skip if contract with that ticker already exists
+			continue
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err

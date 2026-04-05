@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 )
@@ -19,7 +20,8 @@ func NewPaymentRepository(db *gorm.DB) PaymentRepository {
 }
 
 func (r *paymentRepository) Create(ctx context.Context, payment *model.Payment) error {
-	return r.db.WithContext(ctx).Create(payment).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Create(payment).Error
 }
 
 func (r *paymentRepository) GetByID(ctx context.Context, id uint) (*model.Payment, error) {
@@ -35,7 +37,8 @@ func (r *paymentRepository) GetByID(ctx context.Context, id uint) (*model.Paymen
 }
 
 func (r *paymentRepository) Update(ctx context.Context, payment *model.Payment) error {
-	return r.db.WithContext(ctx).Save(payment).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Save(payment).Error
 }
 
 func (r *paymentRepository) FindByAccount(ctx context.Context, accountNumber string, filters *dto.PaymentFilters) ([]model.Payment, int64, error) {

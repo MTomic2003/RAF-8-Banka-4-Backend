@@ -10,6 +10,7 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/repository"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/seed"
 )
 
 const (
@@ -18,31 +19,51 @@ const (
 )
 
 type StockService struct {
-	listingRepo repository.ListingRepository
-	stockRepo   repository.StockRepository
-	optionRepo  repository.OptionRepository
-	client      *client.StockClient
+	listingRepo  repository.ListingRepository
+	stockRepo    repository.StockRepository
+	optionRepo   repository.OptionRepository
+	exchangeRepo repository.ExchangeRepository
+	client       stockMarketClient
 
 	mu     sync.Mutex
 	cancel context.CancelFunc
+}
+
+type stockMarketClient interface {
+	GetSymbols(exchange string) ([]client.Symbol, error)
+	GetProfile(ticker string) (*client.Profile, error)
+	GetQuote(ticker string) (*client.Quote, error)
+	GetBasicFinancials(ticker string) (*client.BasicFinancials, error)
 }
 
 func NewStockService(
 	listingRepo repository.ListingRepository,
 	stockRepo repository.StockRepository,
 	optionRepo repository.OptionRepository,
+	exchangeRepo repository.ExchangeRepository,
 	client *client.StockClient,
 ) *StockService {
+	return newStockService(listingRepo, stockRepo, optionRepo, exchangeRepo, client)
+}
+
+func newStockService(
+	listingRepo repository.ListingRepository,
+	stockRepo repository.StockRepository,
+	optionRepo repository.OptionRepository,
+	exchangeRepo repository.ExchangeRepository,
+	client stockMarketClient,
+) *StockService {
 	return &StockService{
-		listingRepo: listingRepo,
-		stockRepo:   stockRepo,
-		optionRepo:  optionRepo,
-		client:      client,
+		listingRepo:  listingRepo,
+		stockRepo:    stockRepo,
+		optionRepo:   optionRepo,
+		exchangeRepo: exchangeRepo,
+		client:       client,
 	}
 }
 
 func (s *StockService) Initialize(ctx context.Context) {
-	count, err := s.listingRepo.Count(ctx)
+	count, err := s.stockRepo.Count(ctx)
 	if err != nil {
 		log.Printf("[seed] failed to count listings: %v", err)
 		return
@@ -124,6 +145,16 @@ func (s *StockService) SeedStocks(ctx context.Context, limit int) error {
 			continue
 		}
 
+		micCode := seed.NormalizeExchangeMIC(sym.MIC)
+		if micCode == "" {
+			continue
+		}
+
+		exchange, err := s.exchangeRepo.FindByMicCode(ctx, micCode)
+		if err != nil || exchange == nil {
+			continue
+		}
+
 		if callsThisMinute+3 > maxCallsPerMinute {
 			elapsed := time.Since(minuteStart)
 			if elapsed < time.Minute {
@@ -158,10 +189,11 @@ func (s *StockService) SeedStocks(ctx context.Context, limit int) error {
 		listing := &model.Listing{
 			Ticker:      sym.Symbol,
 			Name:        profile.Name,
-			ExchangeMIC: profile.Exchange,
+			ExchangeMIC: micCode,
 			LastRefresh: time.Now(),
 			Price:       quote.CurrentPrice,
 			Ask:         quote.High,
+			ListingType: model.ListingTypeStock,
 		}
 		if err := s.listingRepo.Upsert(ctx, listing); err != nil {
 			continue
@@ -194,7 +226,7 @@ func stringsContainsDot(s string) bool {
 }
 
 func (s *StockService) SeedOptions(ctx context.Context, limit int) error {
-  stocks, err := s.stockRepo.FindAll(ctx)
+	stocks, err := s.stockRepo.FindAll(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load stocks: %w", err)
 	}
@@ -268,14 +300,31 @@ func (s *StockService) seedGeneratedOption(
 ) {
 	ticker := fmt.Sprintf("%s:%s:%.2f", stockListing.Ticker, optType, strike)
 
+	// --- Black-Scholes price calculation ---
+	S := stockListing.Price
+	K := strike
+	T := time.Until(expiration).Hours() / (24.0 * 365.0) // years until expiry
+	sigma := 0.3                                         // default implied volatility (30%)
+
+	var premium float64
+	if optType == model.OptionTypeCall {
+		premium = BlackScholesCall(S, K, T, riskFreeRate, sigma)
+	} else {
+		premium = BlackScholesPut(S, K, T, riskFreeRate, sigma)
+	}
+	if premium < 0.01 {
+		premium = 0.01 // floor so the price is never zero
+	}
+	// --- end calculation ---
+
 	listing := &model.Listing{
 		Ticker:      ticker,
 		Name:        fmt.Sprintf("%s %s %.2f %s", stockListing.Ticker, optType, strike, expiration.Format("2006-01-02")),
-		ExchangeMIC: stockListing.ExchangeMIC,
+		ExchangeMIC: model.SimulatedExchangeMIC,
 		LastRefresh: time.Now(),
-		// TODO: replace with actual price calculation from black scholes
-		Price:       strike,
-		Ask:         strike,
+		Price:       premium,
+		Ask:         premium,
+		ListingType: model.ListingTypeOption,
 	}
 	if err := s.listingRepo.Upsert(ctx, listing); err != nil {
 		return
@@ -283,12 +332,12 @@ func (s *StockService) seedGeneratedOption(
 
 	option := &model.Option{
 		ListingID:         listing.ListingID,
-		StockID:           stockID, 
+		StockID:           stockID,
 		OptionType:        optType,
 		StrikePrice:       strike,
 		ContractSize:      100,
 		SettlementDate:    expiration,
-		ImpliedVolatility: 1.0,
+		ImpliedVolatility: sigma,
 		OpenInterest:      0,
 	}
 	if err := s.optionRepo.Upsert(ctx, option); err != nil {

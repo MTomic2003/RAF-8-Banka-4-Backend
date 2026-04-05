@@ -147,3 +147,30 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 
 	c.JSON(http.StatusOK, dto.ToEmployeeResponse(employee))
 }
+
+// DeactivateEmployee godoc
+// @Summary Deactivate employee
+// @Description Sets the employee's active status to false
+// @Tags employees
+// @Produce json
+// @Param id path int true "Employee ID"
+// @Success 204
+// @Failure 400 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Security BearerAuth
+// @Router /api/employees/{id}/deactivate [post]
+func (h *EmployeeHandler) DeactivateEmployee(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.Error(errors.BadRequestErr("invalid employee id"))
+		return
+	}
+
+	if err := h.service.DeactivateEmployee(c.Request.Context(), uint(id)); err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}

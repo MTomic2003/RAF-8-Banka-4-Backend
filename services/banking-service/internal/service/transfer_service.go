@@ -75,6 +75,7 @@ func (s *TransferService) ExecuteTransfer(ctx context.Context, req dto.TransferR
 			StartCurrencyCode:      calculation.fromAccount.Currency.Code,
 			EndAmount:              calculation.final,
 			EndCurrencyCode:        calculation.toAccount.Currency.Code,
+			Commission:             calculation.commission,
 			Status:                 model.TransactionProcessing,
 		}
 
@@ -85,7 +86,6 @@ func (s *TransferService) ExecuteTransfer(ctx context.Context, req dto.TransferR
 		transfer := &model.Transfer{
 			TransactionID: transaction.TransactionID,
 			ExchangeRate:  calculation.exchange,
-			Commission:    calculation.commission,
 			Transaction:   *transaction,
 		}
 

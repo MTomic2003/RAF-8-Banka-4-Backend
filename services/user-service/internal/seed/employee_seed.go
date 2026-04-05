@@ -42,6 +42,7 @@ var employees = []struct {
 	{"Marko", "Markovic", "M", "1992-03-15", "marko@raf.rs", "111222333", "Street 3", "marko", "pass123", true, "IT", "Developer"},
 	{"Jelena", "Jovanovic", "F", "1988-07-22", "jelena@raf.rs", "444555666", "Street 4", "jelena", "pass123", true, "Finance", "Accountant"},
 	{"Nikola", "Nikolic", "M", "1995-11-30", "nikola@raf.rs", "777888999", "Street 5", "nikola", "pass123", true, "IT", "QA"},
+	{"Admin", "Novi", "M", "1980-01-01", "adminnovi@raf.rs", "000000001", "RAF", "adminnovi", "admin123", true, "IT", "Manager"},
 }
 
 var activatableClients = []struct {
@@ -59,20 +60,22 @@ var activatableClients = []struct {
 }
 
 var clients = []struct {
-	FirstName   string
-	LastName    string
-	Gender      string
-	DateOfBirth string
-	Email       string
-	Username    string
-	PhoneNumber string
-	Address     string
-	Password    string
+	FirstName                string
+	LastName                 string
+	Gender                   string
+	DateOfBirth              string
+	Email                    string
+	Username                 string
+	PhoneNumber              string
+	Address                  string
+	Password                 string
+	MobileVerificationSecret string
 }{
-	{"Marko", "Markovic", "M", "1992-03-15", "marko.markovic@example.com", "marko.markovic", "+381601234567", "Knez Mihailova 10, Beograd", "password123"},
-	{"Ana", "Anic", "F", "1995-07-22", "ana.anic@example.com", "ana.anic", "+381609876543", "Bulevar Oslobodjenja 20, Novi Sad", "password123"},
-	{"Stefan", "Stefanovic", "M", "1988-11-30", "stefan.stefanovic@example.com", "stefan.stefanovic", "+381611112222", "Trg Republike 5, Beograd", "password123"},
-	{"Mirko", "Mirkovic", "F", "1995-07-22", "mirko.mirkovic@example.com", "mirko.mirkovic", "+381609876543", "Bulevar Oslobodjenja 20, Novi Sad", "password123", "AAAAAAAAAAAAAAAAAAAA"},
+	{"Banka", "Četiri", "M", "1992-03-15", "banka4@raf.rs", "banka4", "+381600000000", "Bankarska ulica 1, Beograd", "Banka123", "AAAAAAAAAAAAAAAAAAAA"},
+	{"Marko", "Markovic", "M", "1992-03-15", "marko.markovic@example.com", "marko.markovic", "+381601234567", "Knez Mihailova 10, Beograd", "password123", "AAAAAAAAAAAAAAAAAAAA"},
+	{"Ana", "Anic", "F", "1995-07-22", "ana.anic@example.com", "ana.anic", "+381609876543", "Bulevar Oslobodjenja 20, Novi Sad", "password123", "AAAAAAAAAAAAAAAAAAAA"},
+	{"Stefan", "Stefanovic", "M", "1988-11-30", "stefan.stefanovic@example.com", "stefan.stefanovic", "+381611112222", "Trg Republike 5, Beograd", "password123", "AAAAAAAAAAAAAAAAAAAA"},
+  {"Mirko", "Mirkovic", "F", "1995-07-22", "mirko.mirkovic@example.com", "mirko.mirkovic", "+381609876543", "Bulevar Oslobodjenja 20, Novi Sad", "password123", "AAAAAAAAAAAAAAAAAAAA"},
 }
 
 func Run(db *gorm.DB) error {
@@ -164,13 +167,14 @@ func Run(db *gorm.DB) error {
 		}
 
 		client := model.Client{
-			IdentityID:  identity.ID,
-			FirstName:   c.FirstName,
-			LastName:    c.LastName,
-			Gender:      c.Gender,
-			DateOfBirth: dob,
-			PhoneNumber: c.PhoneNumber,
-			Address:     c.Address,
+			IdentityID:               identity.ID,
+			FirstName:                c.FirstName,
+			LastName:                 c.LastName,
+			Gender:                   c.Gender,
+			DateOfBirth:              dob,
+			PhoneNumber:              c.PhoneNumber,
+			Address:                  c.Address,
+			MobileVerificationSecret: c.MobileVerificationSecret,
 		}
 		if err := db.Create(&client).Error; err != nil {
 			return err
@@ -243,55 +247,63 @@ func Run(db *gorm.DB) error {
 		}
 	}
 
-	// seed admin permissions
-	var adminIdentity model.Identity
-	if err := db.Where("email = ?", "admin@raf.rs").First(&adminIdentity).Error; err != nil {
-		return err
+	adminEmails := []string{
+		"admin@raf.rs",
+		"adminnovi@raf.rs",
 	}
 
-	var admin model.Employee
-	if err := db.Where("identity_id = ?", adminIdentity.ID).First(&admin).Error; err != nil {
-		return err
-	}
+	for _, email := range adminEmails {
+		var adminIdentity model.Identity
+		if err := db.Where("email = ?", email).First(&adminIdentity).Error; err != nil {
+			return err
+		}
 
-	for _, p := range permission.All {
-		var existing model.EmployeePermission
-		err := db.Where("employee_id = ? AND permission = ?", admin.EmployeeID, string(p)).
-			First(&existing).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			perm := model.EmployeePermission{
-				EmployeeID: admin.EmployeeID,
-				Permission: p,
+		var admin model.Employee
+		if err := db.Where("identity_id = ?", adminIdentity.ID).First(&admin).Error; err != nil {
+			return err
+		}
+
+		for _, p := range permission.All {
+			var existing model.EmployeePermission
+			err := db.Where("employee_id = ? AND permission = ?", admin.EmployeeID, string(p)).
+				First(&existing).Error
+
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				perm := model.EmployeePermission{
+					EmployeeID: admin.EmployeeID,
+					Permission: p,
+				}
+				if err := db.Create(&perm).Error; err != nil {
+					return err
+				}
+			} else if err != nil {
+				return err
 			}
-			if err := db.Create(&perm).Error; err != nil {
+		}
+
+		var adminActuary model.ActuaryInfo
+		err := db.Where("employee_id = ?", admin.EmployeeID).First(&adminActuary).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			adminActuary = model.ActuaryInfo{
+				EmployeeID:   admin.EmployeeID,
+				IsSupervisor: true,
+			}
+			if err := db.Create(&adminActuary).Error; err != nil {
 				return err
 			}
 		} else if err != nil {
 			return err
+		} else if !adminActuary.IsSupervisor || adminActuary.IsAgent || adminActuary.NeedApproval || adminActuary.Limit != 0 || adminActuary.UsedLimit != 0 {
+			adminActuary.IsAgent = false
+			adminActuary.IsSupervisor = true
+			adminActuary.Limit = 0
+			adminActuary.UsedLimit = 0
+			adminActuary.NeedApproval = false
+			if err := db.Save(&adminActuary).Error; err != nil {
+				return err
+			}
 		}
-	}
 
-	var adminActuary model.ActuaryInfo
-	err := db.Where("employee_id = ?", admin.EmployeeID).First(&adminActuary).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		adminActuary = model.ActuaryInfo{
-			EmployeeID:   admin.EmployeeID,
-			IsSupervisor: true,
-		}
-		if err := db.Create(&adminActuary).Error; err != nil {
-			return err
-		}
-	} else if err != nil {
-		return err
-	} else if !adminActuary.IsSupervisor || adminActuary.IsAgent || adminActuary.NeedApproval || adminActuary.Limit != 0 || adminActuary.UsedLimit != 0 {
-		adminActuary.IsAgent = false
-		adminActuary.IsSupervisor = true
-		adminActuary.Limit = 0
-		adminActuary.UsedLimit = 0
-		adminActuary.NeedApproval = false
-		if err := db.Save(&adminActuary).Error; err != nil {
-			return err
-		}
 	}
 
 	agentEmails := []string{

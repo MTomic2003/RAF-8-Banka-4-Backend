@@ -32,10 +32,10 @@ func ToTransferResponse(transfer *model.Transfer) TransferResponse {
 		TransactionID:     transfer.TransactionID,
 		FromAccountNumber: transfer.Transaction.PayerAccountNumber,
 		ToAccountNumber:   transfer.Transaction.RecipientAccountNumber,
-		InitialAmount:     transfer.Transaction.StartAmount - transfer.Commission,
+		InitialAmount:     transfer.Transaction.StartAmount - transfer.Transaction.Commission,
 		FinalAmount:       transfer.Transaction.EndAmount,
 		ExchangeRate:      transfer.ExchangeRate,
-		Commission:        transfer.Commission,
+		Commission:        transfer.Transaction.Commission,
 		CreatedAt:         transfer.Transaction.CreatedAt,
 	}
 }

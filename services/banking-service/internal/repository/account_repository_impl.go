@@ -20,7 +20,8 @@ func NewAccountRepository(db *gorm.DB) AccountRepository {
 }
 
 func (r *accountRepository) Create(ctx context.Context, account *model.Account) error {
-	return r.db.WithContext(ctx).Create(account).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Create(account).Error
 }
 
 func (r *accountRepository) AccountNumberExists(ctx context.Context, accountNumber string) (bool, error) {
@@ -64,7 +65,8 @@ func (r *accountRepository) UpdateName(ctx context.Context, accountNumber string
 }
 
 func (r *accountRepository) UpdateLimits(ctx context.Context, accountNumber string, daily float64, monthly float64) error {
-	return r.db.WithContext(ctx).
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).
 		Model(&model.Account{}).
 		Where("account_number = ?", accountNumber).
 		Updates(map[string]interface{}{"daily_limit": daily, "monthly_limit": monthly}).Error
@@ -155,7 +157,8 @@ func (r *accountRepository) GetByAccountNumber(ctx context.Context, accountNumbe
 }
 
 func (r *accountRepository) Update(ctx context.Context, account *model.Account) error {
-	return r.db.WithContext(ctx).Save(account).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Save(account).Error
 }
 
 func (r *accountRepository) FindByClientID(ctx context.Context, clientID uint) ([]model.Account, error) {

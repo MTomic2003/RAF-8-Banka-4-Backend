@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"common/pkg/auth"
-	"common/pkg/permission"
-	"user-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -114,11 +114,11 @@ func TestClientRegisterActivateAndLogin(t *testing.T) {
 }
 
 type clientResponse struct {
-	ClientID    uint   `json:"ClientID"`
-	FirstName   string `json:"FirstName"`
-	LastName    string `json:"LastName"`
-	PhoneNumber string `json:"PhoneNumber"`
-	Address     string `json:"Address"`
+	ClientID    uint   `json:"id"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	PhoneNumber string `json:"phone_number"`
+	Address     string `json:"address"`
 }
 
 type listClientsResponse struct {

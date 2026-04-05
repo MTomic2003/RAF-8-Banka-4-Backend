@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	commonpermission "common/pkg/permission"
-	"user-service/internal/model"
+	commonpermission "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

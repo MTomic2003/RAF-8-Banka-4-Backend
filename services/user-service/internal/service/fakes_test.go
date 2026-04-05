@@ -212,6 +212,10 @@ func (f *fakeActivationTokenRepo) Delete(_ context.Context, _ *model.ActivationT
 	return f.deleteErr
 }
 
+func (f *fakeActivationTokenRepo) DeleteByIdentityID(_ context.Context, _ uint) error {
+	return f.deleteErr
+}
+
 type fakeResetTokenRepo struct {
 	token     *model.ResetToken
 	findErr   error
@@ -271,11 +275,19 @@ func (f *fakeMailer) Send(_, _, _ string) error {
 	return f.sendErr
 }
 
+type fakeTxManager struct{}
+
+func (m *fakeTxManager) WithinTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}
+
 func testConfig() *config.Configuration {
 	return &config.Configuration{
-		JWTSecret:     "test-secret",
-		JWTExpiry:     15,
-		RefreshExpiry: 10080,
+		JWTSecret:         "test-secret",
+		JWTExpiry:         15,
+		RefreshExpiry:     10080,
+		FailedLoginWindow: 5,
+		MaxFailedLogins:   4,
 		URLs: config.URLConfig{
 			FrontendBaseURL: "http://localhost:5173",
 		},

@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/db"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 )
@@ -19,7 +20,8 @@ func NewClientRepository(db *gorm.DB) ClientRepository {
 }
 
 func (r *clientRepository) Create(ctx context.Context, client *model.Client) error {
-	return r.db.WithContext(ctx).Create(client).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Create(client).Error
 }
 
 func (r *clientRepository) FindByIdentityID(ctx context.Context, identityID uint) (*model.Client, error) {
@@ -84,5 +86,6 @@ func (r *clientRepository) FindAll(ctx context.Context, query *dto.ListClientsQu
 	return clients, count, err
 }
 func (r *clientRepository) Update(ctx context.Context, client *model.Client) error {
-	return r.db.WithContext(ctx).Save(client).Error
+	db := db.DBFromContext(ctx, r.db)
+	return db.WithContext(ctx).Save(client).Error
 }

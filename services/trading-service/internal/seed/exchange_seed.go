@@ -1,12 +1,10 @@
 package seed
 
 import (
+	_ "embed"
 	"encoding/csv"
 	"errors"
 	"log"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -15,17 +13,11 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 )
 
+//go:embed exchanges_with_offset.csv
+var exchangesCSV string
+
 func RunExchangeSeed(db *gorm.DB) error {
-	_, filename, _, _ := runtime.Caller(0)
-	csvPath := filepath.Join(filepath.Dir(filename), "exchanges_with_offset.csv")
-
-	f, err := os.Open(csvPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	reader := csv.NewReader(f)
+	reader := csv.NewReader(strings.NewReader(exchangesCSV))
 	records, err := reader.ReadAll()
 	if err != nil {
 		return err

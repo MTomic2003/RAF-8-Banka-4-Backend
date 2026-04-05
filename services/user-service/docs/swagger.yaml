@@ -275,6 +275,13 @@ definitions:
       user:
         $ref: '#/definitions/dto.AuthUser'
     type: object
+  dto.ResendActivationRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
   dto.ResetPasswordRequest:
     properties:
       new_password:
@@ -703,6 +710,38 @@ paths:
       summary: Refresh access token
       tags:
       - auth
+  /api/auth/resend-activation:
+    post:
+      consumes:
+      - application/json
+      description: Resends an activation email
+      parameters:
+      - description: Email
+        in: body
+        name: activation
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ResendActivationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Resend activation email
+      tags:
+      - auth
   /api/auth/reset-password:
     post:
       consumes:
@@ -981,6 +1020,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Update employee profile
+      tags:
+      - employees
+  /api/employees/{id}/deactivate:
+    post:
+      description: Sets the employee's active status to false
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Deactivate employee
       tags:
       - employees
   /api/employees/register:
