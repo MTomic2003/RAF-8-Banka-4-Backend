@@ -2828,6 +2828,9 @@ const docTemplate = `{
                 "amount": {
                     "type": "number"
                 },
+                "due_date": {
+                    "type": "string"
+                },
                 "number": {
                     "type": "integer"
                 },
@@ -2970,6 +2973,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "amount": {
+                    "type": "number"
+                },
+                "commission": {
                     "type": "number"
                 },
                 "created_at": {
