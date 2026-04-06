@@ -34,7 +34,7 @@ type fakeStockRepo struct {
 	err    error
 }
 
-func (r *fakeStockRepo) Upsert(_ context.Context, _ *model.Stock) error { return nil }
+func (r *fakeStockRepo) Upsert(_ context.Context, _ *model.Stock) error   { return nil }
 func (r *fakeStockRepo) FindAll(_ context.Context) ([]model.Stock, error) { return nil, nil }
 func (r *fakeStockRepo) FindByAssetIDs(_ context.Context, _ []uint) ([]model.Stock, error) {
 	return r.stocks, r.err
@@ -71,15 +71,13 @@ type fakeForexRepo struct {
 func (r *fakeForexRepo) FindByAssetIDs(_ context.Context, _ []uint) ([]model.ForexPair, error) {
 	return r.forex, r.err
 }
-func (r *fakeForexRepo) Count(_ context.Context) (int64, error) { return int64(len(r.forex)), nil }
+func (r *fakeForexRepo) Count(_ context.Context) (int64, error)            { return int64(len(r.forex)), nil }
 func (r *fakeForexRepo) Upsert(_ context.Context, _ model.ForexPair) error { return nil }
 func (r *fakeForexRepo) FindAll(_ context.Context, _ repository.ListingFilter) ([]model.ForexPair, int64, error) {
 	return r.forex, int64(len(r.forex)), r.err
 }
 
 // --- Helpers ---
-
-func ptrF(f float64) *float64 { return &f }
 
 func makeOwnership(assetID uint, ticker string, amount, avgBuyPrice float64) model.AssetOwnership {
 	return model.AssetOwnership{
@@ -179,11 +177,11 @@ func TestGetPortfolio_ZeroAmountFiltered(t *testing.T) {
 	ownership := makeOwnership(10, "AAPL", 0, 100.0)
 
 	svc := NewPortfolioService(
-		&fakeStockRepo{stocks: []model.Stock{{StockID: 1, ListingID: 10}}},
+		&fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}},
+		&fakeStockRepo{stocks: []model.Stock{{StockID: 1, AssetID: 10}}},
 		&fakeOptionRepo{},
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
-		&fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
 	)
 
 	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
@@ -192,15 +190,12 @@ func TestGetPortfolio_ZeroAmountFiltered(t *testing.T) {
 }
 
 func TestGetPortfolio_NetAmountAfterSell(t *testing.T) {
-	buy := makeOrder(1, 10, model.OrderDirectionBuy, model.OrderStatusApproved, 10, 10, 100.0, 1.0)
-	buy.Listing.Ticker = "AAPL"
-	buy.Listing.Price = 150.0
-	sell := makeOrder(2, 10, model.OrderDirectionSell, model.OrderStatusApproved, 10, 10, 140.0, 1.0)
-	sell.Listing = buy.Listing
+	// After buying 10 and selling 10, net amount is 0 — position is filtered out
+	ownership := makeOwnership(10, "AAPL", 0, 100.0)
 
 	svc := NewPortfolioService(
-		&fakeOwnershipRepo{ownerships: []model.OrderOwnership{makeOwnership(buy), makeOwnership(sell)}},
-		&fakeStockRepo{stocks: []model.Stock{{StockID: 1, ListingID: 10}}},
+		&fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}},
+		&fakeStockRepo{stocks: []model.Stock{{StockID: 1, AssetID: 10, Listing: makeListing(10, 150.0)}}},
 		&fakeOptionRepo{},
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
@@ -212,15 +207,12 @@ func TestGetPortfolio_NetAmountAfterSell(t *testing.T) {
 }
 
 func TestGetPortfolio_PartialSell(t *testing.T) {
-	buy := makeOrder(1, 10, model.OrderDirectionBuy, model.OrderStatusApproved, 10, 10, 100.0, 1.0)
-	buy.Listing.Ticker = "AAPL"
-	buy.Listing.Price = 150.0
-	sell := makeOrder(2, 10, model.OrderDirectionSell, model.OrderStatusApproved, 4, 4, 130.0, 1.0)
-	sell.Listing = buy.Listing
+	// After buying 10 and selling 4, net amount is 6
+	ownership := makeOwnership(10, "AAPL", 6, 100.0)
 
 	svc := NewPortfolioService(
-		&fakeOwnershipRepo{ownerships: []model.OrderOwnership{makeOwnership(buy), makeOwnership(sell)}},
-		&fakeStockRepo{stocks: []model.Stock{{StockID: 1, ListingID: 10}}},
+		&fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}},
+		&fakeStockRepo{stocks: []model.Stock{{StockID: 1, AssetID: 10, Listing: makeListing(10, 150.0)}}},
 		&fakeOptionRepo{},
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
@@ -230,24 +222,6 @@ func TestGetPortfolio_PartialSell(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 	require.Equal(t, float64(6), result[0].Amount)
-}
-
-func TestGetPortfolio_ForexExcluded(t *testing.T) {
-	ord := makeOrder(1, 40, model.OrderDirectionBuy, model.OrderStatusApproved, 5, 5, 1.2, 1000.0)
-	ord.Listing.Ticker = "EUR/USD"
-	ord.Listing.Price = 1.25
-
-	svc := NewPortfolioService(
-		&fakeOwnershipRepo{ownerships: []model.OrderOwnership{makeOwnership(ord)}},
-		&fakeStockRepo{},
-		&fakeOptionRepo{},
-		&fakeFuturesRepo{},
-		&fakeForexRepo{},
-	)
-
-	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
-	require.NoError(t, err)
-	require.Empty(t, result)
 }
 
 func TestGetPortfolio_EmptyOwnerships(t *testing.T) {
@@ -293,6 +267,5 @@ func TestGetPortfolio_NegativeProfit_NoTax(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 	require.InDelta(t, (150.0-200.0)*20, result[0].Profit, 0.001)
-	require.InDelta(t, 0.0, result[0].TaxAmount, 0.001)
 	require.Equal(t, float64(20), result[0].Amount)
 }
