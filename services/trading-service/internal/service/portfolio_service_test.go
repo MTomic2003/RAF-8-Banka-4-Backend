@@ -141,21 +141,12 @@ func TestGetPortfolio_HappyPath_Stock(t *testing.T) {
 	ord.Listing.Ticker = "AAPL"
 	ord.Listing.Price = 150.0
 
-	taxRepo := &fakeTaxRepo{
-		accumulatedTax: &model.AccumulatedTax{
-			AccountNumber: "444000100000000110",
-			TaxOwed:       75.0,
-			CurrencyCode:  "RSD",
-		},
-	}
-
 	svc := NewPortfolioService(
 		&fakeOwnershipRepo{ownerships: []model.OrderOwnership{makeOwnership(ord)}},
 		&fakeStockRepo{stocks: []model.Stock{{StockID: 1, ListingID: 10, OutstandingShares: 1_000_000}}},
 		&fakeOptionRepo{},
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
-		taxRepo,
 	)
 
 	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
@@ -168,7 +159,6 @@ func TestGetPortfolio_HappyPath_Stock(t *testing.T) {
 	require.Equal(t, float64(10), a.Amount)
 	require.Equal(t, 150.0, a.PricePerUnit)
 	require.InDelta(t, (150.0-100.0)*10, a.Profit, 0.001)
-	require.InDelta(t, 75.0, a.TaxAmount, 0.001)
 	require.NotNil(t, a.OutstandingShares)
 	require.Equal(t, float64(1_000_000), *a.OutstandingShares)
 }
@@ -184,7 +174,6 @@ func TestGetPortfolio_HappyPath_Option(t *testing.T) {
 		&fakeOptionRepo{options: []model.Option{{OptionID: 1, ListingID: 20}}},
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
-		&fakeTaxRepo{},
 	)
 
 	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
@@ -195,7 +184,6 @@ func TestGetPortfolio_HappyPath_Option(t *testing.T) {
 	require.Equal(t, dto.AssetTypeOption, a.Type)
 	require.Equal(t, float64(200), a.Amount)
 	require.InDelta(t, (8.0-5.0)*200, a.Profit, 0.001)
-	require.InDelta(t, ((8.0-5.0)*200)*0.15, a.TaxAmount, 0.001)
 	require.Nil(t, a.OutstandingShares)
 }
 
@@ -210,7 +198,6 @@ func TestGetPortfolio_HappyPath_Futures(t *testing.T) {
 		&fakeOptionRepo{},
 		&fakeFuturesRepo{futures: []model.FuturesContract{{FuturesContractID: 1, ListingID: 30}}},
 		&fakeForexRepo{},
-		&fakeTaxRepo{},
 	)
 
 	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
@@ -233,7 +220,6 @@ func TestGetPortfolio_SkipsRejectedAndPending(t *testing.T) {
 		&fakeOptionRepo{},
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
-		&fakeTaxRepo{},
 	)
 
 	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
@@ -254,7 +240,6 @@ func TestGetPortfolio_NetAmountAfterSell(t *testing.T) {
 		&fakeOptionRepo{},
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
-		&fakeTaxRepo{},
 	)
 
 	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
@@ -275,15 +260,12 @@ func TestGetPortfolio_PartialSell(t *testing.T) {
 		&fakeOptionRepo{},
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
-		&fakeTaxRepo{},
 	)
 
 	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 	require.Equal(t, float64(6), result[0].Amount)
-	expectedProfit := (150.0 - 100.0) * 6
-	require.InDelta(t, expectedProfit*0.15, result[0].TaxAmount, 0.001)
 }
 
 func TestGetPortfolio_ForexExcluded(t *testing.T) {
@@ -297,7 +279,6 @@ func TestGetPortfolio_ForexExcluded(t *testing.T) {
 		&fakeOptionRepo{},
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
-		&fakeTaxRepo{},
 	)
 
 	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
@@ -312,7 +293,6 @@ func TestGetPortfolio_EmptyOwnerships(t *testing.T) {
 		&fakeOptionRepo{},
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
-		&fakeTaxRepo{},
 	)
 
 	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
@@ -327,7 +307,6 @@ func TestGetPortfolio_RepoError(t *testing.T) {
 		&fakeOptionRepo{},
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
-		&fakeTaxRepo{},
 	)
 
 	_, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
@@ -347,13 +326,11 @@ func TestGetPortfolio_WeightedAvgBuyPrice(t *testing.T) {
 		&fakeOptionRepo{},
 		&fakeFuturesRepo{},
 		&fakeForexRepo{},
-		&fakeTaxRepo{},
 	)
 
 	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 	require.InDelta(t, 0.0, result[0].Profit, 0.001)
-	require.InDelta(t, 0.0, result[0].TaxAmount, 0.001)
 	require.Equal(t, float64(20), result[0].Amount)
 }

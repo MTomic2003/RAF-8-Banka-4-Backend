@@ -135,3 +135,27 @@ func (h *TaxHandler) CollectTaxes(c *gin.Context) {
 
 	c.JSON(http.StatusOK, dto.CollectTaxesResponse{Message: "Tax collection completed"})
 }
+func (h *TaxHandler) GetMyTax(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	userID := c.GetUint("userId")
+	userType := c.GetString("userType")
+
+	var total float64
+	var err error
+
+	if userType == "client" {
+		total, err = h.taxService.GetClientTotalTax(ctx, uint64(userID))
+	} else {
+		total, err = h.taxService.GetEmployeeTotalTax(ctx, userID)
+	}
+
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.TaxInfoResponse{
+		TotalTax: total,
+	})
+}

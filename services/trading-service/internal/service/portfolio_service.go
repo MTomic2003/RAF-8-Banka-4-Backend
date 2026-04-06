@@ -16,7 +16,6 @@ type PortfolioService struct {
 	optionRepo    repository.OptionRepository
 	futuresRepo   repository.FuturesContractRepository
 	forexRepo     repository.ForexRepository
-	taxRepo       repository.TaxRepository
 }
 
 func NewPortfolioService(
@@ -25,7 +24,6 @@ func NewPortfolioService(
 	optionRepo repository.OptionRepository,
 	futuresRepo repository.FuturesContractRepository,
 	forexRepo repository.ForexRepository,
-	taxRepo repository.TaxRepository,
 ) *PortfolioService {
 	return &PortfolioService{
 		ownershipRepo: ownershipRepo,
@@ -33,7 +31,6 @@ func NewPortfolioService(
 		optionRepo:    optionRepo,
 		futuresRepo:   futuresRepo,
 		forexRepo:     forexRepo,
-		taxRepo:       taxRepo,
 	}
 }
 
@@ -165,19 +162,6 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 
 		profit := (agg.currentPrice - avgBuyPrice) * agg.netAmount
 
-		var taxAmount float64
-		if profit > 0 {
-			accumulatedTax, err := s.taxRepo.FindAccumulatedTaxByAccountNumber(ctx, agg.ticker)
-			if err != nil {
-				return nil, err
-			}
-			if accumulatedTax != nil {
-				taxAmount = accumulatedTax.TaxOwed
-			} else {
-				taxAmount = profit * 0.15
-			}
-		}
-
 		result = append(result, dto.PortfolioAssetResponse{
 			Type:              m.assetType,
 			Ticker:            agg.ticker,
@@ -185,7 +169,6 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 			PricePerUnit:      agg.currentPrice,
 			LastModified:      agg.lastModified,
 			Profit:            profit,
-			TaxAmount:         taxAmount,
 			OutstandingShares: m.outstandingShares,
 		})
 	}
