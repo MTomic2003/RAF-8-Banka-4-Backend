@@ -125,8 +125,6 @@ func TestGetPortfolio_HappyPath_Stock(t *testing.T) {
 	require.Equal(t, float64(10), a.Amount)
 	require.Equal(t, 150.0, a.PricePerUnit)
 	require.InDelta(t, (150.0-100.0)*10, a.Profit, 0.001)
-	expectedProfit := (150.0 - 100.0) * 10
-	require.InDelta(t, expectedProfit*0.15, a.TaxAmount, 0.001)
 	require.NotNil(t, a.OutstandingShares)
 	require.Equal(t, float64(1_000_000), *a.OutstandingShares)
 }
@@ -151,7 +149,6 @@ func TestGetPortfolio_HappyPath_Option(t *testing.T) {
 	require.Equal(t, dto.AssetTypeOption, a.Type)
 	require.Equal(t, float64(200), a.Amount)
 	require.InDelta(t, (8.0-5.0)*200, a.Profit, 0.001)
-	require.InDelta(t, ((8.0-5.0)*200)*0.15, a.TaxAmount, 0.001)
 	require.Nil(t, a.OutstandingShares)
 }
 
@@ -182,7 +179,66 @@ func TestGetPortfolio_ZeroAmountFiltered(t *testing.T) {
 	ownership := makeOwnership(10, "AAPL", 0, 100.0)
 
 	svc := NewPortfolioService(
-		&fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}},
+		&fakeStockRepo{stocks: []model.Stock{{StockID: 1, ListingID: 10}}},
+		&fakeOptionRepo{},
+		&fakeFuturesRepo{},
+		&fakeForexRepo{},
+		&fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
+	)
+
+	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
+	require.NoError(t, err)
+	require.Empty(t, result)
+}
+
+func TestGetPortfolio_NetAmountAfterSell(t *testing.T) {
+	buy := makeOrder(1, 10, model.OrderDirectionBuy, model.OrderStatusApproved, 10, 10, 100.0, 1.0)
+	buy.Listing.Ticker = "AAPL"
+	buy.Listing.Price = 150.0
+	sell := makeOrder(2, 10, model.OrderDirectionSell, model.OrderStatusApproved, 10, 10, 140.0, 1.0)
+	sell.Listing = buy.Listing
+
+	svc := NewPortfolioService(
+		&fakeOwnershipRepo{ownerships: []model.OrderOwnership{makeOwnership(buy), makeOwnership(sell)}},
+		&fakeStockRepo{stocks: []model.Stock{{StockID: 1, ListingID: 10}}},
+		&fakeOptionRepo{},
+		&fakeFuturesRepo{},
+		&fakeForexRepo{},
+	)
+
+	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
+	require.NoError(t, err)
+	require.Empty(t, result)
+}
+
+func TestGetPortfolio_PartialSell(t *testing.T) {
+	buy := makeOrder(1, 10, model.OrderDirectionBuy, model.OrderStatusApproved, 10, 10, 100.0, 1.0)
+	buy.Listing.Ticker = "AAPL"
+	buy.Listing.Price = 150.0
+	sell := makeOrder(2, 10, model.OrderDirectionSell, model.OrderStatusApproved, 4, 4, 130.0, 1.0)
+	sell.Listing = buy.Listing
+
+	svc := NewPortfolioService(
+		&fakeOwnershipRepo{ownerships: []model.OrderOwnership{makeOwnership(buy), makeOwnership(sell)}},
+		&fakeStockRepo{stocks: []model.Stock{{StockID: 1, ListingID: 10}}},
+		&fakeOptionRepo{},
+		&fakeFuturesRepo{},
+		&fakeForexRepo{},
+	)
+
+	result, err := svc.GetPortfolio(context.Background(), 1, model.OwnerTypeClient)
+	require.NoError(t, err)
+	require.Len(t, result, 1)
+	require.Equal(t, float64(6), result[0].Amount)
+}
+
+func TestGetPortfolio_ForexExcluded(t *testing.T) {
+	ord := makeOrder(1, 40, model.OrderDirectionBuy, model.OrderStatusApproved, 5, 5, 1.2, 1000.0)
+	ord.Listing.Ticker = "EUR/USD"
+	ord.Listing.Price = 1.25
+
+	svc := NewPortfolioService(
+		&fakeOwnershipRepo{ownerships: []model.OrderOwnership{makeOwnership(ord)}},
 		&fakeStockRepo{},
 		&fakeOptionRepo{},
 		&fakeFuturesRepo{},

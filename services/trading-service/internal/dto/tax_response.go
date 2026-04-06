@@ -20,3 +20,6 @@ type ListTaxUsersResponse struct {
 type CollectTaxesResponse struct {
 	Message string `json:"message"`
 }
+type TaxInfoResponse struct {
+	TotalTax float64 `json:"totalTax"`
+}

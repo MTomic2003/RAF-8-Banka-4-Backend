@@ -462,8 +462,6 @@ definitions:
         type: number
       profit:
         type: number
-      taxAmount:
-        type: number
       ticker:
         type: string
       type:
@@ -535,6 +533,11 @@ definitions:
       volume:
         type: integer
     type: object
+  dto.TaxInfoResponse:
+    properties:
+      totalTax:
+        type: number
+    type: object
   dto.UserTaxEntry:
     properties:
       email:
@@ -596,6 +599,40 @@ info:
   title: Trading Service API
   version: "1.0"
 paths:
+  /api/actuary/{actId}/accumulated-tax:
+    get:
+      description: Returns the total accumulated tax for a specific actuary (employee)
+        across all accounts in RSD.
+      parameters:
+      - description: Actuary ID
+        in: path
+        name: actId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaxInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get accumulated tax for an actuary
+      tags:
+      - tax
   /api/actuary/{actId}/assets:
     get:
       description: Returns all currently held asset positions for an actuary (employee
@@ -637,6 +674,40 @@ paths:
       summary: Get portfolio for an actuary/agent
       tags:
       - portfolio
+  /api/client/{clientId}/accumulated-tax:
+    get:
+      description: Returns the total accumulated tax for a specific client across
+        all their accounts in RSD.
+      parameters:
+      - description: Client ID
+        in: path
+        name: clientId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TaxInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Get accumulated tax for a client
+      tags:
+      - tax
   /api/client/{clientId}/assets:
     get:
       description: Returns all currently held asset positions for a client, aggregated

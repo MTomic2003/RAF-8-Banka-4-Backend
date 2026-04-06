@@ -9,8 +9,8 @@ import (
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/handler"
-	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/config"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/config"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/middleware"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/validator"
 	"github.com/gin-contrib/cors"
@@ -110,11 +110,17 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 
 		client := api.Group("/client")
 		client.Use(authMw, auth.RequireClientSelf("clientId", true))
-		client.GET("/:clientId/assets", portfolioHandler.GetClientPortfolio)
+		{
+			client.GET("/:clientId/assets", portfolioHandler.GetClientPortfolio)
+			client.GET("/:clientId/accumulated-tax", taxHandler.GetClientAccumulatedTax)
+		}
 
 		actuary := api.Group("/actuary")
 		actuary.Use(authMw, auth.RequireIdentityType(auth.IdentityEmployee))
-		actuary.GET("/:actId/assets", portfolioHandler.GetActuaryPortfolio)
+		{
+			actuary.GET("/:actId/assets", portfolioHandler.GetActuaryPortfolio)
+			actuary.GET("/:actId/accumulated-tax", taxHandler.GetActuaryAccumulatedTax)
+		}
 
 		orders := api.Group("/orders")
 		orders.Use(auth.Middleware(verifier, permProvider))

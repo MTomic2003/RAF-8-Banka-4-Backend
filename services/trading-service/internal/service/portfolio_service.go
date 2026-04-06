@@ -114,10 +114,6 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 		}
 
 		profit := (currentPrice - o.AvgBuyPrice) * o.Amount
-		tax := 0.0
-		if profit > 0 {
-			tax = profit * taxRate
-		}
 
 		var ticker string
 		if o.Asset.Ticker != "" {
@@ -131,7 +127,6 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 			PricePerUnit:      currentPrice,
 			LastModified:      o.UpdatedAt,
 			Profit:            profit,
-			TaxAmount:         tax,
 			OutstandingShares: m.outstandingShares,
 		})
 	}
