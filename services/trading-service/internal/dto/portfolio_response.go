@@ -16,6 +16,7 @@ type PortfolioAssetResponse struct {
 	Ticker            string    `json:"ticker"`
 	Amount            float64   `json:"amount"`
 	PricePerUnit      float64   `json:"pricePerUnit"`
+	AvgBuyPriceRSD    float64   `json:"avgBuyPrice"`
 	LastModified      time.Time `json:"lastModified"`
 	Profit            float64   `json:"profit"`
 	OutstandingShares *float64  `json:"outstandingShares,omitempty"`

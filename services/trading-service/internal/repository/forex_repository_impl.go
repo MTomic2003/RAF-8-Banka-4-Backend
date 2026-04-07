@@ -68,7 +68,7 @@ func (r *forexRepository) FindAll(ctx context.Context, filter ListingFilter) ([]
 
 func (r *forexRepository) FindByAssetIDs(ctx context.Context, assetIDs []uint) ([]model.ForexPair, error) {
 	var pairs []model.ForexPair
-	if err := r.db.WithContext(ctx).Where("asset_id IN ?", assetIDs).Preload("Asset").Preload("Listing").Find(&pairs).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("asset_id IN ?", assetIDs).Preload("Asset").Preload("Listing").Preload("Listing.Exchange").Find(&pairs).Error; err != nil {
 		return nil, err
 	}
 	return pairs, nil

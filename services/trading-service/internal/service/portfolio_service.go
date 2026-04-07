@@ -4,6 +4,7 @@ import (
 	"context"
 
 	pkgerrors "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/repository"
@@ -15,6 +16,7 @@ type PortfolioService struct {
 	optionRepo    repository.OptionRepository
 	futuresRepo   repository.FuturesContractRepository
 	forexRepo     repository.ForexRepository
+	bankingClient client.BankingClient
 }
 
 func NewPortfolioService(
@@ -23,6 +25,7 @@ func NewPortfolioService(
 	optionRepo repository.OptionRepository,
 	futuresRepo repository.FuturesContractRepository,
 	forexRepo repository.ForexRepository,
+	bankingClient client.BankingClient,
 ) *PortfolioService {
 	return &PortfolioService{
 		ownershipRepo: ownershipRepo,
@@ -30,6 +33,7 @@ func NewPortfolioService(
 		optionRepo:    optionRepo,
 		futuresRepo:   futuresRepo,
 		forexRepo:     forexRepo,
+		bankingClient: bankingClient,
 	}
 }
 
@@ -111,7 +115,18 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 			currentPrice = m.listing.Price
 		}
 
-		profit := (currentPrice - o.AvgBuyPrice) * o.Amount
+		currency := "USD" // default for most exchanges
+		if m.listing != nil && m.listing.Exchange != nil && m.listing.Exchange.Currency != "" {
+			currency = m.listing.Exchange.Currency
+		}
+
+		// Convert current price to RSD for consistent profit calculation
+		currentPriceRSD, err := s.toRSD(ctx, currentPrice, currency)
+		if err != nil {
+			return nil, pkgerrors.InternalErr(err)
+		}
+
+		profit := (currentPriceRSD - o.AvgBuyPriceRSD) * o.Amount
 
 		var ticker string
 		if o.Asset.Ticker != "" {
@@ -123,6 +138,7 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 			Ticker:            ticker,
 			Amount:            o.Amount,
 			PricePerUnit:      currentPrice,
+			AvgBuyPriceRSD:    o.AvgBuyPriceRSD,
 			LastModified:      o.UpdatedAt,
 			Profit:            profit,
 			OutstandingShares: m.outstandingShares,
@@ -130,4 +146,12 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, identityID uint, ow
 	}
 
 	return result, nil
+}
+
+// toRSD converts amount from the given currency to RSD. Returns amount unchanged if currency is already RSD.
+func (s *PortfolioService) toRSD(ctx context.Context, amount float64, currency string) (float64, error) {
+	if currency == "RSD" {
+		return amount, nil
+	}
+	return s.bankingClient.ConvertCurrency(ctx, amount, currency, "RSD")
 }

@@ -446,7 +446,7 @@ func (s *OrderService) processOrder(ctx context.Context, order *model.Order) err
 		return err
 	}
 
-	if err := s.updateAssetOwnership(ctx, order, fillQty, pricePerUnit); err != nil {
+	if err := s.updateAssetOwnership(ctx, order, fillQty, pricePerUnit, tradeCurrency); err != nil {
 		return err
 	}
 
@@ -454,7 +454,7 @@ func (s *OrderService) processOrder(ctx context.Context, order *model.Order) err
 	return nil
 }
 
-func (s *OrderService) updateAssetOwnership(ctx context.Context, order *model.Order, fillQty uint, pricePerUnit float64) error {
+func (s *OrderService) updateAssetOwnership(ctx context.Context, order *model.Order, fillQty uint, pricePerUnit float64, currency string) error {
 	if order.Listing.Asset == nil {
 		return nil
 	}
@@ -485,9 +485,16 @@ func (s *OrderService) updateAssetOwnership(ctx context.Context, order *model.Or
 
 	switch order.Direction {
 	case model.OrderDirectionBuy:
+		pricePerUnitRSD := pricePerUnit
+		if currency != "RSD" {
+			pricePerUnitRSD, err = s.bankingClient.ConvertCurrency(ctx, pricePerUnit, currency, "RSD")
+			if err != nil {
+				return err
+			}
+		}
 		newAmount := ownership.Amount + fillAmount
 		if newAmount > 0 {
-			ownership.AvgBuyPrice = (ownership.AvgBuyPrice*ownership.Amount + pricePerUnit*fillAmount) / newAmount
+			ownership.AvgBuyPriceRSD = (ownership.AvgBuyPriceRSD*ownership.Amount + pricePerUnitRSD*fillAmount) / newAmount
 		}
 		ownership.Amount = newAmount
 	case model.OrderDirectionSell:
