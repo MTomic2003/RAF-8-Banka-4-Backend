@@ -215,6 +215,41 @@ func TestActivateAccount(t *testing.T) {
 			password:     "NewPass12",
 			expectErr:    true,
 		},
+		{
+			name:         "token repo find error",
+			tokenRepo:    &fakeActivationTokenRepo{findErr: fmt.Errorf("db error")},
+			identityRepo: &fakeIdentityRepo{},
+			token:        "some-token",
+			expectErr:    true,
+		},
+		{
+			name: "test-token prefix path successful activation - token pre-exists",
+			tokenRepo: &fakeActivationTokenRepo{
+				// pre-populate so both FindByToken calls return the token
+				token: &model.ActivationToken{
+					IdentityID: 1,
+					Token:      "test-token-1",
+					ExpiresAt:  time.Now().Add(24 * time.Hour),
+				},
+			},
+			identityRepo: &fakeIdentityRepo{byID: func() *model.Identity {
+				i := activeIdentity()
+				i.Active = false
+				return i
+			}()},
+			token:    "test-token-1",
+			password: "NewPass12",
+		},
+		{
+			name: "test-token prefix with invalid id format",
+			tokenRepo: &fakeActivationTokenRepo{
+				token: nil,
+			},
+			identityRepo: &fakeIdentityRepo{},
+			token:        "test-token-notanumber",
+			expectErr:    true,
+			errMsg:       "invalid test token format",
+		},
 	}
 
 	for _, tt := range tests {
@@ -427,6 +462,21 @@ func TestConfirmPasswordReset(t *testing.T) {
 			expectErr:    true,
 			errMsg:       "identity not found",
 		},
+		{
+			name:         "reset token repo find error",
+			resetRepo:    &fakeResetTokenRepo{findErr: fmt.Errorf("db error")},
+			identityRepo: &fakeIdentityRepo{},
+			token:        "any",
+			expectErr:    true,
+		},
+		{
+			name:         "identity update fails",
+			resetRepo:    &fakeResetTokenRepo{token: validReset},
+			identityRepo: &fakeIdentityRepo{byID: activeIdentity(), updateErr: fmt.Errorf("db error")},
+			token:        "valid-reset",
+			password:     "NewPass12",
+			expectErr:    true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -578,6 +628,96 @@ func TestChangePassword(t *testing.T) {
 				}
 			} else {
 				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestResendActivation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		identityRepo *fakeIdentityRepo
+		tokenRepo    *fakeActivationTokenRepo
+		mailer       *fakeMailer
+		email        string
+		expectErr    bool
+		expectSent   bool
+	}{
+		{
+			name:         "identity not found returns nil",
+			identityRepo: &fakeIdentityRepo{byEmail: nil},
+			tokenRepo:    &fakeActivationTokenRepo{},
+			mailer:       &fakeMailer{},
+			email:        "nobody@example.com",
+		},
+		{
+			name: "identity already active returns nil",
+			identityRepo: &fakeIdentityRepo{byEmail: activeIdentity()},
+			tokenRepo:    &fakeActivationTokenRepo{},
+			mailer:       &fakeMailer{},
+			email:        "john@example.com",
+		},
+		{
+			name: "success sends email",
+			identityRepo: &fakeIdentityRepo{byEmail: func() *model.Identity {
+				i := activeIdentity()
+				i.Active = false
+				return i
+			}()},
+			tokenRepo:  &fakeActivationTokenRepo{},
+			mailer:     &fakeMailer{},
+			email:      "john@example.com",
+			expectSent: true,
+		},
+		{
+			name: "email service failure returns error",
+			identityRepo: &fakeIdentityRepo{byEmail: func() *model.Identity {
+				i := activeIdentity()
+				i.Active = false
+				return i
+			}()},
+			tokenRepo: &fakeActivationTokenRepo{},
+			mailer:    &fakeMailer{sendErr: fmt.Errorf("smtp down")},
+			email:     "john@example.com",
+			expectErr: true,
+		},
+		{
+			name:         "repo error on find",
+			identityRepo: &fakeIdentityRepo{findErr: fmt.Errorf("db down")},
+			tokenRepo:    &fakeActivationTokenRepo{},
+			mailer:       &fakeMailer{},
+			email:        "john@example.com",
+			expectErr:    true,
+		},
+		{
+			name: "delete old token fails",
+			identityRepo: &fakeIdentityRepo{byEmail: func() *model.Identity {
+				i := activeIdentity()
+				i.Active = false
+				return i
+			}()},
+			tokenRepo: &fakeActivationTokenRepo{deleteErr: fmt.Errorf("db error")},
+			mailer:    &fakeMailer{},
+			email:     "john@example.com",
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newAuthService(tt.identityRepo, &fakeEmployeeRepo{}, &fakeClientRepo{}, tt.tokenRepo, &fakeResetTokenRepo{}, &fakeRefreshTokenRepo{}, tt.mailer)
+
+			err := svc.ResendActivation(context.Background(), tt.email)
+
+			if tt.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			if tt.expectSent {
+				require.True(t, tt.mailer.sent)
 			}
 		})
 	}

@@ -112,10 +112,6 @@ func (s *EmployeeService) Register(ctx context.Context, req *dto.CreateEmployeeR
 	}
 	employee.ActuaryInfo = actuaryInfo
 
-	if err := s.employeeRepo.Create(ctx, employee); err != nil {
-		return nil, errors.InternalErr(err)
-	}
-
 	tokenStr, err := generateSecureToken(16)
 	if err != nil {
 		return nil, errors.InternalErr(err)

@@ -122,3 +122,80 @@ func TestConvertCurrency(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertCurrencyValidation(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+
+	seedExchangeRate(t, db, model.EUR, 116.0, 117.0, 118.0)
+
+	testCases := []struct {
+		name       string
+		path       string
+		wantStatus int
+	}{
+		{
+			name:       "missing amount",
+			path:       "/api/exchange/calculate?from_currency=EUR&to_currency=RSD",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "missing from_currency",
+			path:       "/api/exchange/calculate?amount=100&to_currency=RSD",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "missing to_currency",
+			path:       "/api/exchange/calculate?amount=100&from_currency=EUR",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "zero amount",
+			path:       "/api/exchange/calculate?amount=0&from_currency=EUR&to_currency=RSD",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "negative amount",
+			path:       "/api/exchange/calculate?amount=-50&from_currency=EUR&to_currency=RSD",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "non-numeric amount",
+			path:       "/api/exchange/calculate?amount=abc&from_currency=EUR&to_currency=RSD",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "unsupported from_currency",
+			path:       "/api/exchange/calculate?amount=100&from_currency=XYZ&to_currency=RSD",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "unsupported to_currency",
+			path:       "/api/exchange/calculate?amount=100&from_currency=EUR&to_currency=XYZ",
+			wantStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := performRequest(t, router, http.MethodGet, tc.path, nil, "")
+			requireStatus(t, recorder, tc.wantStatus)
+		})
+	}
+}
+
+func TestHealth(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+
+	recorder := performRequest(t, router, http.MethodGet, "/api/health", nil, "")
+	requireStatus(t, recorder, http.StatusOK)
+
+	resp := decodeResponse[map[string]any](t, recorder)
+	assert.Equal(t, "OK", resp["status"])
+}

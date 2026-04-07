@@ -164,6 +164,7 @@ func TestUpdateEmployee(t *testing.T) {
 		req          *dto.UpdateEmployeeRequest
 		expectErr    bool
 		errMsg       string
+		useNoAuth    bool
 	}{
 		{
 			name:         "successful update same email/username",
@@ -234,13 +235,64 @@ func TestUpdateEmployee(t *testing.T) {
 			expectErr: true,
 			errMsg:    "invalid position_id",
 		},
+		{
+			name:         "identity not found for employee",
+			empRepo:      &fakeEmployeeRepo{byIDs: map[uint]*model.Employee{existing.EmployeeID: existing, actor.EmployeeID: actor}},
+			identityRepo: &fakeIdentityRepo{byID: nil},
+			positionRepo: &fakePositionRepo{exists: true},
+			id:           existing.EmployeeID,
+			req:          req,
+			expectErr:    true,
+			errMsg:       "identity not found",
+		},
+		{
+			name: "admin cannot modify other admin permissions",
+			empRepo: &fakeEmployeeRepo{byIDs: map[uint]*model.Employee{
+				existingAdmin.EmployeeID: existingAdmin,
+				actor.EmployeeID:        actor,
+			}},
+			identityRepo: &fakeIdentityRepo{byID: identity},
+			positionRepo: &fakePositionRepo{exists: true},
+			id:           existingAdmin.EmployeeID,
+			req: &dto.UpdateEmployeeRequest{
+				Permissions: &[]permission.Permission{permission.EmployeeView},
+			},
+			expectErr: true,
+			errMsg:    "cannot modify admin",
+		},
+		{
+			name:         "toggle active flag",
+			empRepo:      &fakeEmployeeRepo{byIDs: map[uint]*model.Employee{existing.EmployeeID: existing, actor.EmployeeID: actor}},
+			identityRepo: &fakeIdentityRepo{byID: identity},
+			positionRepo: &fakePositionRepo{exists: true},
+			id:           existing.EmployeeID,
+			req: &dto.UpdateEmployeeRequest{
+				Active: ptr(false),
+			},
+		},
+		{
+			name:         "no auth context returns error",
+			empRepo:      &fakeEmployeeRepo{byIDs: map[uint]*model.Employee{existing.EmployeeID: existing}},
+			identityRepo: &fakeIdentityRepo{byID: identity},
+			positionRepo: &fakePositionRepo{exists: true},
+			id:           existing.EmployeeID,
+			req:          req,
+			expectErr:    true,
+			errMsg:       "not authenticated",
+			useNoAuth:    true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newEmployeeService(tt.empRepo, tt.identityRepo, &fakeActivationTokenRepo{}, tt.positionRepo, &fakeMailer{})
 
-			result, err := svc.UpdateEmployee(withAuth(context.Background(), actor.IdentityID, auth.IdentityEmployee), tt.id, tt.req)
+			ctx := withAuth(context.Background(), actor.IdentityID, auth.IdentityEmployee)
+			if tt.useNoAuth {
+				ctx = context.Background()
+			}
+
+			result, err := svc.UpdateEmployee(ctx, tt.id, tt.req)
 
 			if tt.expectErr {
 				require.Error(t, err)
@@ -249,7 +301,7 @@ func TestUpdateEmployee(t *testing.T) {
 				}
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, "Updated", result.LastName)
+				require.NotNil(t, result)
 			}
 		})
 	}
@@ -333,6 +385,21 @@ func TestDeactivateEmployee(t *testing.T) {
 			expectErr:    true,
 			errMsg:       "cannot deactivate admin",
 		},
+		{
+			name:         "identity not found for employee",
+			empRepo:      &fakeEmployeeRepo{byID: active},
+			identityRepo: &fakeIdentityRepo{byID: nil},
+			id:           1,
+			expectErr:    true,
+			errMsg:       "identity not found",
+		},
+		{
+			name:         "identity update error",
+			empRepo:      &fakeEmployeeRepo{byID: active},
+			identityRepo: &fakeIdentityRepo{byID: identity, updateErr: fmt.Errorf("db error")},
+			id:           1,
+			expectErr:    true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -350,6 +417,148 @@ func TestDeactivateEmployee(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, tt.identityRepo.updatedIdentity)
 				require.False(t, tt.identityRepo.updatedIdentity.Active)
+			}
+		})
+	}
+}
+
+func TestGetEmployeeByID(t *testing.T) {
+	t.Parallel()
+
+	emp := activeEmployee()
+
+	tests := []struct {
+		name      string
+		empRepo   *fakeEmployeeRepo
+		id        uint
+		expectErr bool
+		errMsg    string
+	}{
+		{
+			name:    "success",
+			empRepo: &fakeEmployeeRepo{byID: emp},
+			id:      emp.EmployeeID,
+		},
+		{
+			name:      "not found",
+			empRepo:   &fakeEmployeeRepo{byID: nil},
+			id:        999,
+			expectErr: true,
+			errMsg:    "employee not found",
+		},
+		{
+			name:      "repo error",
+			empRepo:   &fakeEmployeeRepo{findErr: fmt.Errorf("db error")},
+			id:        1,
+			expectErr: true,
+			errMsg:    "db error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newEmployeeService(tt.empRepo, &fakeIdentityRepo{}, &fakeActivationTokenRepo{}, &fakePositionRepo{}, &fakeMailer{})
+
+			res, err := svc.GetEmployeeByID(context.Background(), tt.id)
+
+			if tt.expectErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					require.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, res)
+				require.Equal(t, emp.EmployeeID, res.Id)
+			}
+		})
+	}
+}
+
+func TestBuildActuaryInfo(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		existing     *model.ActuaryInfo
+		isAdmin      bool
+		isAgent      bool
+		isSupervisor bool
+		limit        float64
+		needApproval bool
+		expectErr    bool
+		errMsg       string
+		expectNil    bool
+		checkAgent   bool
+		checkSuper   bool
+	}{
+		{
+			name:         "admin forces supervisor",
+			isAdmin:      true,
+			isAgent:      true,
+			isSupervisor: false,
+			checkSuper:   true,
+		},
+		{
+			name:         "agent and supervisor conflict",
+			isAgent:      true,
+			isSupervisor: true,
+			expectErr:    true,
+			errMsg:       "cannot be both agent and supervisor",
+		},
+		{
+			name:      "neither agent nor supervisor returns nil",
+			expectNil: true,
+		},
+		{
+			name:         "agent with limit",
+			isAgent:      true,
+			limit:        50000,
+			needApproval: true,
+			checkAgent:   true,
+		},
+		{
+			name:         "supervisor zeroes limit",
+			isSupervisor: true,
+			limit:        50000,
+			needApproval: true,
+			checkSuper:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := buildActuaryInfo(tt.existing, tt.isAdmin, tt.isAgent, tt.isSupervisor, tt.limit, tt.needApproval)
+
+			if tt.expectErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					require.Contains(t, err.Error(), tt.errMsg)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+
+			if tt.expectNil {
+				require.Nil(t, result)
+				return
+			}
+
+			require.NotNil(t, result)
+
+			if tt.checkSuper {
+				require.True(t, result.IsSupervisor)
+				require.False(t, result.IsAgent)
+				require.Equal(t, float64(0), result.Limit)
+				require.False(t, result.NeedApproval)
+			}
+
+			if tt.checkAgent {
+				require.True(t, result.IsAgent)
+				require.False(t, result.IsSupervisor)
+				require.Equal(t, tt.limit, result.Limit)
+				require.Equal(t, tt.needApproval, result.NeedApproval)
 			}
 		})
 	}

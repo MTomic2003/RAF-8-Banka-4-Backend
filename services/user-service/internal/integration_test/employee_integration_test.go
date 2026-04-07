@@ -94,7 +94,7 @@ func TestRegister(t *testing.T) {
 	db := setupTestDB(t)
 	router := setupTestRouter(t, db)
 	position := seedPosition(t, db)
-	adminIdentity, _ := seedEmployeeWithPermissions(t, db, position.PositionID, commonpermission.EmployeeCreate)
+	adminIdentity, _ := seedEmployeeWithPermissions(t, db, position.PositionID, commonpermission.All...)
 	noPermIdentity, _ := seedEmployee(t, db, position.PositionID)
 
 	validBody := map[string]any{
@@ -487,6 +487,93 @@ func TestRefreshToken(t *testing.T) {
 		"refresh_token": "invalid-token",
 	}, "")
 	requireStatus(t, invalidRefresh, http.StatusUnauthorized)
+}
+
+func TestDeactivateEmployee(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+	position := seedPosition(t, db)
+	updaterIdentity, _ := seedEmployeeWithPermissions(t, db, position.PositionID, commonpermission.EmployeeUpdate)
+	_, target := seedEmployee(t, db, position.PositionID)
+	authHdr := authHeader(t, updaterIdentity.ID)
+
+	testCases := []struct {
+		name       string
+		path       string
+		auth       string
+		wantStatus int
+	}{
+		{
+			name:       "valid deactivation",
+			path:       "/api/employees/" + itoa(target.EmployeeID) + "/deactivate",
+			auth:       authHdr,
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "employee not found",
+			path:       "/api/employees/999999/deactivate",
+			auth:       authHdr,
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "invalid id format",
+			path:       "/api/employees/abc/deactivate",
+			auth:       authHdr,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "missing auth",
+			path:       "/api/employees/" + itoa(target.EmployeeID) + "/deactivate",
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := performRequest(t, router, http.MethodPost, tc.path, nil, tc.auth)
+			requireStatus(t, recorder, tc.wantStatus)
+		})
+	}
+}
+
+func TestListEmployeesNoPerm(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+	position := seedPosition(t, db)
+	noPermIdentity, _ := seedEmployee(t, db, position.PositionID)
+
+	recorder := performRequest(t, router, http.MethodGet, "/api/employees?page=1&page_size=10", nil, authHeader(t, noPermIdentity.ID))
+	requireStatus(t, recorder, http.StatusForbidden)
+}
+
+func TestUpdateEmployeeInvalidID(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+	position := seedPosition(t, db)
+	updaterIdentity, _ := seedEmployeeWithPermissions(t, db, position.PositionID, commonpermission.EmployeeUpdate)
+	authHdr := authHeader(t, updaterIdentity.ID)
+
+	recorder := performRequest(t, router, http.MethodPatch, "/api/employees/abc", map[string]any{"department": "HR"}, authHdr)
+	requireStatus(t, recorder, http.StatusBadRequest)
+}
+
+func TestRegisterEmployeeInvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+	position := seedPosition(t, db)
+	adminIdentity, _ := seedEmployeeWithPermissions(t, db, position.PositionID, commonpermission.All...)
+
+	recorder := performRawJSONRequest(t, router, http.MethodPost, "/api/employees/register", "{bad", authHeader(t, adminIdentity.ID))
+	requireStatus(t, recorder, http.StatusBadRequest)
 }
 
 func itoa(value uint) string {

@@ -428,6 +428,234 @@ func TestGetForexDetails_Success(t *testing.T) {
 	}
 }
 
+// --- GetOptions Tests ---
+
+func TestGetOptions_ReturnsAll(t *testing.T) {
+	db := setupListingTestDB(t)
+	seedListingTestData(t, db)
+
+	// Insert two option listings
+	optListing1 := model.Listing{
+		Ticker: "AAPL:CALL:150.00", Name: "AAPL CALL 150", ExchangeMIC: model.SimulatedExchangeMIC,
+		Price: 5.0, Ask: 5.1, ListingType: model.ListingTypeOption, LastRefresh: time.Now(),
+	}
+	optListing2 := model.Listing{
+		Ticker: "AAPL:PUT:140.00", Name: "AAPL PUT 140", ExchangeMIC: model.SimulatedExchangeMIC,
+		Price: 3.0, Ask: 3.1, ListingType: model.ListingTypeOption, LastRefresh: time.Now(),
+	}
+	db.Create(&optListing1)
+	db.Create(&optListing2)
+
+	opt1 := model.Option{ListingID: optListing1.ListingID, StockID: 1, OptionType: model.OptionTypeCall, StrikePrice: 150.0, ContractSize: 100, SettlementDate: time.Now().AddDate(0, 1, 0)}
+	opt2 := model.Option{ListingID: optListing2.ListingID, StockID: 1, OptionType: model.OptionTypePut, StrikePrice: 140.0, ContractSize: 100, SettlementDate: time.Now().AddDate(0, 1, 0)}
+	db.Create(&opt1)
+	db.Create(&opt2)
+
+	svc := NewListingService(
+		repository.NewListingRepository(db),
+		repository.NewFuturesContractRepository(db),
+		repository.NewForexRepository(db),
+		repository.NewOptionRepository(db),
+	)
+
+	result, err := svc.GetOptions(context.Background(), dto.ListingQuery{Page: 1, PageSize: 10})
+	if err != nil {
+		t.Fatalf("GetOptions failed: %v", err)
+	}
+	if len(result.Data) != 2 {
+		t.Fatalf("expected 2 options, got %d", len(result.Data))
+	}
+}
+
+func TestGetOptions_InvalidSettlementDate_BadRequest(t *testing.T) {
+	db := setupListingTestDB(t)
+	svc := NewListingService(
+		repository.NewListingRepository(db),
+		repository.NewFuturesContractRepository(db),
+		repository.NewForexRepository(db),
+		repository.NewOptionRepository(db),
+	)
+
+	_, err := svc.GetOptions(context.Background(), dto.ListingQuery{SettlementDate: "not-a-date"})
+	if err == nil {
+		t.Fatal("expected error for invalid settlement date")
+	}
+}
+
+// --- GetFutureDetails error path tests ---
+
+func TestGetFutureDetails_NotFound_WrongType(t *testing.T) {
+	db := setupListingTestDB(t)
+	seedListingTestData(t, db)
+
+	svc := NewListingService(
+		repository.NewListingRepository(db),
+		repository.NewFuturesContractRepository(db),
+		repository.NewForexRepository(db),
+		repository.NewOptionRepository(db),
+	)
+
+	// Use ID=1 which is a stock, not a future
+	_, err := svc.GetFutureDetails(context.Background(), 1)
+	if err == nil {
+		t.Fatal("expected error when listing type is not future")
+	}
+}
+
+func TestGetFutureDetails_ListingNotFound(t *testing.T) {
+	db := setupListingTestDB(t)
+	seedListingTestData(t, db)
+
+	svc := NewListingService(
+		repository.NewListingRepository(db),
+		repository.NewFuturesContractRepository(db),
+		repository.NewForexRepository(db),
+		repository.NewOptionRepository(db),
+	)
+
+	_, err := svc.GetFutureDetails(context.Background(), 99999)
+	if err == nil {
+		t.Fatal("expected error for nonexistent listing")
+	}
+}
+
+// --- GetForexDetails error path tests ---
+
+func TestGetForexDetails_NotFound_WrongType(t *testing.T) {
+	db := setupListingTestDB(t)
+	seedListingTestData(t, db)
+
+	svc := NewListingService(
+		repository.NewListingRepository(db),
+		repository.NewFuturesContractRepository(db),
+		repository.NewForexRepository(db),
+		repository.NewOptionRepository(db),
+	)
+
+	// Use ID=1 which is a stock, not a forex pair
+	_, err := svc.GetForexDetails(context.Background(), 1)
+	if err == nil {
+		t.Fatal("expected error when listing type is not forexPair")
+	}
+}
+
+func TestGetForexDetails_ListingNotFound(t *testing.T) {
+	db := setupListingTestDB(t)
+	seedListingTestData(t, db)
+
+	svc := NewListingService(
+		repository.NewListingRepository(db),
+		repository.NewFuturesContractRepository(db),
+		repository.NewForexRepository(db),
+		repository.NewOptionRepository(db),
+	)
+
+	_, err := svc.GetForexDetails(context.Background(), 99999)
+	if err == nil {
+		t.Fatal("expected error for nonexistent listing")
+	}
+}
+
+// --- GetOptionDetails error path tests ---
+
+func TestGetOptionDetails_NotFound_WrongType(t *testing.T) {
+	db := setupListingTestDB(t)
+	seedListingTestData(t, db)
+
+	svc := NewListingService(
+		repository.NewListingRepository(db),
+		repository.NewFuturesContractRepository(db),
+		repository.NewForexRepository(db),
+		repository.NewOptionRepository(db),
+	)
+
+	// Use ID=1 which is a stock, not an option
+	_, err := svc.GetOptionDetails(context.Background(), 1)
+	if err == nil {
+		t.Fatal("expected error when listing type is not option")
+	}
+}
+
+func TestGetOptionDetails_ListingNotFound(t *testing.T) {
+	db := setupListingTestDB(t)
+	seedListingTestData(t, db)
+
+	svc := NewListingService(
+		repository.NewListingRepository(db),
+		repository.NewFuturesContractRepository(db),
+		repository.NewForexRepository(db),
+		repository.NewOptionRepository(db),
+	)
+
+	_, err := svc.GetOptionDetails(context.Background(), 99999)
+	if err == nil {
+		t.Fatal("expected error for nonexistent listing")
+	}
+}
+
+// --- latestDaily Tests ---
+
+func TestLatestDaily_EmptySlice(t *testing.T) {
+	result := latestDaily([]model.ListingDailyPriceInfo{})
+	if result != nil {
+		t.Fatal("expected nil for empty slice")
+	}
+}
+
+func TestLatestDaily_SingleElement(t *testing.T) {
+	now := time.Now()
+	infos := []model.ListingDailyPriceInfo{
+		{Date: now, Price: 100.0},
+	}
+	result := latestDaily(infos)
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result.Price != 100.0 {
+		t.Errorf("expected price 100.0, got %f", result.Price)
+	}
+}
+
+func TestLatestDaily_MultipleElements_ReturnsLatest(t *testing.T) {
+	now := time.Now()
+	infos := []model.ListingDailyPriceInfo{
+		{Date: now.Add(-48 * time.Hour), Price: 90.0},
+		{Date: now, Price: 100.0},
+		{Date: now.Add(-24 * time.Hour), Price: 95.0},
+	}
+	result := latestDaily(infos)
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result.Price != 100.0 {
+		t.Errorf("expected latest price 100.0, got %f", result.Price)
+	}
+}
+
+// --- mapHistory Tests ---
+
+func TestMapHistory_EmptySlice(t *testing.T) {
+	result := mapHistory([]model.ListingDailyPriceInfo{})
+	if len(result) != 0 {
+		t.Fatalf("expected empty slice, got %d", len(result))
+	}
+}
+
+func TestMapHistory_MapsAllFields(t *testing.T) {
+	now := time.Now()
+	infos := []model.ListingDailyPriceInfo{
+		{Date: now, Price: 100.0, Ask: 101.0, Bid: 99.0, Change: 1.5, Volume: 500},
+	}
+	result := mapHistory(infos)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 element, got %d", len(result))
+	}
+	r := result[0]
+	if r.Price != 100.0 || r.Ask != 101.0 || r.Bid != 99.0 || r.Change != 1.5 || r.Volume != 500 {
+		t.Errorf("mapHistory fields not mapped correctly: %+v", r)
+	}
+}
+
 func TestGetOptionDetails_Success(t *testing.T) {
 	db := setupListingTestDB(t)
 	seedListingTestData(t, db)

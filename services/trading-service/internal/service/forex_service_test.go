@@ -114,6 +114,65 @@ func TestRefreshFromAPI(t *testing.T) {
 	}
 }
 
+// --- Test za Initialize error path (Count fails) ---
+func TestInitialize_CountError_LogsAndReturns(t *testing.T) {
+	// Use a nil repo that will panic — instead use a failing fake
+	db := setupTestDB(t)
+
+	// Close the DB to simulate a failure
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB.Close()
+
+	repo := repository.NewForexRepository(db)
+	listingRepo := repository.NewListingRepository(db)
+	mockClient := &mockExchangeClient{data: &client.ExchangeRateAPIResponse{}}
+	service := NewForexService(repo, listingRepo, mockClient)
+
+	// Should not panic; just logs and returns
+	service.Initialize(context.Background())
+}
+
+// --- Test ForexService Start / Stop ---
+
+func TestForexService_StartStop(t *testing.T) {
+	db := setupTestDB(t)
+	mockClient := &mockExchangeClient{data: &client.ExchangeRateAPIResponse{
+		BaseCode:           "USD",
+		TimeLastUpdateUnix: 0,
+		TimeNextUpdateUnix: 0,
+		ConversionRates:    map[string]float64{},
+	}}
+	repo := repository.NewForexRepository(db)
+	listingRepo := repository.NewListingRepository(db)
+	service := NewForexService(repo, listingRepo, mockClient)
+
+	// Start should launch the background ticker
+	service.Start()
+
+	// Double-start should be a no-op
+	service.Start()
+
+	// Stop should cancel the context
+	service.Stop()
+
+	// Double-stop should be safe
+	service.Stop()
+}
+
+func TestForexService_StopWithoutStart(t *testing.T) {
+	db := setupTestDB(t)
+	mockClient := &mockExchangeClient{data: &client.ExchangeRateAPIResponse{}}
+	repo := repository.NewForexRepository(db)
+	listingRepo := repository.NewListingRepository(db)
+	service := NewForexService(repo, listingRepo, mockClient)
+
+	// Stopping before starting should not panic
+	service.Stop()
+}
+
 // --- Test za Initialize i seeding ---
 func TestInitialize_SeedsDB(t *testing.T) {
 	db := setupTestDB(t)

@@ -244,6 +244,58 @@ func TestListClients(t *testing.T) {
 	}
 }
 
+func TestClientRegisterErrors(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+	position := seedPosition(t, db)
+	empIdentity, _ := seedEmployee(t, db, position.PositionID)
+	empAuth := authHeader(t, empIdentity.ID)
+
+	email := fmt.Sprintf("dup-client-%d@example.com", uniqueCounter.Add(1))
+	username := fmt.Sprintf("dup-client-%d", uniqueCounter.Add(1))
+
+	first := performRequest(t, router, http.MethodPost, "/api/clients/register", map[string]any{
+		"first_name":    "Dupli",
+		"last_name":     "Client",
+		"date_of_birth": time.Now().UTC().AddDate(-28, 0, 0).Format(time.RFC3339),
+		"gender":        "male",
+		"email":         email,
+		"username":      username,
+		"phone_number":  "0601111111",
+		"address":       "Street 1",
+	}, empAuth)
+	requireStatus(t, first, http.StatusCreated)
+
+	duplicate := performRequest(t, router, http.MethodPost, "/api/clients/register", map[string]any{
+		"first_name":    "Dupli",
+		"last_name":     "Client",
+		"date_of_birth": time.Now().UTC().AddDate(-28, 0, 0).Format(time.RFC3339),
+		"gender":        "male",
+		"email":         email,
+		"username":      fmt.Sprintf("dup-client-%d", uniqueCounter.Add(1)),
+		"phone_number":  "0601111112",
+		"address":       "Street 2",
+	}, empAuth)
+	requireStatus(t, duplicate, http.StatusConflict)
+
+	invalidJSON := performRawJSONRequest(t, router, http.MethodPost, "/api/clients/register", "{bad", empAuth)
+	requireStatus(t, invalidJSON, http.StatusBadRequest)
+
+	noAuth := performRequest(t, router, http.MethodPost, "/api/clients/register", map[string]any{
+		"first_name":    "NoAuth",
+		"last_name":     "Client",
+		"date_of_birth": time.Now().UTC().AddDate(-25, 0, 0).Format(time.RFC3339),
+		"gender":        "female",
+		"email":         fmt.Sprintf("noauth-%d@example.com", uniqueCounter.Add(1)),
+		"username":      fmt.Sprintf("noauth-%d", uniqueCounter.Add(1)),
+		"phone_number":  "0601111113",
+		"address":       "Street 3",
+	}, "")
+	requireStatus(t, noAuth, http.StatusUnauthorized)
+}
+
 func TestUpdateClient(t *testing.T) {
 	t.Parallel()
 
@@ -329,4 +381,16 @@ func TestUpdateClient(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUpdateClientInvalidID(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+	position := seedPosition(t, db)
+	updaterIdentity, _ := seedEmployeeWithPermissions(t, db, position.PositionID, permission.ClientUpdate)
+
+	recorder := performRequest(t, router, http.MethodPatch, "/api/clients/abc", map[string]any{"first_name": "Test"}, authHeader(t, updaterIdentity.ID))
+	requireStatus(t, recorder, http.StatusBadRequest)
 }

@@ -62,15 +62,18 @@ func (f *fakeLoanRequestRepo) Update(_ context.Context, r *model.LoanRequest) er
 // ── Fake Loan Repository ─────────────────────────────────────────────────────
 
 type fakeLoanRepo struct {
-	loan       *model.Loan
-	loans      []model.Loan
-	requests   []model.LoanRequest
-	total      int64
-	findAllErr error
-	loanErr    error
-	instErr    error
-	findErr    error
-	updateErr  error
+	loan                *model.Loan
+	loans               []model.Loan
+	loanByRequestID     *model.Loan
+	loanByRequestIDErr  error
+	requests            []model.LoanRequest
+	total               int64
+	findAllErr          error
+	loanErr             error
+	instErr             error
+	findErr             error
+	updateErr           error
+	variableRateLoansErr error
 }
 
 func (f *fakeLoanRepo) FindByClientID(_ context.Context, _ uint, _ bool) ([]model.Loan, error) {
@@ -90,7 +93,7 @@ func (f *fakeLoanRepo) CreateLoan(_ context.Context, loan *model.Loan) error {
 }
 
 func (f *fakeLoanRepo) FindLoanByRequestID(_ context.Context, _ uint) (*model.Loan, error) {
-	return nil, nil
+	return f.loanByRequestID, f.loanByRequestIDErr
 }
 
 func (f *fakeLoanRepo) UpdateLoan(_ context.Context, _ *model.Loan) error {
@@ -114,7 +117,7 @@ func (f *fakeLoanRepo) UpdateInstallment(_ context.Context, _ *model.LoanInstall
 }
 
 func (f *fakeLoanRepo) FindActiveVariableRateLoans(_ context.Context) ([]model.Loan, error) {
-	return f.loans, nil
+	return f.loans, f.variableRateLoansErr
 }
 
 func (f *fakeLoanRepo) FindAll(_ context.Context, _ *dto.ListLoanRequestsQuery) ([]model.LoanRequest, int64, error) {
@@ -645,4 +648,468 @@ func TestRejectLoanRequest(t *testing.T) {
 			require.Equal(t, model.LoanRequestRejected, tt.loanRequestRepo.updated.Status)
 		})
 	}
+}
+
+// ── GetClientLoans Tests ────────────────────────────────────────────────────
+
+func TestGetClientLoans(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		loanRepo  *fakeLoanRepo
+		accRepo   *fakeLoanAccountRepo
+		expectErr bool
+		wantLen   int
+	}{
+		{
+			name: "success with loans",
+			loanRepo: &fakeLoanRepo{
+				loans: []model.Loan{
+					{
+						ID:                 1,
+						MonthlyInstallment: 5000,
+						LoanRequest: model.LoanRequest{
+							AccountNumber: "ACC-1",
+							Amount:        100000,
+							Status:        model.LoanRequestApproved,
+							LoanType:      model.LoanType{Name: "Cash Loan"},
+						},
+					},
+					{
+						ID:                 2,
+						MonthlyInstallment: 3000,
+						LoanRequest: model.LoanRequest{
+							AccountNumber: "ACC-1",
+							Amount:        50000,
+							Status:        model.LoanRequestApproved,
+							LoanType:      model.LoanType{Name: "Mortgage"},
+						},
+					},
+				},
+			},
+			accRepo: &fakeLoanAccountRepo{
+				account: &model.Account{
+					AccountNumber: "ACC-1",
+					Currency:      model.Currency{Code: model.RSD},
+				},
+			},
+			wantLen: 2,
+		},
+		{
+			name:     "empty loans list",
+			loanRepo: &fakeLoanRepo{loans: []model.Loan{}},
+			accRepo:  &fakeLoanAccountRepo{},
+			wantLen:  0,
+		},
+		{
+			name:      "repo error",
+			loanRepo:  &fakeLoanRepo{findErr: fmt.Errorf("db error")},
+			accRepo:   &fakeLoanAccountRepo{},
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			svc := newLoanService(tt.accRepo, nil, nil, tt.loanRepo, &fakeUserClient{}, &fakeMailer{})
+
+			resp, err := svc.GetClientLoans(context.Background(), 1, false)
+
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Len(t, resp, tt.wantLen)
+			if tt.wantLen > 0 {
+				require.Equal(t, "Cash Loan", resp[0].LoanType)
+				require.Equal(t, model.CurrencyCode(model.RSD), resp[0].Currency)
+			}
+		})
+	}
+}
+
+// ── GetLoanDetails Tests ────────────────────────────────────────────────────
+
+func TestGetLoanDetails(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		loanRepo  *fakeLoanRepo
+		accRepo   *fakeLoanAccountRepo
+		expectErr bool
+		errMsg    string
+	}{
+		{
+			name: "success",
+			loanRepo: &fakeLoanRepo{
+				loan: &model.Loan{
+					ID:                 1,
+					MonthlyInstallment: 5000,
+					InterestRate:       5.5,
+					RepaymentPeriod:    24,
+					LoanRequest: model.LoanRequest{
+						AccountNumber: "ACC-1",
+						Amount:        100000,
+						Status:        model.LoanRequestApproved,
+						LoanType:      model.LoanType{Name: "Cash Loan"},
+					},
+					Installments: []model.LoanInstallment{
+						{InstallmentNumber: 1, Amount: 5000, Status: model.InstallmentStatusPaid},
+						{InstallmentNumber: 2, Amount: 5000, Status: model.InstallmentStatusPending},
+					},
+				},
+			},
+			accRepo: &fakeLoanAccountRepo{
+				account: &model.Account{
+					AccountNumber: "ACC-1",
+					Currency:      model.Currency{Code: model.RSD},
+				},
+			},
+		},
+		{
+			name:      "loan not found",
+			loanRepo:  &fakeLoanRepo{findErr: fmt.Errorf("not found")},
+			accRepo:   &fakeLoanAccountRepo{},
+			expectErr: true,
+			errMsg:    "loan not found",
+		},
+		{
+			name: "account lookup error",
+			loanRepo: &fakeLoanRepo{
+				loan: &model.Loan{
+					ID: 1,
+					LoanRequest: model.LoanRequest{
+						AccountNumber: "ACC-MISSING",
+						LoanType:      model.LoanType{Name: "Cash Loan"},
+					},
+				},
+			},
+			accRepo:   &fakeLoanAccountRepo{findErr: fmt.Errorf("db error")},
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			svc := newLoanService(tt.accRepo, nil, nil, tt.loanRepo, &fakeUserClient{}, &fakeMailer{})
+
+			resp, err := svc.GetLoanDetails(context.Background(), 1, 1)
+
+			if tt.expectErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					require.Contains(t, err.Error(), tt.errMsg)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+			require.Equal(t, "Cash Loan", resp.LoanType)
+			require.Equal(t, 24, resp.RepaymentPeriod)
+			require.Len(t, resp.Installments, 2)
+		})
+	}
+}
+
+// ── GetLoanRequests Tests ───────────────────────────────────────────────────
+
+func TestGetLoanRequests(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		reqRepo   *fakeLoanRequestRepo
+		loanRepo  *fakeLoanRepo
+		expectErr bool
+		wantLen   int
+		wantTotal int64
+	}{
+		{
+			name: "success with mixed statuses",
+			reqRepo: &fakeLoanRequestRepo{
+				requests: []model.LoanRequest{
+					{
+						ID:                 1,
+						ClientID:           1,
+						AccountNumber:      "ACC-1",
+						Amount:             100000,
+						RepaymentPeriod:    24,
+						MonthlyInstallment: 5000,
+						Status:             model.LoanRequestPending,
+						LoanType:           model.LoanType{Name: "Cash Loan"},
+					},
+					{
+						ID:                 2,
+						ClientID:           2,
+						AccountNumber:      "ACC-2",
+						Amount:             50000,
+						RepaymentPeriod:    12,
+						MonthlyInstallment: 4500,
+						Status:             model.LoanRequestApproved,
+						LoanType:           model.LoanType{Name: "Mortgage"},
+					},
+				},
+				total: 2,
+			},
+			loanRepo:  &fakeLoanRepo{},
+			wantLen:   2,
+			wantTotal: 2,
+		},
+		{
+			name: "empty result",
+			reqRepo: &fakeLoanRequestRepo{
+				requests: []model.LoanRequest{},
+				total:    0,
+			},
+			loanRepo:  &fakeLoanRepo{},
+			wantLen:   0,
+			wantTotal: 0,
+		},
+		{
+			name:      "repo error",
+			reqRepo:   &fakeLoanRequestRepo{findAllErr: fmt.Errorf("db error")},
+			loanRepo:  &fakeLoanRepo{},
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			svc := newLoanService(nil, nil, tt.reqRepo, tt.loanRepo, &fakeUserClient{}, &fakeMailer{})
+
+			query := &dto.ListLoanRequestsQuery{Page: 1, PageSize: 10}
+			resp, total, err := svc.GetLoanRequests(context.Background(), query)
+
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Len(t, resp, tt.wantLen)
+			require.Equal(t, tt.wantTotal, total)
+		})
+	}
+}
+
+// ── AdjustVariableRates Tests ───────────────────────────────────────────────
+
+func TestAdjustVariableRates_NoVariableLoans(t *testing.T) {
+	t.Parallel()
+
+	svc := newLoanService(nil, nil, nil, &fakeLoanRepo{loans: []model.Loan{}}, &fakeUserClient{}, &fakeMailer{})
+
+	err := svc.AdjustVariableRates(context.Background())
+	require.NoError(t, err)
+}
+
+func TestAdjustVariableRates_Success(t *testing.T) {
+	t.Parallel()
+
+	loanRepo := &fakeLoanRepo{
+		loans: []model.Loan{
+			{
+				ID:                 1,
+				InterestRate:       5.0,
+				IsVariableRate:     true,
+				RemainingDebt:      80000,
+				RepaymentPeriod:    24,
+				PaidInstallments:   6,
+				MonthlyInstallment: 4000,
+				Installments: []model.LoanInstallment{
+					{InstallmentNumber: 1, Amount: 4000, InterestRate: 5.0, Status: model.InstallmentStatusPaid},
+					{InstallmentNumber: 2, Amount: 4000, InterestRate: 5.0, Status: model.InstallmentStatusPending},
+					{InstallmentNumber: 3, Amount: 4000, InterestRate: 5.0, Status: model.InstallmentStatusRetrying},
+				},
+			},
+		},
+	}
+
+	svc := newLoanService(nil, nil, nil, loanRepo, &fakeUserClient{}, &fakeMailer{})
+
+	err := svc.AdjustVariableRates(context.Background())
+	require.NoError(t, err)
+}
+
+func TestAdjustVariableRates_FindActiveVariableRateLoansError(t *testing.T) {
+	t.Parallel()
+
+	loanRepo := &fakeLoanRepo{
+		variableRateLoansErr: fmt.Errorf("db error"),
+	}
+
+	svc := newLoanService(nil, nil, nil, loanRepo, &fakeUserClient{}, &fakeMailer{})
+
+	err := svc.AdjustVariableRates(context.Background())
+	require.Error(t, err)
+}
+
+// ── GetClientLoans additional Tests ────────────────────────────────────────
+
+func TestGetClientLoans_VerifiesResponseStructure(t *testing.T) {
+	t.Parallel()
+
+	loanRepo := &fakeLoanRepo{
+		loans: []model.Loan{
+			{
+				ID:                 42,
+				MonthlyInstallment: 7500,
+				LoanRequest: model.LoanRequest{
+					AccountNumber: "ACC-1",
+					Amount:        200000,
+					Status:        model.LoanRequestApproved,
+					LoanType:      model.LoanType{Name: "Mortgage"},
+				},
+			},
+		},
+	}
+	accRepo := &fakeLoanAccountRepo{
+		account: &model.Account{
+			AccountNumber: "ACC-1",
+			Currency:      model.Currency{Code: model.RSD},
+		},
+	}
+
+	svc := newLoanService(accRepo, nil, nil, loanRepo, &fakeUserClient{}, &fakeMailer{})
+	resp, err := svc.GetClientLoans(context.Background(), 1, true)
+
+	require.NoError(t, err)
+	require.Len(t, resp, 1)
+	require.Equal(t, uint(42), resp[0].ID)
+	require.Equal(t, "Mortgage", resp[0].LoanType)
+	require.Equal(t, 200000.0, resp[0].Amount)
+	require.Equal(t, model.CurrencyCode(model.RSD), resp[0].Currency)
+	require.Equal(t, 7500.0, resp[0].MonthlyInstallment)
+	require.Equal(t, model.LoanRequestApproved, resp[0].Status)
+}
+
+func TestGetClientLoans_AccountLookupError(t *testing.T) {
+	t.Parallel()
+
+	loanRepo := &fakeLoanRepo{
+		loans: []model.Loan{
+			{
+				ID: 1,
+				LoanRequest: model.LoanRequest{
+					AccountNumber: "ACC-MISSING",
+					LoanType:      model.LoanType{Name: "Cash Loan"},
+				},
+			},
+		},
+	}
+	accRepo := &fakeLoanAccountRepo{findErr: fmt.Errorf("db error")}
+
+	svc := newLoanService(accRepo, nil, nil, loanRepo, &fakeUserClient{}, &fakeMailer{})
+	resp, err := svc.GetClientLoans(context.Background(), 1, false)
+
+	require.Error(t, err)
+	require.Nil(t, resp)
+}
+
+// ── GetLoanDetails additional Tests ────────────────────────────────────────
+
+func TestGetLoanDetails_VerifiesInstallmentMapping(t *testing.T) {
+	t.Parallel()
+
+	dueDate := time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
+	loanRepo := &fakeLoanRepo{
+		loan: &model.Loan{
+			ID:                 10,
+			MonthlyInstallment: 3000,
+			InterestRate:       4.5,
+			RepaymentPeriod:    12,
+			LoanRequest: model.LoanRequest{
+				AccountNumber: "ACC-1",
+				Amount:        36000,
+				Status:        model.LoanRequestApproved,
+				LoanType:      model.LoanType{Name: "Personal Loan"},
+			},
+			Installments: []model.LoanInstallment{
+				{InstallmentNumber: 1, Amount: 3000, Status: model.InstallmentStatusPaid, DueDate: dueDate},
+				{InstallmentNumber: 2, Amount: 3000, Status: model.InstallmentStatusPending, DueDate: dueDate.AddDate(0, 1, 0)},
+				{InstallmentNumber: 3, Amount: 3000, Status: model.InstallmentStatusRetrying, DueDate: dueDate.AddDate(0, 2, 0)},
+			},
+		},
+	}
+	accRepo := &fakeLoanAccountRepo{
+		account: &model.Account{
+			AccountNumber: "ACC-1",
+			Currency:      model.Currency{Code: model.RSD},
+		},
+	}
+
+	svc := newLoanService(accRepo, nil, nil, loanRepo, &fakeUserClient{}, &fakeMailer{})
+	resp, err := svc.GetLoanDetails(context.Background(), 1, 10)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Equal(t, 4.5, resp.InterestRate)
+	require.Equal(t, 12, resp.RepaymentPeriod)
+	require.Len(t, resp.Installments, 3)
+	require.Equal(t, 1, resp.Installments[0].Number)
+	require.Equal(t, "PAID", resp.Installments[0].Status)
+	require.Equal(t, "PENDING", resp.Installments[1].Status)
+	require.Equal(t, "RETRYING", resp.Installments[2].Status)
+}
+
+// ── GetLoanRequests additional Tests ───────────────────────────────────────
+
+func TestGetLoanRequests_ApprovedWithLoanInstallmentDate(t *testing.T) {
+	t.Parallel()
+
+	nextDate := time.Date(2025, 7, 15, 0, 0, 0, 0, time.UTC)
+	loanRepo := &fakeLoanRepo{
+		loanByRequestID: &model.Loan{
+			ID:                  1,
+			NextInstallmentDate: nextDate,
+		},
+	}
+	reqRepo := &fakeLoanRequestRepo{
+		requests: []model.LoanRequest{
+			{
+				ID:                 1,
+				ClientID:           1,
+				AccountNumber:      "ACC-1",
+				Amount:             100000,
+				RepaymentPeriod:    24,
+				MonthlyInstallment: 5000,
+				Status:             model.LoanRequestApproved,
+				LoanType:           model.LoanType{Name: "Cash Loan"},
+			},
+			{
+				ID:                 2,
+				ClientID:           2,
+				AccountNumber:      "ACC-2",
+				Amount:             50000,
+				RepaymentPeriod:    12,
+				MonthlyInstallment: 4500,
+				Status:             model.LoanRequestPending,
+				LoanType:           model.LoanType{Name: "Mortgage"},
+			},
+		},
+		total: 2,
+	}
+
+	svc := newLoanService(nil, nil, reqRepo, loanRepo, &fakeUserClient{}, &fakeMailer{})
+	query := &dto.ListLoanRequestsQuery{Page: 1, PageSize: 10}
+	resp, total, err := svc.GetLoanRequests(context.Background(), query)
+
+	require.NoError(t, err)
+	require.Equal(t, int64(2), total)
+	require.Len(t, resp, 2)
+
+	// Approved request should have installment due date populated
+	require.NotNil(t, resp[0].InstallmentDueDate)
+	require.Equal(t, nextDate, *resp[0].InstallmentDueDate)
+
+	// Pending request should not have installment due date
+	require.Nil(t, resp[1].InstallmentDueDate)
 }

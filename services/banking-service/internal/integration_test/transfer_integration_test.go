@@ -190,6 +190,12 @@ func TestGetTransferHistory(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
+			name:       "no pagination params uses defaults",
+			path:       "/api/clients/100/transfers",
+			auth:       clientAuth,
+			wantStatus: http.StatusOK,
+		},
+		{
 			name:       "other client forbidden",
 			path:       "/api/clients/100/transfers",
 			auth:       otherClientAuth,
@@ -218,4 +224,31 @@ func TestGetTransferHistory(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestExecuteTransferCrossCurrency(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+
+	rsd := seedCurrency(t, db, model.RSD)
+	eur := seedCurrency(t, db, model.EUR)
+	seedBankAccounts(t, db, rsd.CurrencyID)
+
+	from := seedAccount(t, db, 100, rsd.CurrencyID, 100000)
+	to := seedAccount(t, db, 100, eur.CurrencyID, 500)
+
+	clientAuth := authHeaderForClient(t, 10, 100)
+
+	recorder := performRequest(t, router, http.MethodPost, "/api/clients/100/transfers", map[string]any{
+		"from_account": from.AccountNumber,
+		"to_account":   to.AccountNumber,
+		"amount":       10000.0,
+	}, clientAuth)
+	requireStatus(t, recorder, http.StatusCreated)
+
+	resp := decodeResponse[map[string]any](t, recorder)
+	assert.NotZero(t, resp["transfer_id"])
+	assert.NotNil(t, resp["exchange_rate"])
 }

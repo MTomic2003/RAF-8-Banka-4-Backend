@@ -188,10 +188,12 @@ func setupTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 
 func testConfig() *config.Configuration {
 	return &config.Configuration{
-		Env:           "test",
-		JWTSecret:     "test-secret",
-		JWTExpiry:     15,
-		RefreshExpiry: 10080,
+		Env:               "test",
+		JWTSecret:         "test-secret",
+		JWTExpiry:         15,
+		RefreshExpiry:     10080,
+		MaxFailedLogins:   4,
+		FailedLoginWindow: 15,
 		URLs: config.URLConfig{
 			FrontendBaseURL: "http://localhost:5173",
 		},

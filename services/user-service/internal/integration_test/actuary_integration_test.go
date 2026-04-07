@@ -3,12 +3,13 @@
 package integration_test
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
-	commonpermission "common/pkg/permission"
-	"user-service/internal/model"
+	commonpermission "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -128,4 +129,173 @@ func TestListActuariesAndManageAgent(t *testing.T) {
 	requireStatus(t, resetRecorder, http.StatusOK)
 	resetResponse := decodeResponse[actuaryResponse](t, resetRecorder)
 	assert.Zero(t, resetResponse.UsedLimit)
+}
+
+func TestListActuariesPagination(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+	position := seedPosition(t, db)
+
+	viewerIdentity, viewer := seedEmployeeWithPermissions(t, db, position.PositionID, commonpermission.EmployeeView)
+
+	for i := 0; i < 5; i++ {
+		_, emp := seedEmployee(t, db, position.PositionID)
+		require.NoError(t, db.Create(&model.ActuaryInfo{
+			EmployeeID: emp.EmployeeID,
+			IsAgent:    true,
+			Limit:      float64((i + 1) * 10000),
+		}).Error)
+	}
+
+	validAuth := authHeader(t, viewerIdentity.ID, viewer.EmployeeID)
+
+	testCases := []struct {
+		name         string
+		path         string
+		auth         string
+		wantStatus   int
+		wantCount    int
+		wantTotalGte int64
+	}{
+		{
+			name:         "page 1 of agents",
+			path:         "/api/actuaries?type=agent&page=1&page_size=3",
+			auth:         validAuth,
+			wantStatus:   http.StatusOK,
+			wantCount:    3,
+			wantTotalGte: 5,
+		},
+		{
+			name:         "page 2 of agents",
+			path:         "/api/actuaries?type=agent&page=2&page_size=3",
+			auth:         validAuth,
+			wantStatus:   http.StatusOK,
+			wantCount:    2,
+			wantTotalGte: 5,
+		},
+		{
+			name:       "filter by type supervisor returns none",
+			path:       "/api/actuaries?type=supervisor&page=1&page_size=10",
+			auth:       validAuth,
+			wantStatus: http.StatusOK,
+			wantCount:  0,
+		},
+		{
+			name:       "missing auth",
+			path:       "/api/actuaries?page=1&page_size=10",
+			auth:       "",
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := performRequest(t, router, http.MethodGet, tc.path, nil, tc.auth)
+			requireStatus(t, recorder, tc.wantStatus)
+
+			if tc.wantStatus == http.StatusOK {
+				response := decodeResponse[listActuariesResponse](t, recorder)
+				assert.Len(t, response.Data, tc.wantCount)
+				if tc.wantTotalGte > 0 {
+					assert.GreaterOrEqual(t, response.Total, tc.wantTotalGte)
+				}
+			}
+		})
+	}
+}
+
+func TestUpdateActuarySettingsErrors(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+	position := seedPosition(t, db)
+
+	supervisorIdentity, supervisor := seedEmployeeWithPermissions(t, db, position.PositionID, commonpermission.EmployeeUpdate)
+	require.NoError(t, db.Create(&model.ActuaryInfo{
+		EmployeeID:   supervisor.EmployeeID,
+		IsSupervisor: true,
+	}).Error)
+
+	testCases := []struct {
+		name       string
+		path       string
+		body       any
+		rawBody    string
+		wantStatus int
+	}{
+		{
+			name:       "invalid id format",
+			path:       "/api/actuaries/abc",
+			body:       map[string]any{"limit": 1000.0},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "agent not found",
+			path:       fmt.Sprintf("/api/actuaries/%d", 999999),
+			body:       map[string]any{"limit": 1000.0},
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "invalid json body",
+			path:       "/api/actuaries/" + itoa(supervisor.EmployeeID),
+			rawBody:    "{bad",
+			wantStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.rawBody != "" {
+				r := performRawJSONRequest(t, router, http.MethodPatch, tc.path, tc.rawBody, authHeader(t, supervisorIdentity.ID, supervisor.EmployeeID))
+				requireStatus(t, r, tc.wantStatus)
+			} else {
+				r := performRequest(t, router, http.MethodPatch, tc.path, tc.body, authHeader(t, supervisorIdentity.ID, supervisor.EmployeeID))
+				requireStatus(t, r, tc.wantStatus)
+			}
+		})
+	}
+}
+
+func TestResetUsedLimitErrors(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	router := setupTestRouter(t, db)
+	position := seedPosition(t, db)
+
+	supervisorIdentity, supervisor := seedEmployeeWithPermissions(t, db, position.PositionID, commonpermission.EmployeeUpdate)
+	require.NoError(t, db.Create(&model.ActuaryInfo{
+		EmployeeID:   supervisor.EmployeeID,
+		IsSupervisor: true,
+	}).Error)
+
+	testCases := []struct {
+		name       string
+		path       string
+		wantStatus int
+	}{
+		{
+			name:       "invalid id format",
+			path:       "/api/actuaries/abc/reset-used-limit",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "agent not found",
+			path:       "/api/actuaries/999999/reset-used-limit",
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := performRequest(t, router, http.MethodPost, tc.path, nil, authHeader(t, supervisorIdentity.ID, supervisor.EmployeeID))
+			requireStatus(t, recorder, tc.wantStatus)
+		})
+	}
 }
