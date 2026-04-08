@@ -21,9 +21,9 @@ import (
 
 type fakeOrderRepo struct {
 	// FindAll
-	orders   []model.Order
-	total    int64
-	findErr  error
+	orders  []model.Order
+	total   int64
+	findErr error
 
 	// FindByID
 	orderByID   *model.Order
@@ -161,7 +161,6 @@ func (r *fakeListingRepo) FindByAssetType(_ context.Context, _ model.AssetType) 
 func (r *fakeListingRepo) FindByAssetIDs(_ context.Context, _ []uint) ([]model.Listing, error) {
 	return nil, nil
 }
-
 
 // ── Fake User Service Client ──────────────────────────────────────
 
@@ -1446,26 +1445,26 @@ func TestProcessOrder_MarketOrder_FullFill(t *testing.T) {
 	txRepo := &fakeOrderTransactionRepo{}
 	bankingClient := &fakeOrderBankingClient{
 		settlementResp: &pb.ExecuteTradeSettlementResponse{
-			SourceAmount:         151.0,
-			SourceCurrencyCode:   "USD",
-			DestinationAmount:    151.0,
+			SourceAmount:            151.0,
+			SourceCurrencyCode:      "USD",
+			DestinationAmount:       151.0,
 			DestinationCurrencyCode: "USD",
 		},
 	}
 	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient)
 
 	order := &model.Order{
-		OrderID:      1,
-		ListingID:    1,
-		OrderType:    model.OrderTypeMarket,
-		Direction:    model.OrderDirectionBuy,
-		Quantity:     1,
-		FilledQty:    0,
-		ContractSize: 1,
-		Triggered:    true,
-		AllOrNone:    true,
-		Status:       model.OrderStatusApproved,
-		AccountNumber: "444000100000000110",
+		OrderID:          1,
+		ListingID:        1,
+		OrderType:        model.OrderTypeMarket,
+		Direction:        model.OrderDirectionBuy,
+		Quantity:         1,
+		FilledQty:        0,
+		ContractSize:     1,
+		Triggered:        true,
+		AllOrNone:        true,
+		Status:           model.OrderStatusApproved,
+		AccountNumber:    "444000100000000110",
 		CommissionExempt: true,
 	}
 
@@ -1500,16 +1499,16 @@ func TestProcessDueOrders_WithReadyOrders_ProcessesThem(t *testing.T) {
 
 	readyOrders := []model.Order{
 		{
-			OrderID:      1,
-			ListingID:    1,
-			OrderType:    model.OrderTypeMarket,
-			Direction:    model.OrderDirectionBuy,
-			Quantity:     1,
-			ContractSize: 1,
-			Triggered:    true,
-			AllOrNone:    true,
-			Status:       model.OrderStatusApproved,
-			AccountNumber: "444000100000000110",
+			OrderID:          1,
+			ListingID:        1,
+			OrderType:        model.OrderTypeMarket,
+			Direction:        model.OrderDirectionBuy,
+			Quantity:         1,
+			ContractSize:     1,
+			Triggered:        true,
+			AllOrNone:        true,
+			Status:           model.OrderStatusApproved,
+			AccountNumber:    "444000100000000110",
 			CommissionExempt: true,
 		},
 	}
@@ -1520,9 +1519,9 @@ func TestProcessDueOrders_WithReadyOrders_ProcessesThem(t *testing.T) {
 	txRepo := &fakeOrderTransactionRepo{}
 	bankingClient := &fakeOrderBankingClient{
 		settlementResp: &pb.ExecuteTradeSettlementResponse{
-			SourceAmount:         151.0,
-			SourceCurrencyCode:   "USD",
-			DestinationAmount:    151.0,
+			SourceAmount:            151.0,
+			SourceCurrencyCode:      "USD",
+			DestinationAmount:       151.0,
 			DestinationCurrencyCode: "USD",
 		},
 	}

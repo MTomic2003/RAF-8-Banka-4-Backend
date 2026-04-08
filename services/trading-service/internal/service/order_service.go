@@ -159,6 +159,10 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 		return nil, errors.NotFoundErr("listing not found")
 	}
 
+	if err := s.validateSettlementDate(ctx, listing); err != nil {
+		return nil, err
+	}
+
 	exchange, err := s.exchangeRepo.FindByMicCode(ctx, listing.ExchangeMIC)
 	if err != nil {
 		return nil, errors.InternalErr(err)
@@ -871,4 +875,34 @@ func dereferencePrice(value *float64) float64 {
 
 func normalizeCurrencyCode(currency string) string {
 	return strings.ToUpper(strings.TrimSpace(currency))
+}
+
+func (s *OrderService) validateSettlementDate(ctx context.Context, listing *model.Listing) error {
+	if listing.Asset == nil {
+		return nil
+	}
+
+	now := s.now()
+
+	switch listing.Asset.AssetType {
+	case model.AssetTypeFuture:
+		contracts, err := s.futuresRepo.FindByAssetIDs(ctx, []uint{listing.AssetID})
+		if err != nil {
+			return errors.InternalErr(err)
+		}
+		if len(contracts) > 0 && !contracts[0].SettlementDate.After(now) {
+			return errors.BadRequestErr("cannot place order on an expired futures contract")
+		}
+
+	case model.AssetTypeOption:
+		options, err := s.optionRepo.FindByAssetIDs(ctx, []uint{listing.AssetID})
+		if err != nil {
+			return errors.InternalErr(err)
+		}
+		if len(options) > 0 && !options[0].SettlementDate.After(now) {
+			return errors.BadRequestErr("cannot place order on an expired option")
+		}
+	}
+
+	return nil
 }
