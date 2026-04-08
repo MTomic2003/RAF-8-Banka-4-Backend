@@ -24,7 +24,7 @@ func (r *optionRepository) Upsert(ctx context.Context, option *model.Option) err
 
 func (r *optionRepository) FindByAssetIDs(ctx context.Context, assetIDs []uint) ([]model.Option, error) {
 	var options []model.Option
-	if err := r.db.WithContext(ctx).Where("asset_id IN ?", assetIDs).Preload("Asset").Preload("Listing").Find(&options).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("asset_id IN ?", assetIDs).Preload("Asset").Preload("Listing").Preload("Listing.Exchange").Find(&options).Error; err != nil {
 		return nil, err
 	}
 	return options, nil

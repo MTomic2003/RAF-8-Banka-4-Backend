@@ -7,9 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http/httptest"
+	"os"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -33,14 +34,62 @@ import (
 	"gorm.io/gorm"
 )
 
-var testSetupOnce sync.Once
+var sharedDB *gorm.DB
 var uniqueCounter atomic.Uint64
 
-func init() {
-	testSetupOnce.Do(func() {
-		gin.SetMode(gin.TestMode)
-		_ = logging.Init("test")
-	})
+func TestMain(m *testing.M) {
+	gin.SetMode(gin.TestMode)
+	_ = logging.Init("test")
+
+	ctx := context.Background()
+	container, err := tcpostgres.Run(
+		ctx,
+		"postgres:16-alpine",
+		tcpostgres.WithDatabase("trading_service_test"),
+		tcpostgres.WithUsername("postgres"),
+		tcpostgres.WithPassword("postgres"),
+		tcpostgres.BasicWaitStrategies(),
+	)
+	if err != nil {
+		log.Fatalf("start postgres container: %v", err)
+	}
+
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		log.Fatalf("build postgres connection string: %v", err)
+	}
+
+	db, err := gorm.Open(gormpostgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("open gorm db: %v", err)
+	}
+
+	if err := db.AutoMigrate(
+		&model.Exchange{},
+		&model.Asset{},
+		&model.Listing{},
+		&model.ListingDailyPriceInfo{},
+		&model.Stock{},
+		&model.FuturesContract{},
+		&model.ForexPair{},
+		&model.Option{},
+		&model.Order{},
+		&model.AssetOwnership{},
+		&model.OrderTransaction{},
+		&model.AccumulatedTax{},
+		&model.TaxCollection{},
+	); err != nil {
+		log.Fatalf("auto migrate test schema: %v", err)
+	}
+
+	sharedDB = db
+	code := m.Run()
+
+	sqlDB, _ := db.DB()
+	_ = sqlDB.Close()
+	_ = container.Terminate(ctx)
+
+	os.Exit(code)
 }
 
 type fakeUserClient struct {
@@ -138,65 +187,16 @@ func testConfig() *config.Configuration {
 func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
-	ctx := context.Background()
-	container, err := tcpostgres.Run(
-		ctx,
-		"postgres:16-alpine",
-		tcpostgres.WithDatabase("trading_service_test"),
-		tcpostgres.WithUsername("postgres"),
-		tcpostgres.WithPassword("postgres"),
-		tcpostgres.BasicWaitStrategies(),
-	)
-
-	if err != nil {
-		t.Fatalf("start postgres container: %v", err)
+	tx := sharedDB.Begin()
+	if tx.Error != nil {
+		t.Fatalf("begin transaction: %v", tx.Error)
 	}
 
 	t.Cleanup(func() {
-		if err := container.Terminate(context.Background()); err != nil {
-			t.Fatalf("terminate postgres container: %v", err)
-		}
+		tx.Rollback()
 	})
 
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatalf("build postgres connection string: %v", err)
-	}
-
-	db, err := gorm.Open(gormpostgres.Open(dsn), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("open gorm db: %v", err)
-	}
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		t.Fatalf("get sql db: %v", err)
-	}
-
-	t.Cleanup(func() {
-		if err := sqlDB.Close(); err != nil {
-			t.Fatalf("close sql db: %v", err)
-		}
-	})
-
-	if err := db.AutoMigrate(
-		&model.Exchange{},
-		&model.Listing{},
-		&model.ListingDailyPriceInfo{},
-		&model.Stock{},
-		&model.FuturesContract{},
-		&model.ForexPair{},
-		&model.Option{},
-		&model.Order{},
-		&model.OrderOwnership{},
-		&model.OrderTransaction{},
-		&model.AccumulatedTax{},
-		&model.TaxCollection{},
-	); err != nil {
-		t.Fatalf("auto migrate test schema: %v", err)
-	}
-
-	return db
+	return tx
 }
 
 func setupTestRouter(t *testing.T, db *gorm.DB) (*gin.Engine, *fakeUserClient) {
@@ -215,7 +215,7 @@ func setupTestRouter(t *testing.T, db *gorm.DB) (*gin.Engine, *fakeUserClient) {
 	listingRepo := repository.NewListingRepository(db)
 	orderRepo := repository.NewOrderRepository(db)
 	orderTxRepo := repository.NewOrderTransactionRepository(db)
-	ownershipRepo := repository.NewOrderOwnershipRepository(db)
+	assetOwnershipRepo := repository.NewAssetOwnershipRepository(db)
 	stockRepo := repository.NewStockRepository(db)
 	futuresRepo := repository.NewFuturesContractRepository(db)
 	forexRepo := repository.NewForexRepository(db)
@@ -224,8 +224,13 @@ func setupTestRouter(t *testing.T, db *gorm.DB) (*gin.Engine, *fakeUserClient) {
 
 	exchangeSvc := service.NewExchangeService(exchangeRepo)
 	listingSvc := service.NewListingService(listingRepo, futuresRepo, forexRepo, optionRepo)
+<<<<<<< main
 	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, ownershipRepo, futuresRepo, optionRepo, userClient, bankingClient)
 	portfolioSvc := service.NewPortfolioService(ownershipRepo, stockRepo, optionRepo, futuresRepo, forexRepo)
+=======
+	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, assetOwnershipRepo, userClient, bankingClient)
+	portfolioSvc := service.NewPortfolioService(assetOwnershipRepo, stockRepo, optionRepo, futuresRepo, forexRepo, bankingClient)
+>>>>>>> main
 	taxSvc := service.NewTaxService(taxRepo, bankingClient, cfg)
 
 	healthHandler := handler.NewHealthHandler()
@@ -266,17 +271,24 @@ func seedExchange(t *testing.T, db *gorm.DB, micCode string) *model.Exchange {
 	return exchange
 }
 
-func seedListing(t *testing.T, db *gorm.DB, ticker, exchangeMIC string, listingType model.ListingType, price float64) *model.Listing {
+func seedListing(t *testing.T, db *gorm.DB, ticker, exchangeMIC string, assetType model.AssetType, price float64) *model.Listing {
 	t.Helper()
 
+	asset := &model.Asset{
+		Ticker:    ticker,
+		Name:      fmt.Sprintf("Listing %s", ticker),
+		AssetType: assetType,
+	}
+	if err := db.Create(asset).Error; err != nil {
+		t.Fatalf("seed asset: %v", err)
+	}
+
 	listing := &model.Listing{
-		Ticker:      ticker,
-		Name:        fmt.Sprintf("Listing %s", ticker),
+		AssetID:     asset.AssetID,
 		ExchangeMIC: exchangeMIC,
 		LastRefresh: time.Now(),
 		Price:       price,
 		Ask:         price * 1.01,
-		ListingType: listingType,
 	}
 
 	if err := db.Create(listing).Error; err != nil {
@@ -289,8 +301,13 @@ func seedListing(t *testing.T, db *gorm.DB, ticker, exchangeMIC string, listingT
 func seedStock(t *testing.T, db *gorm.DB, listingID uint) *model.Stock {
 	t.Helper()
 
+	var listing model.Listing
+	if err := db.First(&listing, listingID).Error; err != nil {
+		t.Fatalf("seed stock: lookup listing: %v", err)
+	}
+
 	stock := &model.Stock{
-		ListingID:         listingID,
+		AssetID:           listing.AssetID,
 		OutstandingShares: 1_000_000,
 		DividendYield:     2.5,
 	}
@@ -305,8 +322,13 @@ func seedStock(t *testing.T, db *gorm.DB, listingID uint) *model.Stock {
 func seedFuture(t *testing.T, db *gorm.DB, listingID uint) *model.FuturesContract {
 	t.Helper()
 
+	var listing model.Listing
+	if err := db.First(&listing, listingID).Error; err != nil {
+		t.Fatalf("seed future: lookup listing: %v", err)
+	}
+
 	fc := &model.FuturesContract{
-		ListingID:      listingID,
+		AssetID:        listing.AssetID,
 		ContractSize:   100,
 		ContractUnit:   "barrels",
 		SettlementDate: time.Now().AddDate(0, 3, 0),
@@ -322,11 +344,16 @@ func seedFuture(t *testing.T, db *gorm.DB, listingID uint) *model.FuturesContrac
 func seedForex(t *testing.T, db *gorm.DB, listingID uint) *model.ForexPair {
 	t.Helper()
 
+	var listing model.Listing
+	if err := db.First(&listing, listingID).Error; err != nil {
+		t.Fatalf("seed forex: lookup listing: %v", err)
+	}
+
 	pair := &model.ForexPair{
-		ListingID: listingID,
-		Base:      "EUR",
-		Quote:     "USD",
-		Rate:      1.08,
+		AssetID: listing.AssetID,
+		Base:    "EUR",
+		Quote:   "USD",
+		Rate:    1.08,
 	}
 
 	if err := db.Create(pair).Error; err != nil {
@@ -339,8 +366,13 @@ func seedForex(t *testing.T, db *gorm.DB, listingID uint) *model.ForexPair {
 func seedOption(t *testing.T, db *gorm.DB, listingID, stockID uint) *model.Option {
 	t.Helper()
 
+	var listing model.Listing
+	if err := db.First(&listing, listingID).Error; err != nil {
+		t.Fatalf("seed option: lookup listing: %v", err)
+	}
+
 	opt := &model.Option{
-		ListingID:         listingID,
+		AssetID:           listing.AssetID,
 		StockID:           stockID,
 		OptionType:        model.OptionTypeCall,
 		StrikePrice:       150,

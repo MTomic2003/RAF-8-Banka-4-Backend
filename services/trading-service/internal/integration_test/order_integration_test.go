@@ -18,7 +18,7 @@ func TestCreateOrder(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	ex := seedExchange(t, db, "XNYS")
-	listing := seedListing(t, db, "AAPL", ex.MicCode, model.ListingTypeStock, 150.0)
+	listing := seedListing(t, db, "AAPL", ex.MicCode, model.AssetTypeStock, 150.0)
 	seedStock(t, db, listing.ListingID)
 
 	auth := authHeaderForSupervisor(t)
@@ -46,7 +46,7 @@ func TestCreateOrder_LimitOrder(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	ex := seedExchange(t, db, "XNAS")
-	listing := seedListing(t, db, "MSFT", ex.MicCode, model.ListingTypeStock, 400.0)
+	listing := seedListing(t, db, "MSFT", ex.MicCode, model.AssetTypeStock, 400.0)
 	seedStock(t, db, listing.ListingID)
 
 	auth := authHeaderForSupervisor(t)
@@ -101,7 +101,7 @@ func TestGetOrders(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	ex := seedExchange(t, db, "XNYS")
-	listing := seedListing(t, db, "GOOG", ex.MicCode, model.ListingTypeStock, 140.0)
+	listing := seedListing(t, db, "GOOG", ex.MicCode, model.AssetTypeStock, 140.0)
 	seedStock(t, db, listing.ListingID)
 	seedOrder(t, db, 10, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusApproved)
 
@@ -143,7 +143,7 @@ func TestApproveOrder(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	ex := seedExchange(t, db, "XNYS")
-	listing := seedListing(t, db, "META", ex.MicCode, model.ListingTypeStock, 500.0)
+	listing := seedListing(t, db, "META", ex.MicCode, model.AssetTypeStock, 500.0)
 	seedStock(t, db, listing.ListingID)
 	order := seedOrder(t, db, 20, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusPending)
 
@@ -184,7 +184,7 @@ func TestDeclineOrder(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	ex := seedExchange(t, db, "XNAS")
-	listing := seedListing(t, db, "AMZN", ex.MicCode, model.ListingTypeStock, 180.0)
+	listing := seedListing(t, db, "AMZN", ex.MicCode, model.AssetTypeStock, 180.0)
 	seedStock(t, db, listing.ListingID)
 	order := seedOrder(t, db, 20, listing.ListingID, model.OrderDirectionSell, model.OrderStatusPending)
 
@@ -203,7 +203,7 @@ func TestCancelOrder(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	ex := seedExchange(t, db, "XNYS")
-	listing := seedListing(t, db, "NFLX", ex.MicCode, model.ListingTypeStock, 600.0)
+	listing := seedListing(t, db, "NFLX", ex.MicCode, model.AssetTypeStock, 600.0)
 	seedStock(t, db, listing.ListingID)
 	order := seedOrder(t, db, 10, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusApproved)
 
@@ -222,7 +222,7 @@ func TestCancelOrder_AlreadyDeclined(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	ex := seedExchange(t, db, "XNYS")
-	listing := seedListing(t, db, "DIS", ex.MicCode, model.ListingTypeStock, 100.0)
+	listing := seedListing(t, db, "DIS", ex.MicCode, model.AssetTypeStock, 100.0)
 	seedStock(t, db, listing.ListingID)
 	order := seedOrder(t, db, 10, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusDeclined)
 

@@ -348,8 +348,8 @@ func TestListingRepo_Count(t *testing.T) {
 	before, err := repo.Count(ctx)
 	require.NoError(t, err)
 
-	seedListing(t, db, "AAAA", exchange.MicCode, model.ListingTypeStock, 100.0)
-	seedListing(t, db, "BBBB", exchange.MicCode, model.ListingTypeStock, 200.0)
+	seedListing(t, db, "AAAA", exchange.MicCode, model.AssetTypeStock, 100.0)
+	seedListing(t, db, "BBBB", exchange.MicCode, model.AssetTypeStock, 200.0)
 
 	after, err := repo.Count(ctx)
 	require.NoError(t, err)
@@ -363,7 +363,7 @@ func TestListingRepo_CreateDailyPriceInfo(t *testing.T) {
 	ctx := context.Background()
 
 	exchange := seedExchange(t, db, "XCDP")
-	listing := seedListing(t, db, "CDPI", exchange.MicCode, model.ListingTypeStock, 50.0)
+	listing := seedListing(t, db, "CDPI", exchange.MicCode, model.AssetTypeStock, 50.0)
 
 	info := &model.ListingDailyPriceInfo{
 		ListingID: listing.ListingID,
@@ -387,7 +387,7 @@ func TestListingRepo_FindLatestDailyPriceInfo(t *testing.T) {
 	ctx := context.Background()
 
 	exchange := seedExchange(t, db, "XFLD")
-	listing := seedListing(t, db, "FLDP", exchange.MicCode, model.ListingTypeStock, 80.0)
+	listing := seedListing(t, db, "FLDP", exchange.MicCode, model.AssetTypeStock, 80.0)
 
 	older := &model.ListingDailyPriceInfo{
 		ListingID: listing.ListingID,
@@ -415,7 +415,7 @@ func TestListingRepo_FindLatestDailyPriceInfo_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	exchange := seedExchange(t, db, "XNOD")
-	listing := seedListing(t, db, "NODP", exchange.MicCode, model.ListingTypeStock, 10.0)
+	listing := seedListing(t, db, "NODP", exchange.MicCode, model.AssetTypeStock, 10.0)
 
 	latest, err := repo.FindLatestDailyPriceInfo(ctx, listing.ListingID)
 	require.NoError(t, err)
@@ -429,7 +429,7 @@ func TestListingRepo_FindLastDailyPriceInfo(t *testing.T) {
 	ctx := context.Background()
 
 	exchange := seedExchange(t, db, "XFLB")
-	listing := seedListing(t, db, "FLBI", exchange.MicCode, model.ListingTypeStock, 120.0)
+	listing := seedListing(t, db, "FLBI", exchange.MicCode, model.AssetTypeStock, 120.0)
 
 	d1 := time.Now().AddDate(0, 0, -5).Truncate(24 * time.Hour)
 	d2 := time.Now().AddDate(0, 0, -2).Truncate(24 * time.Hour)
@@ -459,7 +459,7 @@ func TestListingRepo_FindLastDailyPriceInfo_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	exchange := seedExchange(t, db, "XNLB")
-	listing := seedListing(t, db, "NLBI", exchange.MicCode, model.ListingTypeStock, 10.0)
+	listing := seedListing(t, db, "NLBI", exchange.MicCode, model.AssetTypeStock, 10.0)
 
 	found, err := repo.FindLastDailyPriceInfo(ctx, listing.ListingID, time.Now())
 	require.NoError(t, err)
@@ -473,20 +473,22 @@ func TestListingRepo_FindByType(t *testing.T) {
 	ctx := context.Background()
 
 	exchange := seedExchange(t, db, "XFBT")
-	seedListing(t, db, "STKA", exchange.MicCode, model.ListingTypeStock, 100.0)
-	seedListing(t, db, "STKB", exchange.MicCode, model.ListingTypeStock, 200.0)
-	seedListing(t, db, "FUTA", exchange.MicCode, model.ListingTypeFuture, 300.0)
+	seedListing(t, db, "STKA", exchange.MicCode, model.AssetTypeStock, 100.0)
+	seedListing(t, db, "STKB", exchange.MicCode, model.AssetTypeStock, 200.0)
+	seedListing(t, db, "FUTA", exchange.MicCode, model.AssetTypeFuture, 300.0)
 
-	stocks, err := repo.FindByType(ctx, model.ListingTypeStock)
+	stocks, err := repo.FindByAssetType(ctx, model.AssetTypeStock)
 	require.NoError(t, err)
 	for _, l := range stocks {
-		assert.Equal(t, model.ListingTypeStock, l.ListingType)
+		require.NotNil(t, l.Asset)
+		assert.Equal(t, model.AssetTypeStock, l.Asset.AssetType)
 	}
 
-	futures, err := repo.FindByType(ctx, model.ListingTypeFuture)
+	futures, err := repo.FindByAssetType(ctx, model.AssetTypeFuture)
 	require.NoError(t, err)
 	for _, l := range futures {
-		assert.Equal(t, model.ListingTypeFuture, l.ListingType)
+		require.NotNil(t, l.Asset)
+		assert.Equal(t, model.AssetTypeFuture, l.Asset.AssetType)
 	}
 }
 
@@ -497,7 +499,7 @@ func TestOrderRepo_FindReadyForExecution(t *testing.T) {
 	ctx := context.Background()
 
 	exchange := seedExchange(t, db, "XORD")
-	listing := seedListing(t, db, "ORDT", exchange.MicCode, model.ListingTypeStock, 50.0)
+	listing := seedListing(t, db, "ORDT", exchange.MicCode, model.AssetTypeStock, 50.0)
 
 	pastTime := time.Now().Add(-10 * time.Minute)
 	futureTime := time.Now().Add(10 * time.Minute)
@@ -587,7 +589,7 @@ func TestOrderRepo_FindReadyForExecution_WithLimit(t *testing.T) {
 	ctx := context.Background()
 
 	exchange := seedExchange(t, db, "XORL")
-	listing := seedListing(t, db, "ORLT", exchange.MicCode, model.ListingTypeStock, 50.0)
+	listing := seedListing(t, db, "ORLT", exchange.MicCode, model.AssetTypeStock, 50.0)
 
 	for i := 0; i < 5; i++ {
 		execAt := time.Now().Add(-time.Duration(i+1) * time.Minute)
@@ -620,7 +622,7 @@ func TestOrderTransactionRepo_Create(t *testing.T) {
 	ctx := context.Background()
 
 	exchange := seedExchange(t, db, "XOTX")
-	listing := seedListing(t, db, "OTXL", exchange.MicCode, model.ListingTypeStock, 100.0)
+	listing := seedListing(t, db, "OTXL", exchange.MicCode, model.AssetTypeStock, 100.0)
 
 	order := &model.Order{
 		UserID:        1,
@@ -666,35 +668,35 @@ func TestStockRepo_FindByListingIDs(t *testing.T) {
 	ctx := context.Background()
 
 	exchange := seedExchange(t, db, "XSTK")
-	listing1 := seedListing(t, db, "STKI", exchange.MicCode, model.ListingTypeStock, 100.0)
-	listing2 := seedListing(t, db, "STKJ", exchange.MicCode, model.ListingTypeStock, 200.0)
-	listing3 := seedListing(t, db, "STKK", exchange.MicCode, model.ListingTypeStock, 300.0)
+	listing1 := seedListing(t, db, "STKI", exchange.MicCode, model.AssetTypeStock, 100.0)
+	listing2 := seedListing(t, db, "STKJ", exchange.MicCode, model.AssetTypeStock, 200.0)
+	listing3 := seedListing(t, db, "STKK", exchange.MicCode, model.AssetTypeStock, 300.0)
 
 	stock1 := seedStock(t, db, listing1.ListingID)
 	stock2 := seedStock(t, db, listing2.ListingID)
 	_ = seedStock(t, db, listing3.ListingID)
 
-	results, err := repo.FindByListingIDs(ctx, []uint{listing1.ListingID, listing2.ListingID})
+	results, err := repo.FindByAssetIDs(ctx, []uint{listing1.AssetID, listing2.AssetID})
 	require.NoError(t, err)
 	require.Len(t, results, 2)
 
 	foundIDs := make(map[uint]bool)
 	for _, s := range results {
 		foundIDs[s.StockID] = true
-		assert.NotNil(t, s.Listing.ListingID)
+		assert.NotNil(t, s.Listing)
 	}
 
 	assert.True(t, foundIDs[stock1.StockID])
 	assert.True(t, foundIDs[stock2.StockID])
 }
 
-func TestStockRepo_FindByListingIDs_Empty(t *testing.T) {
+func TestStockRepo_FindByAssetIDs_Empty(t *testing.T) {
 	t.Parallel()
 	db := setupTestDB(t)
 	repo := repository.NewStockRepository(db)
 	ctx := context.Background()
 
-	results, err := repo.FindByListingIDs(ctx, []uint{99999, 99998})
+	results, err := repo.FindByAssetIDs(ctx, []uint{99999, 99998})
 	require.NoError(t, err)
 	assert.Empty(t, results)
 }

@@ -16,6 +16,6 @@ type AssetOwnership struct {
 	AssetID          uint      `gorm:"not null;uniqueIndex:idx_ao_identity"`
 	Asset            Asset
 	Amount           float64 `gorm:"not null;default:0"`
-	AvgBuyPrice      float64 `gorm:"not null;default:0"`
+	AvgBuyPriceRSD   float64 `gorm:"not null;default:0"`
 	UpdatedAt        time.Time
 }

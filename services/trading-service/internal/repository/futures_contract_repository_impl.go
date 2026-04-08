@@ -17,7 +17,7 @@ func NewFuturesContractRepository(db *gorm.DB) FuturesContractRepository {
 
 func (r *futuresContractRepository) FindByAssetIDs(ctx context.Context, assetIDs []uint) ([]model.FuturesContract, error) {
 	var contracts []model.FuturesContract
-	if err := r.db.WithContext(ctx).Where("asset_id IN ?", assetIDs).Preload("Asset").Preload("Listing").Find(&contracts).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("asset_id IN ?", assetIDs).Preload("Asset").Preload("Listing").Preload("Listing.Exchange").Find(&contracts).Error; err != nil {
 		return nil, err
 	}
 	return contracts, nil

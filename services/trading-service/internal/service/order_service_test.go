@@ -154,10 +154,6 @@ func (r *fakeListingRepo) FindLastDailyPriceInfo(_ context.Context, _ uint, _ ti
 	return nil, nil
 }
 
-func (r *fakeListingRepo) FindByType(_ context.Context, _ model.ListingType) ([]model.Listing, error) {
-	return nil, nil
-}
-
 func (r *fakeListingRepo) FindByAssetType(_ context.Context, _ model.AssetType) ([]model.Listing, error) {
 	return nil, nil
 }
@@ -165,6 +161,7 @@ func (r *fakeListingRepo) FindByAssetType(_ context.Context, _ model.AssetType) 
 func (r *fakeListingRepo) FindByAssetIDs(_ context.Context, _ []uint) ([]model.Listing, error) {
 	return nil, nil
 }
+
 
 // ── Fake User Service Client ──────────────────────────────────────
 
@@ -281,12 +278,14 @@ func defaultExchange() *model.Exchange {
 func defaultListing() *model.Listing {
 	return &model.Listing{
 		ListingID:   1,
-		Ticker:      "AAPL",
-		Name:        "Apple Inc",
 		ExchangeMIC: "XTST",
 		Price:       150.0,
 		Ask:         151.0,
-		ListingType: model.ListingTypeStock,
+		Asset: &model.Asset{
+			Ticker:    "AAPL",
+			Name:      "Apple Inc",
+			AssetType: model.AssetTypeStock,
+		},
 	}
 }
 

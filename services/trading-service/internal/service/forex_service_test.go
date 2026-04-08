@@ -140,9 +140,10 @@ func TestInitialize_CountError_LogsAndReturns(t *testing.T) {
 	sqlDB.Close()
 
 	repo := repository.NewForexRepository(db)
+	assetRepo := repository.NewAssetRepository(db)
 	listingRepo := repository.NewListingRepository(db)
 	mockClient := &mockExchangeClient{data: &client.ExchangeRateAPIResponse{}}
-	service := NewForexService(repo, listingRepo, mockClient)
+	service := NewForexService(repo, assetRepo, listingRepo, mockClient)
 
 	// Should not panic; just logs and returns
 	service.Initialize(context.Background())
@@ -159,8 +160,9 @@ func TestForexService_StartStop(t *testing.T) {
 		ConversionRates:    map[string]float64{},
 	}}
 	repo := repository.NewForexRepository(db)
+	assetRepo := repository.NewAssetRepository(db)
 	listingRepo := repository.NewListingRepository(db)
-	service := NewForexService(repo, listingRepo, mockClient)
+	service := NewForexService(repo, assetRepo, listingRepo, mockClient)
 
 	// Start should launch the background ticker
 	service.Start()
@@ -179,8 +181,9 @@ func TestForexService_StopWithoutStart(t *testing.T) {
 	db := setupTestDB(t)
 	mockClient := &mockExchangeClient{data: &client.ExchangeRateAPIResponse{}}
 	repo := repository.NewForexRepository(db)
+	assetRepo := repository.NewAssetRepository(db)
 	listingRepo := repository.NewListingRepository(db)
-	service := NewForexService(repo, listingRepo, mockClient)
+	service := NewForexService(repo, assetRepo, listingRepo, mockClient)
 
 	// Stopping before starting should not panic
 	service.Stop()

@@ -109,7 +109,7 @@ func (h *PortfolioHandler) GetClientPortfolioProfit(c *gin.Context) {
 		total += a.Profit
 	}
 
-	c.JSON(http.StatusOK, dto.PortfolioProfitResponse{TotalProfit: total})
+	c.JSON(http.StatusOK, dto.PortfolioProfitResponse{TotalProfitRSD: total})
 }
 
 // GetActuaryPortfolioProfit godoc
@@ -143,5 +143,5 @@ func (h *PortfolioHandler) GetActuaryPortfolioProfit(c *gin.Context) {
 		total += a.Profit
 	}
 
-	c.JSON(http.StatusOK, dto.PortfolioProfitResponse{TotalProfit: total})
+	c.JSON(http.StatusOK, dto.PortfolioProfitResponse{TotalProfitRSD: total})
 }

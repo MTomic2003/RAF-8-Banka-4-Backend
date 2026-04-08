@@ -457,20 +457,19 @@ func TestGetOptions_ReturnsAll(t *testing.T) {
 	db := setupListingTestDB(t)
 	seedListingTestData(t, db)
 
-	// Insert two option listings
-	optListing1 := model.Listing{
-		Ticker: "AAPL:CALL:150.00", Name: "AAPL CALL 150", ExchangeMIC: model.SimulatedExchangeMIC,
-		Price: 5.0, Ask: 5.1, ListingType: model.ListingTypeOption, LastRefresh: time.Now(),
-	}
-	optListing2 := model.Listing{
-		Ticker: "AAPL:PUT:140.00", Name: "AAPL PUT 140", ExchangeMIC: model.SimulatedExchangeMIC,
-		Price: 3.0, Ask: 3.1, ListingType: model.ListingTypeOption, LastRefresh: time.Now(),
-	}
+	// Insert two option assets, listings, and options
+	optAsset1 := model.Asset{Ticker: "AAPL:CALL:150.00", Name: "AAPL CALL 150", AssetType: model.AssetTypeOption}
+	optAsset2 := model.Asset{Ticker: "AAPL:PUT:140.00", Name: "AAPL PUT 140", AssetType: model.AssetTypeOption}
+	db.Create(&optAsset1)
+	db.Create(&optAsset2)
+
+	optListing1 := model.Listing{AssetID: optAsset1.AssetID, ExchangeMIC: model.SimulatedExchangeMIC, Price: 5.0, Ask: 5.1, LastRefresh: time.Now()}
+	optListing2 := model.Listing{AssetID: optAsset2.AssetID, ExchangeMIC: model.SimulatedExchangeMIC, Price: 3.0, Ask: 3.1, LastRefresh: time.Now()}
 	db.Create(&optListing1)
 	db.Create(&optListing2)
 
-	opt1 := model.Option{ListingID: optListing1.ListingID, StockID: 1, OptionType: model.OptionTypeCall, StrikePrice: 150.0, ContractSize: 100, SettlementDate: time.Now().AddDate(0, 1, 0)}
-	opt2 := model.Option{ListingID: optListing2.ListingID, StockID: 1, OptionType: model.OptionTypePut, StrikePrice: 140.0, ContractSize: 100, SettlementDate: time.Now().AddDate(0, 1, 0)}
+	opt1 := model.Option{AssetID: optAsset1.AssetID, StockID: 1, OptionType: model.OptionTypeCall, StrikePrice: 150.0, ContractSize: 100, SettlementDate: time.Now().AddDate(0, 1, 0)}
+	opt2 := model.Option{AssetID: optAsset2.AssetID, StockID: 1, OptionType: model.OptionTypePut, StrikePrice: 140.0, ContractSize: 100, SettlementDate: time.Now().AddDate(0, 1, 0)}
 	db.Create(&opt1)
 	db.Create(&opt2)
 

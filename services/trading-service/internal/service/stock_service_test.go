@@ -254,13 +254,13 @@ func TestWaitForNextCall_ContextCancelled(t *testing.T) {
 // ── Stop idempotency ────────────────────────────────────────────
 
 func TestStockService_StopWithoutStart(t *testing.T) {
-	svc := newStockService(nil, nil, nil, nil, &mockStockClient{})
+	svc := newStockService(nil, nil, nil, nil, nil, &mockStockClient{})
 	// Should not panic
 	svc.Stop()
 }
 
 func TestStockService_StartStop(t *testing.T) {
-	svc := newStockService(nil, nil, nil, nil, &mockStockClient{})
+	svc := newStockService(nil, nil, nil, nil, nil, &mockStockClient{})
 	svc.Start()
 	svc.Start() // double start should be no-op
 	svc.Stop()
@@ -272,6 +272,7 @@ func TestStockService_StartStop(t *testing.T) {
 func TestNewStockService_ReturnsNonNil(t *testing.T) {
 	db := setupStockServiceTestDB(t)
 	svc := NewStockService(
+		repository.NewAssetRepository(db),
 		repository.NewListingRepository(db),
 		repository.NewStockRepository(db),
 		repository.NewOptionRepository(db),
@@ -289,21 +290,16 @@ func TestInitialize_StocksAlreadyExist_Skips(t *testing.T) {
 	db := setupStockServiceTestDB(t)
 
 	// Seed a stock so count > 0
-	listing := model.Listing{
-		Ticker:      "MSFT",
-		Name:        "Microsoft",
-		ExchangeMIC: "XNAS",
-		Price:       300.0,
-		Ask:         301.0,
-		LastRefresh: time.Now(),
-		ListingType: model.ListingTypeStock,
-	}
+	asset := model.Asset{Ticker: "MSFT", Name: "Microsoft", AssetType: model.AssetTypeStock}
+	db.Create(&asset)
+	listing := model.Listing{AssetID: asset.AssetID, ExchangeMIC: "XNAS", Price: 300.0, Ask: 301.0, LastRefresh: time.Now()}
 	db.Create(&listing)
-	stock := model.Stock{ListingID: listing.ListingID, OutstandingShares: 1000, DividendYield: 0.1}
-	db.Omit("Listing").Create(&stock)
+	stock := model.Stock{AssetID: asset.AssetID, OutstandingShares: 1000, DividendYield: 0.1}
+	db.Omit("Asset").Create(&stock)
 
 	mockClient := &mockStockClient{}
 	svc := newStockService(
+		repository.NewAssetRepository(db),
 		repository.NewListingRepository(db),
 		repository.NewStockRepository(db),
 		repository.NewOptionRepository(db),
@@ -337,6 +333,7 @@ func TestInitialize_EmptyDB_SeedsStocks(t *testing.T) {
 	}
 
 	svc := newStockService(
+		repository.NewAssetRepository(db),
 		repository.NewListingRepository(db),
 		repository.NewStockRepository(db),
 		repository.NewOptionRepository(db),
@@ -360,15 +357,9 @@ func TestRefreshPrices_UpdatesListings(t *testing.T) {
 	db := setupStockServiceTestDB(t)
 
 	// seed a listing
-	listing := model.Listing{
-		Ticker:      "AAPL",
-		Name:        "Apple Inc",
-		ExchangeMIC: "XNAS",
-		Price:       150.0,
-		Ask:         151.0,
-		LastRefresh: time.Now(),
-		ListingType: model.ListingTypeStock,
-	}
+	asset := model.Asset{Ticker: "AAPL", Name: "Apple Inc", AssetType: model.AssetTypeStock}
+	db.Create(&asset)
+	listing := model.Listing{AssetID: asset.AssetID, ExchangeMIC: "XNAS", Price: 150.0, Ask: 151.0, LastRefresh: time.Now()}
 	db.Create(&listing)
 
 	mockClient := &mockStockClient{
@@ -378,6 +369,7 @@ func TestRefreshPrices_UpdatesListings(t *testing.T) {
 	}
 
 	svc := newStockService(
+		repository.NewAssetRepository(db),
 		repository.NewListingRepository(db),
 		repository.NewStockRepository(db),
 		repository.NewOptionRepository(db),
@@ -391,7 +383,8 @@ func TestRefreshPrices_UpdatesListings(t *testing.T) {
 	}
 
 	var updated model.Listing
-	db.Where("ticker = ?", "AAPL").First(&updated)
+	db.Joins("INNER JOIN assets ON assets.asset_id = listings.asset_id").
+		Where("assets.ticker = ?", "AAPL").First(&updated)
 	if updated.Price != 155.0 {
 		t.Errorf("expected price 155.0, got %f", updated.Price)
 	}
@@ -400,15 +393,9 @@ func TestRefreshPrices_UpdatesListings(t *testing.T) {
 func TestRefreshPrices_SkipsZeroPrice(t *testing.T) {
 	db := setupStockServiceTestDB(t)
 
-	listing := model.Listing{
-		Ticker:      "ZERO",
-		Name:        "Zero Price Stock",
-		ExchangeMIC: "XNAS",
-		Price:       100.0,
-		Ask:         101.0,
-		LastRefresh: time.Now(),
-		ListingType: model.ListingTypeStock,
-	}
+	asset := model.Asset{Ticker: "ZERO", Name: "Zero Price Stock", AssetType: model.AssetTypeStock}
+	db.Create(&asset)
+	listing := model.Listing{AssetID: asset.AssetID, ExchangeMIC: "XNAS", Price: 100.0, Ask: 101.0, LastRefresh: time.Now()}
 	db.Create(&listing)
 
 	mockClient := &mockStockClient{
@@ -418,6 +405,7 @@ func TestRefreshPrices_SkipsZeroPrice(t *testing.T) {
 	}
 
 	svc := newStockService(
+		repository.NewAssetRepository(db),
 		repository.NewListingRepository(db),
 		repository.NewStockRepository(db),
 		repository.NewOptionRepository(db),
@@ -432,7 +420,8 @@ func TestRefreshPrices_SkipsZeroPrice(t *testing.T) {
 
 	// price should remain unchanged
 	var check model.Listing
-	db.Where("ticker = ?", "ZERO").First(&check)
+	db.Joins("INNER JOIN assets ON assets.asset_id = listings.asset_id").
+		Where("assets.ticker = ?", "ZERO").First(&check)
 	if check.Price != 100.0 {
 		t.Errorf("expected price to stay 100.0, got %f", check.Price)
 	}
@@ -443,6 +432,7 @@ func TestRefreshPrices_EmptyListings_NoError(t *testing.T) {
 
 	mockClient := &mockStockClient{}
 	svc := newStockService(
+		repository.NewAssetRepository(db),
 		repository.NewListingRepository(db),
 		repository.NewStockRepository(db),
 		repository.NewOptionRepository(db),
@@ -462,21 +452,16 @@ func TestRefreshOptions_CreatesOptions(t *testing.T) {
 	db := setupStockServiceTestDB(t)
 
 	// seed a stock (non-option ticker, no colon)
-	listing := model.Listing{
-		Ticker:      "GOOG",
-		Name:        "Alphabet Inc",
-		ExchangeMIC: "XNAS",
-		Price:       2800.0,
-		Ask:         2801.0,
-		LastRefresh: time.Now(),
-		ListingType: model.ListingTypeStock,
-	}
+	asset := model.Asset{Ticker: "GOOG", Name: "Alphabet Inc", AssetType: model.AssetTypeStock}
+	db.Create(&asset)
+	listing := model.Listing{AssetID: asset.AssetID, ExchangeMIC: "XNAS", Price: 2800.0, Ask: 2801.0, LastRefresh: time.Now()}
 	db.Create(&listing)
-	stock := model.Stock{ListingID: listing.ListingID, OutstandingShares: 500000, DividendYield: 0.0}
-	db.Omit("Listing").Create(&stock)
+	stock := model.Stock{AssetID: asset.AssetID, OutstandingShares: 500000, DividendYield: 0.0}
+	db.Omit("Asset").Create(&stock)
 
 	mockClient := &mockStockClient{}
 	svc := newStockService(
+		repository.NewAssetRepository(db),
 		repository.NewListingRepository(db),
 		repository.NewStockRepository(db),
 		repository.NewOptionRepository(db),
@@ -499,22 +484,17 @@ func TestRefreshOptions_CreatesOptions(t *testing.T) {
 func TestRefreshOptions_SkipsOptionTickers(t *testing.T) {
 	db := setupStockServiceTestDB(t)
 
-	// seed an option-like stock ticker (has colon)
-	listing := model.Listing{
-		Ticker:      "AAPL:CALL:150.00",
-		Name:        "AAPL option",
-		ExchangeMIC: model.SimulatedExchangeMIC,
-		Price:       5.0,
-		Ask:         5.1,
-		LastRefresh: time.Now(),
-		ListingType: model.ListingTypeOption,
-	}
+	// seed an option-like stock ticker (has colon) — RefreshOptions skips these
+	asset := model.Asset{Ticker: "AAPL:CALL:150.00", Name: "AAPL option", AssetType: model.AssetTypeOption}
+	db.Create(&asset)
+	listing := model.Listing{AssetID: asset.AssetID, ExchangeMIC: model.SimulatedExchangeMIC, Price: 5.0, Ask: 5.1, LastRefresh: time.Now()}
 	db.Create(&listing)
-	stock := model.Stock{ListingID: listing.ListingID, OutstandingShares: 0, DividendYield: 0.0}
-	db.Omit("Listing").Create(&stock)
+	stock := model.Stock{AssetID: asset.AssetID, OutstandingShares: 0, DividendYield: 0.0}
+	db.Omit("Asset").Create(&stock)
 
 	mockClient := &mockStockClient{}
 	svc := newStockService(
+		repository.NewAssetRepository(db),
 		repository.NewListingRepository(db),
 		repository.NewStockRepository(db),
 		repository.NewOptionRepository(db),
@@ -539,6 +519,7 @@ func TestRefreshOptions_EmptyStocks_NoError(t *testing.T) {
 
 	mockClient := &mockStockClient{}
 	svc := newStockService(
+		repository.NewAssetRepository(db),
 		repository.NewListingRepository(db),
 		repository.NewStockRepository(db),
 		repository.NewOptionRepository(db),

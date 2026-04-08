@@ -32,16 +32,17 @@ func TestGetClientPortfolio_WithOwnership(t *testing.T) {
 	router, _ := setupTestRouter(t, db)
 
 	ex := seedExchange(t, db, "XNYS")
-	listing := seedListing(t, db, "AAPL", ex.MicCode, model.ListingTypeStock, 150.0)
+	listing := seedListing(t, db, "AAPL", ex.MicCode, model.AssetTypeStock, 150.0)
 	seedStock(t, db, listing.ListingID)
 
-	order := seedOrder(t, db, 1, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusApproved)
+	_ = seedOrder(t, db, 1, listing.ListingID, model.OrderDirectionBuy, model.OrderStatusApproved)
 
-	ownership := &model.OrderOwnership{
-		OrderID:       order.OrderID,
-		IdentityID:    1,
-		OwnerType:     model.OwnerTypeClient,
-		AccountNumber: "444000100000000001",
+	ownership := &model.AssetOwnership{
+		IdentityID:     1,
+		OwnerType:      model.OwnerTypeClient,
+		AssetID:        listing.AssetID,
+		Amount:         10.0,
+		AvgBuyPriceRSD: 100.0,
 	}
 	if err := db.Create(ownership).Error; err != nil {
 		t.Fatalf("seed ownership: %v", err)

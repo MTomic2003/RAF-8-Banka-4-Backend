@@ -2145,13 +2145,16 @@ const docTemplate = `{
                 "amount": {
                     "type": "number"
                 },
+                "avgBuyPrice": {
+                    "type": "number"
+                },
                 "lastModified": {
                     "type": "string"
                 },
                 "outstandingShares": {
                     "type": "number"
                 },
-                "pricePerUnit": {
+                "pricePerUnitRSD": {
                     "type": "number"
                 },
                 "profit": {
