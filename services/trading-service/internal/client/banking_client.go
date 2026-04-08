@@ -12,4 +12,5 @@ type BankingClient interface {
 	GetAccountsByClientID(ctx context.Context, clientID uint64) (*pb.GetAccountsByClientIDResponse, error)
 	ConvertCurrency(ctx context.Context, amount float64, fromCode, toCode string) (float64, error)
 	ExecuteTradeSettlement(ctx context.Context, accountNumber, currencyCode string, direction pb.TradeSettlementDirection, amount float64) (*pb.ExecuteTradeSettlementResponse, error)
+	GetAccountCurrency(ctx context.Context, accountNumber string) (string, error)
 }

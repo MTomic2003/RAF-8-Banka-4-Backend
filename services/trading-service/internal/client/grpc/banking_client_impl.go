@@ -70,3 +70,12 @@ func (c *BankingServiceClient) ExecuteTradeSettlement(ctx context.Context, accou
 	}
 	return resp, nil
 }
+func (c *BankingServiceClient) GetAccountCurrency(ctx context.Context, accountNumber string) (string, error) {
+	resp, err := c.stub.GetAccountByNumber(ctx, &pb.GetAccountByNumberRequest{
+		AccountNumber: accountNumber,
+	})
+	if err != nil {
+		return "", fmt.Errorf("banking client GetAccountCurrency: %w", err)
+	}
+	return resp.CurrencyCode, nil
+}

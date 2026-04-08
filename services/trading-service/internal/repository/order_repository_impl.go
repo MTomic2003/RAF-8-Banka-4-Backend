@@ -86,16 +86,3 @@ func (r *orderRepositoryImpl) FindReadyForExecution(ctx context.Context, before 
 
 	return orders, nil
 }
-
-func (r *orderRepositoryImpl) FindAccountCurrency(ctx context.Context, accountNumber string) (string, error) {
-	var currencyCode string
-	err := r.db.WithContext(ctx).
-		Table("accounts").
-		Joins("JOIN currencies ON currencies.id = accounts.currency_id").
-		Where("accounts.account_number = ?", accountNumber).
-		Pluck("currencies.code", &currencyCode).Error
-	if err != nil {
-		return "", err
-	}
-	return currencyCode, nil
-}

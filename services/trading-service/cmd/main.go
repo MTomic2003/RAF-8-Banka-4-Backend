@@ -90,6 +90,9 @@ func main() {
 			repository.NewOrderRepository,
 			repository.NewOrderTransactionRepository,
 			service.NewOrderService,
+			func(svc *service.TaxService) service.TaxRecorder {
+				return svc
+			},
 			handler.NewOrderHandler,
 			repository.NewTaxRepository,
 			service.NewTaxService,

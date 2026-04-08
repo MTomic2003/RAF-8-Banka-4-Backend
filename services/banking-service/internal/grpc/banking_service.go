@@ -12,30 +12,30 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/dto"
-  "github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
+	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/model"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/repository"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/banking-service/internal/service"
 )
 
 type BankingService struct {
 	pb.UnimplementedBankingServiceServer
-	accountRepo     repository.AccountRepository
-	paymentService  *service.PaymentService
-  transactionRepo      repository.TransactionRepository
+	accountRepo          repository.AccountRepository
+	paymentService       *service.PaymentService
+	transactionRepo      repository.TransactionRepository
 	transactionProcessor *service.TransactionProcessor
-	exchangeService *service.ExchangeService
+	exchangeService      *service.ExchangeService
 }
 
 func NewBankingService(
 	accountRepo repository.AccountRepository,
-  paymentService *service.PaymentService,
+	paymentService *service.PaymentService,
 	transactionRepo repository.TransactionRepository,
 	transactionProcessor *service.TransactionProcessor,
 	exchangeService *service.ExchangeService,
 ) *BankingService {
 	return &BankingService{
 		accountRepo:          accountRepo,
-    paymentService:       paymentService,
+		paymentService:       paymentService,
 		transactionRepo:      transactionRepo,
 		transactionProcessor: transactionProcessor,
 		exchangeService:      exchangeService,

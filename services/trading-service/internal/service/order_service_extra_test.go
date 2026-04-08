@@ -19,7 +19,7 @@ import (
 func TestResolveDailyVolume_ReturnsVolume(t *testing.T) {
 	dailyInfo := &model.ListingDailyPriceInfo{Volume: 5000}
 	listingRepo := &fakeListingRepo{dailyPriceInfo: dailyInfo}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	vol := svc.resolveDailyVolume(context.Background(), 1)
 	require.Equal(t, uint(5000), vol)
@@ -27,7 +27,7 @@ func TestResolveDailyVolume_ReturnsVolume(t *testing.T) {
 
 func TestResolveDailyVolume_NilDailyInfo_ReturnsZero(t *testing.T) {
 	listingRepo := &fakeListingRepo{dailyPriceInfo: nil}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	vol := svc.resolveDailyVolume(context.Background(), 1)
 	require.Equal(t, uint(0), vol)
@@ -36,7 +36,7 @@ func TestResolveDailyVolume_NilDailyInfo_ReturnsZero(t *testing.T) {
 func TestResolveDailyVolume_ZeroVolume_ReturnsZero(t *testing.T) {
 	dailyInfo := &model.ListingDailyPriceInfo{Volume: 0}
 	listingRepo := &fakeListingRepo{dailyPriceInfo: dailyInfo}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	vol := svc.resolveDailyVolume(context.Background(), 1)
 	require.Equal(t, uint(0), vol)
@@ -44,7 +44,7 @@ func TestResolveDailyVolume_ZeroVolume_ReturnsZero(t *testing.T) {
 
 func TestResolveDailyVolume_RepoError_ReturnsZero(t *testing.T) {
 	listingRepo := &fakeListingRepo{dailyPriceErr: errors.New("db error")}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	vol := svc.resolveDailyVolume(context.Background(), 1)
 	require.Equal(t, uint(0), vol)
@@ -53,7 +53,7 @@ func TestResolveDailyVolume_RepoError_ReturnsZero(t *testing.T) {
 // ── nextExecutionAt Tests ─────────────────────────────────────────
 
 func TestNextExecutionAt_RemainingZero_ReturnsNow(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 5, FilledQty: 5}
 	result := svc.nextExecutionAt(context.Background(), order)
@@ -63,7 +63,7 @@ func TestNextExecutionAt_RemainingZero_ReturnsNow(t *testing.T) {
 func TestNextExecutionAt_WithDailyVolume_ReturnsFutureOrNowTime(t *testing.T) {
 	dailyInfo := &model.ListingDailyPriceInfo{Volume: 1000}
 	listingRepo := &fakeListingRepo{dailyPriceInfo: dailyInfo}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 10, FilledQty: 5, ListingID: 1, AfterHours: false}
 	result := svc.nextExecutionAt(context.Background(), order)
@@ -73,7 +73,7 @@ func TestNextExecutionAt_WithDailyVolume_ReturnsFutureOrNowTime(t *testing.T) {
 func TestNextExecutionAt_AfterHours_AddsDelay(t *testing.T) {
 	dailyInfo := &model.ListingDailyPriceInfo{Volume: 1000}
 	listingRepo := &fakeListingRepo{dailyPriceInfo: dailyInfo}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 10, FilledQty: 5, ListingID: 1, AfterHours: true}
 	result := svc.nextExecutionAt(context.Background(), order)
@@ -83,7 +83,7 @@ func TestNextExecutionAt_AfterHours_AddsDelay(t *testing.T) {
 
 func TestNextExecutionAt_ZeroVolume_StillReturnsValidTime(t *testing.T) {
 	listingRepo := &fakeListingRepo{dailyPriceInfo: nil}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 10, FilledQty: 0, ListingID: 1, AfterHours: false}
 	result := svc.nextExecutionAt(context.Background(), order)
@@ -163,9 +163,9 @@ func TestProcessOrder_StopNotMet_Reschedules(t *testing.T) {
 	orderRepo := &fakeOrderRepo{}
 	listingRepo := &fakeListingRepo{listing: listing}
 	exchangeRepo := &fakeExchangeRepo{exchange: exchange}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
-	stopVal := 200.0 // very high stop for buy; Ask (151) < 200 so condition not met
+	stopVal := 200.0
 	order := &model.Order{
 		OrderID:      1,
 		ListingID:    1,
@@ -193,9 +193,9 @@ func TestProcessOrder_LimitNotMet_Reschedules(t *testing.T) {
 	orderRepo := &fakeOrderRepo{}
 	listingRepo := &fakeListingRepo{listing: listing}
 	exchangeRepo := &fakeExchangeRepo{exchange: exchange}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
-	limitVal := 100.0 // buy limit at 100; Ask (151) > 100 so can't execute
+	limitVal := 100.0
 	order := &model.Order{
 		OrderID:      1,
 		ListingID:    1,
@@ -226,7 +226,7 @@ func TestProcessOrder_SettlementTransientError_Reschedules(t *testing.T) {
 	bankingClient := &fakeOrderBankingClient{
 		settlementErr: errors.New("network timeout"),
 	}
-	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient)
+	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient, &fakeTaxRecorder{})
 
 	order := &model.Order{
 		OrderID:          1,
@@ -268,8 +268,7 @@ func TestProcessOrder_MarketOrder_PartialFill_SchedulesNext(t *testing.T) {
 			DestinationCurrencyCode: "USD",
 		},
 	}
-	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient)
-	// seed rng deterministically so we get a small partial fill
+	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient, &fakeTaxRecorder{})
 	svc.rng = rand.New(rand.NewSource(42))
 
 	order := &model.Order{
@@ -330,7 +329,7 @@ func TestIsStopConditionMet_UnknownDirection(t *testing.T) {
 	require.False(t, isStopConditionMet(order, listing))
 }
 
-// ── processOrder: fillQty 0 (all-or-none, volume=0) -> reschedules
+// ── processOrder: fillQty 0 -> reschedules ───────────────────────
 
 func TestProcessOrder_FillQtyZero_Reschedules(t *testing.T) {
 	listing := defaultListing()
@@ -338,26 +337,22 @@ func TestProcessOrder_FillQtyZero_Reschedules(t *testing.T) {
 	orderRepo := &fakeOrderRepo{}
 	listingRepo := &fakeListingRepo{listing: listing, dailyPriceInfo: nil}
 	exchangeRepo := &fakeExchangeRepo{exchange: exchange}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
-	// Force rng to produce 0 for all-or-none=false, remaining=2 scenario:
-	// Actually resolveFillQuantity only returns 0 when remaining==0, so set up
-	// an order already fully filled to get fillQty=0 path
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+
 	order := &model.Order{
 		OrderID:      1,
 		ListingID:    1,
 		OrderType:    model.OrderTypeMarket,
 		Direction:    model.OrderDirectionBuy,
 		Quantity:     5,
-		FilledQty:    5, // remaining = 0
+		FilledQty:    5,
 		ContractSize: 1,
 		Triggered:    true,
 		Status:       model.OrderStatusApproved,
 	}
 
 	err := svc.processOrder(context.Background(), order)
-	// When fillQty is 0, order is rescheduled
 	require.NoError(t, err)
-	// NextExecutionAt is set on rescheduling path
 	require.NotNil(t, order.NextExecutionAt)
 }
 
@@ -381,21 +376,21 @@ func TestProcessOrder_MarketSell_WithCommission(t *testing.T) {
 			DestinationCurrencyCode: "USD",
 		},
 	}
-	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient)
+	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient, &fakeTaxRecorder{})
 
 	order := &model.Order{
-		OrderID:          1,
-		ListingID:        1,
-		OrderType:        model.OrderTypeMarket,
-		Direction:        model.OrderDirectionSell,
-		Quantity:         1,
-		FilledQty:        0,
-		ContractSize:     1,
-		Triggered:        true,
-		AllOrNone:        true,
-		Status:           model.OrderStatusApproved,
-		AccountNumber:    "444000100000000110",
-		CommissionExempt: false, // commission will be charged
+		OrderID:           1,
+		ListingID:         1,
+		OrderType:         model.OrderTypeMarket,
+		Direction:         model.OrderDirectionSell,
+		Quantity:          1,
+		FilledQty:         0,
+		ContractSize:      1,
+		Triggered:         true,
+		AllOrNone:         true,
+		Status:            model.OrderStatusApproved,
+		AccountNumber:     "444000100000000110",
+		CommissionExempt:  false,
 		CommissionCharged: false,
 	}
 

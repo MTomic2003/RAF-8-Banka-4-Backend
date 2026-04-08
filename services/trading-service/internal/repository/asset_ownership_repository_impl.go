@@ -31,7 +31,7 @@ func (r *assetOwnershipRepository) Upsert(ctx context.Context, ownership *model.
 	return r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "identity_id"}, {Name: "owner_type"}, {Name: "asset_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"amount", "avg_buy_price", "updated_at"}),
+			DoUpdates: clause.AssignmentColumns([]string{"amount", "avg_buy_price_rsd", "updated_at"}),
 		}).
 		Create(ownership).Error
 }

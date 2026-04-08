@@ -21,9 +21,9 @@ import (
 
 type fakeOrderRepo struct {
 	// FindAll
-	orders   []model.Order
-	total    int64
-	findErr  error
+	orders  []model.Order
+	total   int64
+	findErr error
 
 	// FindByID
 	orderByID   *model.Order
@@ -162,7 +162,6 @@ func (r *fakeListingRepo) FindByAssetIDs(_ context.Context, _ []uint) ([]model.L
 	return nil, nil
 }
 
-
 // ── Fake User Service Client ──────────────────────────────────────
 
 type fakeUserServiceClient struct {
@@ -191,10 +190,18 @@ func (c *fakeUserServiceClient) GetAllActuaries(_ context.Context, _, _ int32, _
 // ── Fake Banking Client (order-specific) ──────────────────────────
 
 type fakeOrderBankingClient struct {
-	accountResp    *pb.GetAccountByNumberResponse
-	accountErr     error
-	settlementResp *pb.ExecuteTradeSettlementResponse
-	settlementErr  error
+	accountResp     *pb.GetAccountByNumberResponse
+	accountErr      error
+	settlementResp  *pb.ExecuteTradeSettlementResponse
+	settlementErr   error
+	accountCurrency string
+}
+
+func (c *fakeOrderBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
+	if c.accountCurrency == "" {
+		return "RSD", nil
+	}
+	return c.accountCurrency, nil
 }
 
 func (c *fakeOrderBankingClient) GetAccountByNumber(_ context.Context, _ string) (*pb.GetAccountByNumberResponse, error) {
@@ -215,6 +222,26 @@ func (c *fakeOrderBankingClient) ConvertCurrency(_ context.Context, amount float
 
 func (c *fakeOrderBankingClient) ExecuteTradeSettlement(_ context.Context, _, _ string, _ pb.TradeSettlementDirection, _ float64) (*pb.ExecuteTradeSettlementResponse, error) {
 	return c.settlementResp, c.settlementErr
+}
+
+// ── Fake Tax Recorder ─────────────────────────────────────────────
+
+type fakeTaxRecorder struct {
+	recordedAccountNumber string
+	recordedEmployeeID    *uint
+	recordedProfit        float64
+	recordedCurrency      string
+	recordErr             error
+	called                bool
+}
+
+func (f *fakeTaxRecorder) RecordTax(_ context.Context, accountNumber string, employeeID *uint, profit float64, currencyCode string) error {
+	f.called = true
+	f.recordedAccountNumber = accountNumber
+	f.recordedEmployeeID = employeeID
+	f.recordedProfit = profit
+	f.recordedCurrency = currencyCode
+	return f.recordErr
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -251,10 +278,10 @@ func newTestOrderService(
 	listingRepo *fakeListingRepo,
 	userClient *fakeUserServiceClient,
 	bankingClient *fakeOrderBankingClient,
+	taxRecorder *fakeTaxRecorder,
 ) *OrderService {
-	svc := NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, &fakeAssetOwnershipRepo{}, userClient, bankingClient)
+	svc := NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, &fakeAssetOwnershipRepo{}, userClient, bankingClient, taxRecorder)
 	svc.now = func() time.Time {
-		// Wednesday 10:00 UTC  (market hours for a UTC-0 exchange open 09:00-16:00)
 		return time.Date(2025, 6, 4, 10, 0, 0, 0, time.UTC)
 	}
 	return svc
@@ -304,7 +331,7 @@ func TestGetOrders_Success(t *testing.T) {
 		{OrderID: 2, UserID: 2, Status: model.OrderStatusPending},
 	}
 	repo := &fakeOrderRepo{orders: orders, total: 2}
-	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	result, total, err := svc.GetOrders(context.Background(), dto.ListOrdersQuery{Page: 0, PageSize: 10})
 	require.NoError(t, err)
@@ -314,7 +341,7 @@ func TestGetOrders_Success(t *testing.T) {
 
 func TestGetOrders_Empty(t *testing.T) {
 	repo := &fakeOrderRepo{orders: []model.Order{}, total: 0}
-	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	result, total, err := svc.GetOrders(context.Background(), dto.ListOrdersQuery{Page: 0, PageSize: 10})
 	require.NoError(t, err)
@@ -324,7 +351,7 @@ func TestGetOrders_Empty(t *testing.T) {
 
 func TestGetOrders_RepoError(t *testing.T) {
 	repo := &fakeOrderRepo{findErr: errors.New("db error")}
-	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	result, total, err := svc.GetOrders(context.Background(), dto.ListOrdersQuery{})
 	require.Error(t, err)
@@ -345,6 +372,7 @@ func TestCreateOrder_MarketBuy_ClientAutoApproved(t *testing.T) {
 		&fakeListingRepo{listing: listing},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10)},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := clientAuthCtx()
@@ -364,7 +392,7 @@ func TestCreateOrder_MarketBuy_ClientAutoApproved(t *testing.T) {
 	require.Equal(t, model.OrderDirectionBuy, order.Direction)
 	require.Equal(t, uint(10), order.Quantity)
 	require.True(t, order.Triggered)
-	require.True(t, order.CommissionExempt == false) // client is not exempt
+	require.True(t, order.CommissionExempt == false)
 }
 
 func TestCreateOrder_LimitSell_Success(t *testing.T) {
@@ -379,8 +407,8 @@ func TestCreateOrder_LimitSell_Success(t *testing.T) {
 		&fakeListingRepo{listing: listing},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10)},
+		&fakeTaxRecorder{},
 	)
-
 	ctx := clientAuthCtx()
 	req := dto.CreateOrderRequest{
 		ListingID:     1,
@@ -408,6 +436,7 @@ func TestCreateOrder_MissingAuthContext(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	req := dto.CreateOrderRequest{
@@ -432,6 +461,7 @@ func TestCreateOrder_ListingNotFound(t *testing.T) {
 		&fakeListingRepo{listing: nil},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10)},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := clientAuthCtx()
@@ -457,6 +487,7 @@ func TestCreateOrder_AccountValidationFailure_NotFound(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{accountErr: status.Error(codes.NotFound, "account not found")},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := clientAuthCtx()
@@ -482,9 +513,10 @@ func TestCreateOrder_AccountDoesNotBelongToClient(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{ClientId: 999, AccountType: "Current"}},
+		&fakeTaxRecorder{},
 	)
 
-	ctx := clientAuthCtx() // clientID=10
+	ctx := clientAuthCtx()
 	req := dto.CreateOrderRequest{
 		ListingID:     1,
 		AccountNumber: "444000100000000110",
@@ -518,6 +550,7 @@ func TestCreateOrder_EmployeeAgent_SufficientLimit_Approved(t *testing.T) {
 			},
 		},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Bank"}},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := employeeAuthCtx(5)
@@ -550,11 +583,12 @@ func TestCreateOrder_EmployeeAgent_ExceedsLimit_Pending(t *testing.T) {
 				Id:           5,
 				IsAgent:      true,
 				NeedApproval: false,
-				OrderLimit:   100, // very low limit
+				OrderLimit:   100,
 				UsedLimit:    99,
 			},
 		},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Bank"}},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := employeeAuthCtx(5)
@@ -591,6 +625,7 @@ func TestCreateOrder_EmployeeNeedsApproval_Pending(t *testing.T) {
 			},
 		},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Bank"}},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := employeeAuthCtx(5)
@@ -624,6 +659,7 @@ func TestCreateOrder_EmployeeNotAgent_Pending(t *testing.T) {
 			},
 		},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Bank"}},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := employeeAuthCtx(5)
@@ -649,6 +685,7 @@ func TestCreateOrder_LimitOrder_MissingLimitValue(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := clientAuthCtx()
@@ -675,6 +712,7 @@ func TestCreateOrder_StopOrder_MissingStopValue(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := clientAuthCtx()
@@ -701,6 +739,7 @@ func TestCreateOrder_EmployeeMustUseBankAccount(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{accountResp: &pb.GetAccountByNumberResponse{AccountType: "Current"}},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := employeeAuthCtx(5)
@@ -729,6 +768,7 @@ func TestCreateOrder_RepoCreateError(t *testing.T) {
 		&fakeListingRepo{listing: listing},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10)},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := clientAuthCtx()
@@ -761,6 +801,7 @@ func TestApproveOrder_Success(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := employeeAuthCtx(5)
@@ -769,7 +810,7 @@ func TestApproveOrder_Success(t *testing.T) {
 	require.NotNil(t, order)
 	require.Equal(t, model.OrderStatusApproved, order.Status)
 	require.NotNil(t, order.ApprovedBy)
-	require.Equal(t, uint(100), *order.ApprovedBy) // IdentityID from employeeAuthCtx
+	require.Equal(t, uint(100), *order.ApprovedBy)
 	require.NotNil(t, order.NextExecutionAt)
 }
 
@@ -781,6 +822,7 @@ func TestApproveOrder_NotFound(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := employeeAuthCtx(5)
@@ -803,6 +845,7 @@ func TestApproveOrder_NotPending(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := employeeAuthCtx(5)
@@ -825,6 +868,7 @@ func TestApproveOrder_MissingAuth(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	order, err := svc.ApproveOrder(context.Background(), 1)
@@ -848,6 +892,7 @@ func TestDeclineOrder_Success(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := employeeAuthCtx(5)
@@ -868,6 +913,7 @@ func TestDeclineOrder_NotFound(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := employeeAuthCtx(5)
@@ -890,6 +936,7 @@ func TestDeclineOrder_NotPending(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := employeeAuthCtx(5)
@@ -912,6 +959,7 @@ func TestDeclineOrder_MissingAuth(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	order, err := svc.DeclineOrder(context.Background(), 1)
@@ -925,7 +973,7 @@ func TestDeclineOrder_MissingAuth(t *testing.T) {
 func TestCancelOrder_OwnerCancelsOwn(t *testing.T) {
 	pendingOrder := &model.Order{
 		OrderID: 1,
-		UserID:  1, // matches clientAuthCtx IdentityID
+		UserID:  1,
 		Status:  model.OrderStatusPending,
 		IsDone:  false,
 	}
@@ -937,6 +985,7 @@ func TestCancelOrder_OwnerCancelsOwn(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := clientAuthCtx()
@@ -951,7 +1000,7 @@ func TestCancelOrder_OwnerCancelsOwn(t *testing.T) {
 func TestCancelOrder_SupervisorCancelsOther(t *testing.T) {
 	pendingOrder := &model.Order{
 		OrderID: 1,
-		UserID:  999, // different from supervisor's IdentityID
+		UserID:  999,
 		Status:  model.OrderStatusApproved,
 		IsDone:  false,
 	}
@@ -968,6 +1017,7 @@ func TestCancelOrder_SupervisorCancelsOther(t *testing.T) {
 			},
 		},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := supervisorAuthCtx(7)
@@ -981,7 +1031,7 @@ func TestCancelOrder_SupervisorCancelsOther(t *testing.T) {
 func TestCancelOrder_NonOwnerNonSupervisor_Forbidden(t *testing.T) {
 	pendingOrder := &model.Order{
 		OrderID: 1,
-		UserID:  999, // different from employee's IdentityID (100)
+		UserID:  999,
 		Status:  model.OrderStatusPending,
 		IsDone:  false,
 	}
@@ -998,6 +1048,7 @@ func TestCancelOrder_NonOwnerNonSupervisor_Forbidden(t *testing.T) {
 			},
 		},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := employeeAuthCtx(5)
@@ -1022,6 +1073,7 @@ func TestCancelOrder_AlreadyDone(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := clientAuthCtx()
@@ -1039,6 +1091,7 @@ func TestCancelOrder_NotFound(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := clientAuthCtx()
@@ -1063,6 +1116,7 @@ func TestCancelOrder_DeclinedStatus_BadRequest(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	ctx := clientAuthCtx()
@@ -1087,6 +1141,7 @@ func TestCancelOrder_MissingAuth(t *testing.T) {
 		&fakeListingRepo{},
 		&fakeUserServiceClient{},
 		&fakeOrderBankingClient{},
+		&fakeTaxRecorder{},
 	)
 
 	order, err := svc.CancelOrder(context.Background(), 1)
@@ -1098,20 +1153,16 @@ func TestCancelOrder_MissingAuth(t *testing.T) {
 // ── Pure function tests ───────────────────────────────────────────
 
 func TestValidateOrderTypeFields(t *testing.T) {
-	// Market order needs nothing extra
 	require.NoError(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeMarket}))
 
-	// Limit order requires LimitValue
 	require.Error(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeLimit}))
 	lv := 100.0
 	require.NoError(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeLimit, LimitValue: &lv}))
 
-	// Stop order requires StopValue
 	require.Error(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeStop}))
 	sv := 90.0
 	require.NoError(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeStop, StopValue: &sv}))
 
-	// StopLimit requires both
 	require.Error(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeStopLimit, LimitValue: &lv}))
 	require.Error(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeStopLimit, StopValue: &sv}))
 	require.NoError(t, validateOrderTypeFields(dto.CreateOrderRequest{OrderType: model.OrderTypeStopLimit, LimitValue: &lv, StopValue: &sv}))
@@ -1122,37 +1173,31 @@ func TestCalculateInitialPricePerUnit(t *testing.T) {
 	lv := 155.0
 	sv := 145.0
 
-	// Market buy -> Ask
 	p := calculateInitialPricePerUnit(dto.CreateOrderRequest{OrderType: model.OrderTypeMarket, Direction: model.OrderDirectionBuy}, listing)
 	require.NotNil(t, p)
 	require.Equal(t, 151.0, *p)
 
-	// Market sell -> Price
 	p = calculateInitialPricePerUnit(dto.CreateOrderRequest{OrderType: model.OrderTypeMarket, Direction: model.OrderDirectionSell}, listing)
 	require.NotNil(t, p)
 	require.Equal(t, 150.0, *p)
 
-	// Limit -> LimitValue
 	p = calculateInitialPricePerUnit(dto.CreateOrderRequest{OrderType: model.OrderTypeLimit, LimitValue: &lv}, listing)
 	require.NotNil(t, p)
 	require.Equal(t, 155.0, *p)
 
-	// Stop -> StopValue
 	p = calculateInitialPricePerUnit(dto.CreateOrderRequest{OrderType: model.OrderTypeStop, StopValue: &sv}, listing)
 	require.NotNil(t, p)
 	require.Equal(t, 145.0, *p)
 }
 
 func TestCalculateCommission(t *testing.T) {
-	// Market order: min(0.14 * value, 7)
 	require.Equal(t, 0.0, calculateCommission(model.OrderTypeMarket, 0))
 	require.Equal(t, 0.0, calculateCommission(model.OrderTypeMarket, -10))
 	require.InDelta(t, 0.14*10, calculateCommission(model.OrderTypeMarket, 10), 0.001)
-	require.Equal(t, 7.0, calculateCommission(model.OrderTypeMarket, 100)) // 0.14*100=14, capped at 7
+	require.Equal(t, 7.0, calculateCommission(model.OrderTypeMarket, 100))
 
-	// Limit order: min(0.24 * value, 12)
 	require.InDelta(t, 0.24*10, calculateCommission(model.OrderTypeLimit, 10), 0.001)
-	require.Equal(t, 12.0, calculateCommission(model.OrderTypeLimit, 100)) // 0.24*100=24, capped at 12
+	require.Equal(t, 12.0, calculateCommission(model.OrderTypeLimit, 100))
 }
 
 func TestNormalizeCurrencyCode(t *testing.T) {
@@ -1170,11 +1215,9 @@ func TestDereferencePrice(t *testing.T) {
 func TestIsStopConditionMet(t *testing.T) {
 	listing := &model.Listing{Price: 150.0, Ask: 151.0}
 
-	// No stop value -> always met
 	order := &model.Order{StopValue: nil}
 	require.True(t, isStopConditionMet(order, listing))
 
-	// Buy: Ask >= StopValue
 	sv := 150.0
 	order = &model.Order{Direction: model.OrderDirectionBuy, StopValue: &sv}
 	require.True(t, isStopConditionMet(order, listing))
@@ -1183,7 +1226,6 @@ func TestIsStopConditionMet(t *testing.T) {
 	order = &model.Order{Direction: model.OrderDirectionBuy, StopValue: &sv}
 	require.False(t, isStopConditionMet(order, listing))
 
-	// Sell: Price <= StopValue
 	sv = 150.0
 	order = &model.Order{Direction: model.OrderDirectionSell, StopValue: &sv}
 	require.True(t, isStopConditionMet(order, listing))
@@ -1196,43 +1238,37 @@ func TestIsStopConditionMet(t *testing.T) {
 func TestResolveExecutionPrice(t *testing.T) {
 	listing := &model.Listing{Price: 150.0, Ask: 151.0}
 
-	// Market buy -> Ask
 	p, ok := resolveExecutionPrice(&model.Order{OrderType: model.OrderTypeMarket, Direction: model.OrderDirectionBuy}, listing)
 	require.True(t, ok)
 	require.Equal(t, 151.0, p)
 
-	// Market sell -> Price
 	p, ok = resolveExecutionPrice(&model.Order{OrderType: model.OrderTypeMarket, Direction: model.OrderDirectionSell}, listing)
 	require.True(t, ok)
 	require.Equal(t, 150.0, p)
 
-	// Limit buy, Ask <= LimitValue -> Ask
 	lv := 155.0
 	p, ok = resolveExecutionPrice(&model.Order{OrderType: model.OrderTypeLimit, Direction: model.OrderDirectionBuy, LimitValue: &lv}, listing)
 	require.True(t, ok)
 	require.Equal(t, 151.0, p)
 
-	// Limit buy, Ask > LimitValue -> can't execute
 	lv = 140.0
 	_, ok = resolveExecutionPrice(&model.Order{OrderType: model.OrderTypeLimit, Direction: model.OrderDirectionBuy, LimitValue: &lv}, listing)
 	require.False(t, ok)
 
-	// Limit sell, Price >= LimitValue -> Price
 	lv = 140.0
 	p, ok = resolveExecutionPrice(&model.Order{OrderType: model.OrderTypeLimit, Direction: model.OrderDirectionSell, LimitValue: &lv}, listing)
 	require.True(t, ok)
 	require.Equal(t, 150.0, p)
 
-	// Limit sell, Price < LimitValue -> can't execute
 	lv = 160.0
 	_, ok = resolveExecutionPrice(&model.Order{OrderType: model.OrderTypeLimit, Direction: model.OrderDirectionSell, LimitValue: &lv}, listing)
 	require.False(t, ok)
 }
 
 func TestIsWeekend(t *testing.T) {
-	sat := time.Date(2025, 6, 7, 12, 0, 0, 0, time.UTC) // Saturday
-	sun := time.Date(2025, 6, 8, 12, 0, 0, 0, time.UTC) // Sunday
-	mon := time.Date(2025, 6, 9, 12, 0, 0, 0, time.UTC) // Monday
+	sat := time.Date(2025, 6, 7, 12, 0, 0, 0, time.UTC)
+	sun := time.Date(2025, 6, 8, 12, 0, 0, 0, time.UTC)
+	mon := time.Date(2025, 6, 9, 12, 0, 0, 0, time.UTC)
 
 	require.True(t, isWeekend(sat))
 	require.True(t, isWeekend(sun))
@@ -1243,7 +1279,7 @@ func TestIsWeekend(t *testing.T) {
 
 func TestFailOrder_SetsFieldsAndSaves(t *testing.T) {
 	repo := &fakeOrderRepo{}
-	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	nextExec := time.Date(2025, 6, 5, 12, 0, 0, 0, time.UTC)
 	order := &model.Order{
@@ -1263,7 +1299,7 @@ func TestFailOrder_SetsFieldsAndSaves(t *testing.T) {
 
 func TestFailOrder_RepoSaveError(t *testing.T) {
 	repo := &fakeOrderRepo{saveErr: errors.New("save failed")}
-	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(repo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{OrderID: 1, Status: model.OrderStatusApproved}
 	err := svc.failOrder(context.Background(), order, model.OrderStatusDeclined)
@@ -1273,32 +1309,31 @@ func TestFailOrder_RepoSaveError(t *testing.T) {
 // ── resolveFillQuantity Tests ────────────────────────────────────
 
 func TestResolveFillQuantity_RemainingZero(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 10, FilledQty: 10}
 	require.Equal(t, uint(0), svc.resolveFillQuantity(order))
 }
 
 func TestResolveFillQuantity_AllOrNone(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 10, FilledQty: 3, AllOrNone: true}
 	require.Equal(t, uint(7), svc.resolveFillQuantity(order))
 }
 
 func TestResolveFillQuantity_RemainingOne(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 5, FilledQty: 4, AllOrNone: false}
 	require.Equal(t, uint(1), svc.resolveFillQuantity(order))
 }
 
 func TestResolveFillQuantity_RandomInRange(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{Quantity: 100, FilledQty: 0, AllOrNone: false}
 
-	// Run multiple times to verify result is always in [1, remaining]
 	for i := 0; i < 50; i++ {
 		qty := svc.resolveFillQuantity(order)
 		require.GreaterOrEqual(t, qty, uint(1))
@@ -1309,7 +1344,7 @@ func TestResolveFillQuantity_RandomInRange(t *testing.T) {
 // ── resolveExchangeSession Tests ─────────────────────────────────
 
 func TestResolveExchangeSession_NilExchange(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	session := svc.resolveExchangeSession(nil)
 	require.True(t, session.IsOpen)
@@ -1317,7 +1352,7 @@ func TestResolveExchangeSession_NilExchange(t *testing.T) {
 }
 
 func TestResolveExchangeSession_TradingDisabled(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	exchange := &model.Exchange{
 		TradingEnabled: false,
@@ -1331,9 +1366,7 @@ func TestResolveExchangeSession_TradingDisabled(t *testing.T) {
 }
 
 func TestResolveExchangeSession_DuringOpenHours(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
-	// newTestOrderService sets now to Wednesday 2025-06-04 10:00 UTC
-	// Exchange with timezone 0, open 09:00-16:00 -> 10:00 is during open hours
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	exchange := &model.Exchange{
 		TradingEnabled: true,
@@ -1347,9 +1380,8 @@ func TestResolveExchangeSession_DuringOpenHours(t *testing.T) {
 }
 
 func TestResolveExchangeSession_DuringClosedHours_BeforeOpen(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
-	// now = Wednesday 2025-06-04 10:00 UTC
-	// Exchange with timezone +5 -> local time = 15:00, open 16:00-23:00 -> before open
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+
 	exchange := &model.Exchange{
 		TradingEnabled: true,
 		OpenTime:       "16:00",
@@ -1363,9 +1395,8 @@ func TestResolveExchangeSession_DuringClosedHours_BeforeOpen(t *testing.T) {
 }
 
 func TestResolveExchangeSession_DuringClosedHours_AfterClose(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
-	// now = Wednesday 2025-06-04 10:00 UTC
-	// Exchange with timezone 0, open 06:00-09:00 -> local time 10:00 is after close
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
+
 	exchange := &model.Exchange{
 		TradingEnabled: true,
 		OpenTime:       "06:00",
@@ -1383,7 +1414,7 @@ func TestResolveExchangeSession_DuringClosedHours_AfterClose(t *testing.T) {
 func TestProcessOrder_ListingNotFound_FailsOrder(t *testing.T) {
 	orderRepo := &fakeOrderRepo{}
 	listingRepo := &fakeListingRepo{listing: nil}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{
 		OrderID:   1,
@@ -1403,7 +1434,7 @@ func TestProcessOrder_ExchangeNotFound_FailsOrder(t *testing.T) {
 	orderRepo := &fakeOrderRepo{}
 	listingRepo := &fakeListingRepo{listing: listing}
 	exchangeRepo := &fakeExchangeRepo{exchange: nil}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{
 		OrderID:   1,
@@ -1419,7 +1450,7 @@ func TestProcessOrder_ExchangeNotFound_FailsOrder(t *testing.T) {
 
 func TestProcessOrder_ListingRepoError(t *testing.T) {
 	listingRepo := &fakeListingRepo{findByIDErr: errors.New("db error")}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{OrderID: 1, ListingID: 1}
 	err := svc.processOrder(context.Background(), order)
@@ -1430,7 +1461,7 @@ func TestProcessOrder_ExchangeRepoError(t *testing.T) {
 	listing := defaultListing()
 	listingRepo := &fakeListingRepo{listing: listing}
 	exchangeRepo := &fakeExchangeRepo{findErr: errors.New("db error")}
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{OrderID: 1, ListingID: 1}
 	err := svc.processOrder(context.Background(), order)
@@ -1446,26 +1477,26 @@ func TestProcessOrder_MarketOrder_FullFill(t *testing.T) {
 	txRepo := &fakeOrderTransactionRepo{}
 	bankingClient := &fakeOrderBankingClient{
 		settlementResp: &pb.ExecuteTradeSettlementResponse{
-			SourceAmount:         151.0,
-			SourceCurrencyCode:   "USD",
-			DestinationAmount:    151.0,
+			SourceAmount:            151.0,
+			SourceCurrencyCode:      "USD",
+			DestinationAmount:       151.0,
 			DestinationCurrencyCode: "USD",
 		},
 	}
-	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient)
+	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient, &fakeTaxRecorder{})
 
 	order := &model.Order{
-		OrderID:      1,
-		ListingID:    1,
-		OrderType:    model.OrderTypeMarket,
-		Direction:    model.OrderDirectionBuy,
-		Quantity:     1,
-		FilledQty:    0,
-		ContractSize: 1,
-		Triggered:    true,
-		AllOrNone:    true,
-		Status:       model.OrderStatusApproved,
-		AccountNumber: "444000100000000110",
+		OrderID:          1,
+		ListingID:        1,
+		OrderType:        model.OrderTypeMarket,
+		Direction:        model.OrderDirectionBuy,
+		Quantity:         1,
+		FilledQty:        0,
+		ContractSize:     1,
+		Triggered:        true,
+		AllOrNone:        true,
+		Status:           model.OrderStatusApproved,
+		AccountNumber:    "444000100000000110",
 		CommissionExempt: true,
 	}
 
@@ -1480,7 +1511,7 @@ func TestProcessOrder_MarketOrder_FullFill(t *testing.T) {
 
 func TestProcessDueOrders_NoReadyOrders(t *testing.T) {
 	orderRepo := &fakeOrderRepo{readyOrders: []model.Order{}}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	err := svc.processDueOrders(context.Background())
 	require.NoError(t, err)
@@ -1488,7 +1519,7 @@ func TestProcessDueOrders_NoReadyOrders(t *testing.T) {
 
 func TestProcessDueOrders_RepoError(t *testing.T) {
 	orderRepo := &fakeOrderRepo{readyErr: errors.New("db error")}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	err := svc.processDueOrders(context.Background())
 	require.Error(t, err)
@@ -1500,16 +1531,16 @@ func TestProcessDueOrders_WithReadyOrders_ProcessesThem(t *testing.T) {
 
 	readyOrders := []model.Order{
 		{
-			OrderID:      1,
-			ListingID:    1,
-			OrderType:    model.OrderTypeMarket,
-			Direction:    model.OrderDirectionBuy,
-			Quantity:     1,
-			ContractSize: 1,
-			Triggered:    true,
-			AllOrNone:    true,
-			Status:       model.OrderStatusApproved,
-			AccountNumber: "444000100000000110",
+			OrderID:          1,
+			ListingID:        1,
+			OrderType:        model.OrderTypeMarket,
+			Direction:        model.OrderDirectionBuy,
+			Quantity:         1,
+			ContractSize:     1,
+			Triggered:        true,
+			AllOrNone:        true,
+			Status:           model.OrderStatusApproved,
+			AccountNumber:    "444000100000000110",
 			CommissionExempt: true,
 		},
 	}
@@ -1520,14 +1551,14 @@ func TestProcessDueOrders_WithReadyOrders_ProcessesThem(t *testing.T) {
 	txRepo := &fakeOrderTransactionRepo{}
 	bankingClient := &fakeOrderBankingClient{
 		settlementResp: &pb.ExecuteTradeSettlementResponse{
-			SourceAmount:         151.0,
-			SourceCurrencyCode:   "USD",
-			DestinationAmount:    151.0,
+			SourceAmount:            151.0,
+			SourceCurrencyCode:      "USD",
+			DestinationAmount:       151.0,
 			DestinationCurrencyCode: "USD",
 		},
 	}
 
-	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient)
+	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient, &fakeTaxRecorder{})
 
 	err := svc.processDueOrders(context.Background())
 	require.NoError(t, err)
@@ -1536,20 +1567,18 @@ func TestProcessDueOrders_WithReadyOrders_ProcessesThem(t *testing.T) {
 // ── Start / Stop Tests ───────────────────────────────────────────
 
 func TestStartStop_DoesNotPanic(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{readyOrders: []model.Order{}}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{readyOrders: []model.Order{}}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	svc.Start()
-	// calling Start again should be a no-op (already running)
 	svc.Start()
 	svc.Stop()
-	// calling Stop again should be safe
 	svc.Stop()
 }
 
 // ── initialExecutionTime Tests ───────────────────────────────────
 
 func TestInitialExecutionTime_AfterHours(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	session := exchangeSession{IsOpen: true}
 	result := svc.initialExecutionTime(session, true)
@@ -1558,7 +1587,7 @@ func TestInitialExecutionTime_AfterHours(t *testing.T) {
 }
 
 func TestInitialExecutionTime_OpenSession(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	session := exchangeSession{IsOpen: true}
 	result := svc.initialExecutionTime(session, false)
@@ -1566,7 +1595,7 @@ func TestInitialExecutionTime_OpenSession(t *testing.T) {
 }
 
 func TestInitialExecutionTime_ClosedSession(t *testing.T) {
-	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{}, &fakeListingRepo{}, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	nextOpen := time.Date(2025, 6, 5, 9, 0, 0, 0, time.UTC)
 	session := exchangeSession{IsOpen: false, NextOpen: nextOpen}
@@ -1581,11 +1610,9 @@ func TestApproximateOrderValue(t *testing.T) {
 	order := &model.Order{Quantity: 10, ContractSize: 1, PricePerUnit: &price}
 	require.Equal(t, 1000.0, approximateOrderValue(order, 0))
 
-	// Fallback when PricePerUnit is nil
 	order2 := &model.Order{Quantity: 5, ContractSize: 2, PricePerUnit: nil}
 	require.Equal(t, 500.0, approximateOrderValue(order2, 50.0))
 
-	// PricePerUnit is zero, uses fallback
 	zero := 0.0
 	order3 := &model.Order{Quantity: 5, ContractSize: 2, PricePerUnit: &zero}
 	require.Equal(t, 500.0, approximateOrderValue(order3, 50.0))
@@ -1595,7 +1622,6 @@ func TestApproximateOrderValue(t *testing.T) {
 
 func TestProcessOrder_ClosedExchange_Reschedules(t *testing.T) {
 	listing := defaultListing()
-	// Exchange with timezone +10 -> local time = 20:00 UTC+10, open 09:00-16:00 -> after close
 	exchange := &model.Exchange{
 		ExchangeID:     1,
 		Name:           "Late Exchange",
@@ -1610,7 +1636,7 @@ func TestProcessOrder_ClosedExchange_Reschedules(t *testing.T) {
 	orderRepo := &fakeOrderRepo{}
 	listingRepo := &fakeListingRepo{listing: listing}
 	exchangeRepo := &fakeExchangeRepo{exchange: exchange}
-	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{})
+	svc := newTestOrderService(orderRepo, &fakeOrderTransactionRepo{}, exchangeRepo, listingRepo, &fakeUserServiceClient{}, &fakeOrderBankingClient{}, &fakeTaxRecorder{})
 
 	order := &model.Order{
 		OrderID:      1,
@@ -1626,7 +1652,6 @@ func TestProcessOrder_ClosedExchange_Reschedules(t *testing.T) {
 
 	err := svc.processOrder(context.Background(), order)
 	require.NoError(t, err)
-	// Order should be rescheduled, not failed
 	require.False(t, order.IsDone)
 	require.NotNil(t, order.NextExecutionAt)
 }
@@ -1644,7 +1669,7 @@ func TestProcessOrder_SettlementFailedPrecondition_FailsOrder(t *testing.T) {
 	bankingClient := &fakeOrderBankingClient{
 		settlementErr: status.Error(codes.FailedPrecondition, "insufficient funds"),
 	}
-	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient)
+	svc := newTestOrderService(orderRepo, txRepo, exchangeRepo, listingRepo, &fakeUserServiceClient{}, bankingClient, &fakeTaxRecorder{})
 
 	order := &model.Order{
 		OrderID:          1,
@@ -1665,4 +1690,172 @@ func TestProcessOrder_SettlementFailedPrecondition_FailsOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, order.IsDone)
 	require.Equal(t, model.OrderStatusDeclined, order.Status)
+}
+
+// ── recordProfitTax Tests ────────────────────────────────────────
+
+func TestRecordProfitTax_ClientSell_RecordsTax(t *testing.T) {
+	listing := defaultListing()
+	listing.Asset = &model.Asset{AssetID: 1, Ticker: "AAPL", AssetType: model.AssetTypeStock}
+	listing.AssetID = 1
+
+	ownership := model.AssetOwnership{
+		AssetID:        1,
+		AvgBuyPriceRSD: 100.0,
+		Amount:         1,
+	}
+
+	taxRecorder := &fakeTaxRecorder{}
+	bankingClient := &fakeOrderBankingClient{
+		settlementResp:  &pb.ExecuteTradeSettlementResponse{},
+		accountCurrency: "RSD",
+	}
+
+	svc := newTestOrderService(
+		&fakeOrderRepo{},
+		&fakeOrderTransactionRepo{},
+		&fakeExchangeRepo{},
+		&fakeListingRepo{listing: listing},
+		&fakeUserServiceClient{},
+		bankingClient,
+		taxRecorder,
+	)
+	svc.assetOwnershipRepo = &fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
+
+	order := &model.Order{
+		OrderID:       1,
+		UserID:        10,
+		AccountNumber: "444000100000000110",
+		ListingID:     1,
+		Listing:       *listing,
+		Direction:     model.OrderDirectionSell,
+		Quantity:      1,
+		FilledQty:     1,
+		ContractSize:  1,
+		OwnerType:     model.OwnerTypeClient,
+	}
+
+	err := svc.recordProfitTax(context.Background(), order, 1, 200.0, "RSD")
+	require.NoError(t, err)
+	require.True(t, taxRecorder.called)
+	require.Equal(t, "444000100000000110", taxRecorder.recordedAccountNumber)
+	require.Nil(t, taxRecorder.recordedEmployeeID)
+	require.InDelta(t, 100.0, taxRecorder.recordedProfit, 0.01)
+}
+
+func TestRecordProfitTax_ActuarySell_PassesEmployeeID(t *testing.T) {
+	listing := defaultListing()
+	listing.Asset = &model.Asset{AssetID: 1, Ticker: "AAPL", AssetType: model.AssetTypeStock}
+	listing.AssetID = 1
+
+	ownership := model.AssetOwnership{
+		AssetID:        1,
+		AvgBuyPriceRSD: 100.0,
+		Amount:         1,
+	}
+
+	taxRecorder := &fakeTaxRecorder{}
+	bankingClient := &fakeOrderBankingClient{accountCurrency: "RSD"}
+
+	svc := newTestOrderService(
+		&fakeOrderRepo{},
+		&fakeOrderTransactionRepo{},
+		&fakeExchangeRepo{},
+		&fakeListingRepo{listing: listing},
+		&fakeUserServiceClient{},
+		bankingClient,
+		taxRecorder,
+	)
+	svc.assetOwnershipRepo = &fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
+
+	userID := uint(42)
+	order := &model.Order{
+		UserID:        userID,
+		AccountNumber: "444000100000000110",
+		Listing:       *listing,
+		Direction:     model.OrderDirectionSell,
+		Quantity:      1,
+		FilledQty:     1,
+		ContractSize:  1,
+		OwnerType:     model.OwnerTypeActuary,
+	}
+
+	err := svc.recordProfitTax(context.Background(), order, 1, 200.0, "RSD")
+	require.NoError(t, err)
+	require.True(t, taxRecorder.called)
+	require.NotNil(t, taxRecorder.recordedEmployeeID)
+	require.Equal(t, userID, *taxRecorder.recordedEmployeeID)
+}
+
+func TestRecordProfitTax_NoProfit_SkipsTax(t *testing.T) {
+	listing := defaultListing()
+	listing.Asset = &model.Asset{AssetID: 1}
+	listing.AssetID = 1
+
+	ownership := model.AssetOwnership{
+		AssetID:        1,
+		AvgBuyPriceRSD: 300.0,
+		Amount:         1,
+	}
+
+	taxRecorder := &fakeTaxRecorder{}
+	svc := newTestOrderService(
+		&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{},
+		&fakeListingRepo{listing: listing}, &fakeUserServiceClient{},
+		&fakeOrderBankingClient{accountCurrency: "RSD"}, taxRecorder,
+	)
+	svc.assetOwnershipRepo = &fakeAssetOwnershipRepo{ownerships: []model.AssetOwnership{ownership}}
+
+	order := &model.Order{
+		Listing:      *listing,
+		Direction:    model.OrderDirectionSell,
+		Quantity:     1,
+		FilledQty:    1,
+		ContractSize: 1,
+		OwnerType:    model.OwnerTypeClient,
+	}
+
+	err := svc.recordProfitTax(context.Background(), order, 1, 200.0, "RSD")
+	require.NoError(t, err)
+	require.False(t, taxRecorder.called)
+}
+
+func TestRecordProfitTax_BuyOrder_Skipped(t *testing.T) {
+	taxRecorder := &fakeTaxRecorder{}
+	svc := newTestOrderService(
+		&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{},
+		&fakeListingRepo{}, &fakeUserServiceClient{},
+		&fakeOrderBankingClient{}, taxRecorder,
+	)
+
+	order := &model.Order{
+		Direction:    model.OrderDirectionBuy,
+		Quantity:     1,
+		FilledQty:    1,
+		ContractSize: 1,
+	}
+
+	err := svc.recordProfitTax(context.Background(), order, 1, 200.0, "RSD")
+	require.NoError(t, err)
+	require.False(t, taxRecorder.called)
+}
+
+func TestRecordProfitTax_PartialFill_Skipped(t *testing.T) {
+	taxRecorder := &fakeTaxRecorder{}
+	svc := newTestOrderService(
+		&fakeOrderRepo{}, &fakeOrderTransactionRepo{}, &fakeExchangeRepo{},
+		&fakeListingRepo{}, &fakeUserServiceClient{},
+		&fakeOrderBankingClient{}, taxRecorder,
+	)
+
+	order := &model.Order{
+		Direction:    model.OrderDirectionSell,
+		Quantity:     5,
+		FilledQty:    2,
+		ContractSize: 1,
+	}
+
+	err := svc.recordProfitTax(context.Background(), order, 1, 200.0, "RSD")
+	require.NoError(t, err)
+	require.False(t, taxRecorder.called)
 }
