@@ -54,9 +54,9 @@ type OrderService struct {
 	assetOwnershipRepo   repository.AssetOwnershipRepository
 	userClient           client.UserServiceClient
 	bankingClient        client.BankingClient
-
-	now func() time.Time
-	rng *rand.Rand
+	taxService           TaxService
+	now                  func() time.Time
+	rng                  *rand.Rand
 
 	mu     sync.Mutex
 	cancel context.CancelFunc
@@ -70,6 +70,7 @@ func NewOrderService(
 	assetOwnershipRepo repository.AssetOwnershipRepository,
 	userClient client.UserServiceClient,
 	bankingClient client.BankingClient,
+	taxService TaxService,
 ) *OrderService {
 	return &OrderService{
 		orderRepo:            orderRepo,
@@ -79,6 +80,7 @@ func NewOrderService(
 		assetOwnershipRepo:   assetOwnershipRepo,
 		userClient:           userClient,
 		bankingClient:        bankingClient,
+		taxService:           taxService,
 		now:                  time.Now,
 		rng:                  rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
@@ -433,7 +435,9 @@ func (s *OrderService) processOrder(ctx context.Context, order *model.Order) err
 	order.CommissionCharged = order.CommissionCharged || commission > 0
 	order.PricePerUnit = &pricePerUnit
 	order.UpdatedAt = s.now()
-
+	if err := s.recordProfitTax(ctx, order, fillQty, pricePerUnit, tradeCurrency); err != nil {
+		return err
+	}
 	if order.RemainingPortions() == 0 {
 		order.IsDone = true
 		order.NextExecutionAt = nil
@@ -834,4 +838,54 @@ func dereferencePrice(value *float64) float64 {
 
 func normalizeCurrencyCode(currency string) string {
 	return strings.ToUpper(strings.TrimSpace(currency))
+}
+
+func (s *OrderService) recordProfitTax(ctx context.Context, order *model.Order, fillQty uint, pricePerUnit float64, tradeCurrency string) error {
+	if order.Direction != model.OrderDirectionSell || order.RemainingPortions() != 0 {
+		return nil
+	}
+
+	ownership, err := s.getOwnershipForOrder(ctx, order)
+	if err != nil {
+		return err
+	}
+	if ownership == nil || ownership.AvgBuyPrice <= 0 {
+		return nil
+	}
+
+	fillAmount := float64(fillQty) * order.ContractSize
+	profitInTradeCurrency := (pricePerUnit - ownership.AvgBuyPrice) * fillAmount
+	if profitInTradeCurrency <= 0 {
+		return nil
+	}
+
+	accountCurrency, err := s.orderRepo.FindAccountCurrency(ctx, order.AccountNumber)
+	if err != nil {
+		return err
+	}
+
+	profitInAccountCurrency, err := s.bankingClient.ConvertCurrency(ctx, profitInTradeCurrency, tradeCurrency, accountCurrency)
+	if err != nil {
+		return err
+	}
+
+	return s.taxService.RecordTax(ctx, order.AccountNumber, nil, profitInAccountCurrency, accountCurrency)
+}
+
+func (s *OrderService) getOwnershipForOrder(ctx context.Context, order *model.Order) (*model.AssetOwnership, error) {
+	if order.Listing.Asset == nil {
+		return nil, nil
+	}
+
+	existing, err := s.assetOwnershipRepo.FindByIdentity(ctx, order.UserID, order.OwnerType)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range existing {
+		if existing[i].AssetID == order.Listing.AssetID {
+			return &existing[i], nil
+		}
+	}
+	return nil, nil
 }
