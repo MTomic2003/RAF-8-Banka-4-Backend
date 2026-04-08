@@ -63,6 +63,8 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 
 	api := r.Group("/api")
 	{
+		authMw := auth.Middleware(verifier, permProvider)
+
 		api.GET("/health", healthHandler.Health)
 
 		exchanges := api.Group("/exchanges")
@@ -72,7 +74,7 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 		}
 
 		listings := api.Group("/listings")
-		listings.Use(auth.Middleware(verifier, permProvider), auth.RequirePermission(permission.Trading))
+		listings.Use(authMw, auth.RequirePermission(permission.Trading))
 		{
 			// Stocks
 			stocks := listings.Group("/stocks")
@@ -108,7 +110,7 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 		}
 
 		client := api.Group("/client")
-		client.Use(auth.Middleware(verifier, permProvider), auth.RequirePermission(permission.Trading), auth.RequireClientSelf("clientId", true))
+		client.Use(authMw, auth.RequirePermission(permission.Trading), auth.RequireClientSelf("clientId", true))
 		{
 			client.GET("/:clientId/assets", portfolioHandler.GetClientPortfolio)
 			client.GET("/:clientId/assets/profit", portfolioHandler.GetClientPortfolioProfit)
@@ -116,7 +118,7 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 		}
 
 		actuary := api.Group("/actuary")
-		actuary.Use(auth.Middleware(verifier, permProvider), auth.RequirePermission(permission.Trading), auth.RequireIdentityType(auth.IdentityEmployee))
+		actuary.Use(authMw, auth.RequirePermission(permission.Trading), auth.RequireIdentityType(auth.IdentityEmployee))
 		{
 			actuary.GET("/:actId/assets", portfolioHandler.GetActuaryPortfolio)
 			actuary.GET("/:actId/assets/profit", portfolioHandler.GetActuaryPortfolioProfit)
@@ -124,7 +126,7 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 		}
 
 		orders := api.Group("/orders")
-		orders.Use(auth.Middleware(verifier, permProvider), auth.RequirePermission(permission.Trading))
+		orders.Use(authMw, auth.RequirePermission(permission.Trading))
 		{
 			orders.GET("", middleware.RequireSupervisor(userClient), orderHandler.GetOrders)
 			orders.POST("", orderHandler.CreateOrder)
@@ -133,7 +135,7 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 			orders.PATCH("/:id/cancel", orderHandler.CancelOrder)
 		}
 		tax := api.Group("/tax")
-		tax.Use(auth.Middleware(verifier, permProvider), auth.RequirePermission(permission.Trading))
+		tax.Use(authMw, auth.RequirePermission(permission.Trading))
 		{
 			tax.GET("", middleware.RequireSupervisor(userClient), taxHandler.ListTaxUsers)
 			tax.POST("/collect", middleware.RequireSupervisor(userClient), taxHandler.CollectTaxes)
