@@ -105,6 +105,10 @@ func (f *fakeUserClient) GetClientById(_ context.Context, id uint64) (*pb.GetCli
 	}, nil
 }
 
+func (f *fakeBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
+	return "RSD", nil
+}
+
 func (f *fakeUserClient) GetEmployeeById(_ context.Context, id uint64) (*pb.GetEmployeeByIdResponse, error) {
 	isSupervisor := f.supervisorIDs[id]
 	isAgent := f.agentIDs[id]
@@ -133,6 +137,12 @@ func (f *fakeUserClient) GetAllActuaries(_ context.Context, _, _ int32, _, _ str
 		},
 		Total: 1,
 	}, nil
+}
+
+type fakeTaxRecorder struct{}
+
+func (f *fakeTaxRecorder) RecordTax(_ context.Context, _ string, _ *uint, _ float64, _ string) error {
+	return nil
 }
 
 type fakeBankingClient struct{}
@@ -239,7 +249,8 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	exchangeSvc := service.NewExchangeService(exchangeRepo)
 	listingSvc := service.NewListingService(listingRepo, futuresRepo, forexRepo, optionRepo)
 
-	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, assetOwnershipRepo, futuresRepo, optionRepo, userClient, bankingClient)
+	var taxRecorder service.TaxRecorder = &fakeTaxRecorder{}
+	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, assetOwnershipRepo, futuresRepo, optionRepo, userClient, bankingClient, taxRecorder)
 	portfolioSvc := service.NewPortfolioService(assetOwnershipRepo, stockRepo, optionRepo, futuresRepo, forexRepo, bankingClient)
 
 	taxSvc := service.NewTaxService(taxRepo, bankingClient, cfg)
