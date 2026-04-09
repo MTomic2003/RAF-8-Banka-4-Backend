@@ -271,7 +271,7 @@ func TestGetStockDetails_Success(t *testing.T) {
 		repository.NewOptionRepository(db),
 	)
 
-	result, err := svc.GetStockDetails(context.Background(), 1)
+	result, err := svc.GetStockDetails(context.Background(), 1, 0)
 	if err != nil {
 		t.Fatalf("GetStockDetails failed: %v", err)
 	}
@@ -407,7 +407,7 @@ func TestGetFutureDetails_Success(t *testing.T) {
 		repository.NewOptionRepository(db),
 	)
 
-	result, err := svc.GetFutureDetails(context.Background(), futureListing.ListingID)
+	result, err := svc.GetFutureDetails(context.Background(), futureListing.ListingID, 0)
 	if err != nil {
 		t.Fatalf("GetFutureDetails failed: %v", err)
 	}
@@ -438,7 +438,7 @@ func TestGetForexDetails_Success(t *testing.T) {
 		repository.NewOptionRepository(db),
 	)
 
-	result, err := svc.GetForexDetails(context.Background(), forexListing.ListingID)
+	result, err := svc.GetForexDetails(context.Background(), forexListing.ListingID, 0)
 	if err != nil {
 		t.Fatalf("GetForexDetails failed: %v", err)
 	}
@@ -518,7 +518,7 @@ func TestGetFutureDetails_NotFound_WrongType(t *testing.T) {
 	)
 
 	// Use ID=1 which is a stock, not a future
-	_, err := svc.GetFutureDetails(context.Background(), 1)
+	_, err := svc.GetFutureDetails(context.Background(), 1, 0)
 	if err == nil {
 		t.Fatal("expected error when listing type is not future")
 	}
@@ -535,7 +535,7 @@ func TestGetFutureDetails_ListingNotFound(t *testing.T) {
 		repository.NewOptionRepository(db),
 	)
 
-	_, err := svc.GetFutureDetails(context.Background(), 99999)
+	_, err := svc.GetFutureDetails(context.Background(), 99999, 0)
 	if err == nil {
 		t.Fatal("expected error for nonexistent listing")
 	}
@@ -555,7 +555,7 @@ func TestGetForexDetails_NotFound_WrongType(t *testing.T) {
 	)
 
 	// Use ID=1 which is a stock, not a forex pair
-	_, err := svc.GetForexDetails(context.Background(), 1)
+	_, err := svc.GetForexDetails(context.Background(), 1, 0)
 	if err == nil {
 		t.Fatal("expected error when listing type is not forexPair")
 	}
@@ -572,7 +572,7 @@ func TestGetForexDetails_ListingNotFound(t *testing.T) {
 		repository.NewOptionRepository(db),
 	)
 
-	_, err := svc.GetForexDetails(context.Background(), 99999)
+	_, err := svc.GetForexDetails(context.Background(), 99999, 0)
 	if err == nil {
 		t.Fatal("expected error for nonexistent listing")
 	}
@@ -592,7 +592,7 @@ func TestGetOptionDetails_NotFound_WrongType(t *testing.T) {
 	)
 
 	// Use ID=1 which is a stock, not an option
-	_, err := svc.GetOptionDetails(context.Background(), 1)
+	_, err := svc.GetOptionDetails(context.Background(), 1, 0)
 	if err == nil {
 		t.Fatal("expected error when listing type is not option")
 	}
@@ -609,7 +609,7 @@ func TestGetOptionDetails_ListingNotFound(t *testing.T) {
 		repository.NewOptionRepository(db),
 	)
 
-	_, err := svc.GetOptionDetails(context.Background(), 99999)
+	_, err := svc.GetOptionDetails(context.Background(), 99999, 0)
 	if err == nil {
 		t.Fatal("expected error for nonexistent listing")
 	}
@@ -706,7 +706,7 @@ func TestGetOptionDetails_Success(t *testing.T) {
 		repository.NewOptionRepository(db),
 	)
 
-	result, err := svc.GetOptionDetails(context.Background(), optionListing.ListingID)
+	result, err := svc.GetOptionDetails(context.Background(), optionListing.ListingID, 0)
 	if err != nil {
 		t.Fatalf("GetOptionDetails failed: %v", err)
 	}

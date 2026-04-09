@@ -568,6 +568,12 @@ const docTemplate = `{
                         "name": "listingId",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "History range in days",
+                        "name": "days",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -740,6 +746,12 @@ const docTemplate = `{
                         "name": "listingId",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "History range in days",
+                        "name": "days",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -912,6 +924,12 @@ const docTemplate = `{
                         "name": "listingId",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "History range in days",
+                        "name": "days",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -942,7 +960,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/listings/stock/listingId": {
+        "/api/listings/stock/{listingId}": {
             "get": {
                 "security": [
                     {
@@ -967,6 +985,12 @@ const docTemplate = `{
                         "name": "listingId",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "History range in days",
+                        "name": "days_back",
+                        "in": "query"
                     }
                 ],
                 "responses": {

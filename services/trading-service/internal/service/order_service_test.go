@@ -113,7 +113,7 @@ type fakeListingRepo struct {
 	countErr    error
 }
 
-func (r *fakeListingRepo) FindByID(_ context.Context, _ uint) (*model.Listing, error) {
+func (r *fakeListingRepo) FindByID(_ context.Context, _ uint, daysBack int) (*model.Listing, error) {
 	return r.listing, r.findByIDErr
 }
 

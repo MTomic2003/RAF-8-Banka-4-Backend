@@ -25,13 +25,23 @@ func (r *listingRepository) FindAll(ctx context.Context) ([]model.Listing, error
 	return listings, nil
 }
 
-func (r *listingRepository) FindByID(ctx context.Context, id uint) (*model.Listing, error) {
+func (r *listingRepository) FindByID(ctx context.Context, id uint, daysBack int) (*model.Listing, error) {
 	var listing model.Listing
+
 	result := r.db.WithContext(ctx).
 		Preload("Asset").
 		Preload("Stock").
 		Preload("DailyPriceInfos", func(db *gorm.DB) *gorm.DB {
-			return db.Order("date ASC")
+			q := db.Order("date ASC")
+			if daysBack >= 0 {
+				now := time.Now().UTC()
+				since := time.Date(
+					now.Year(), now.Month(), now.Day(),
+					0, 0, 0, 0, now.Location(),
+				).AddDate(0, 0, -daysBack)
+				q = q.Where("listing_daily_price_infos.date >= ?", since)
+			}
+			return q
 		}).
 		First(&listing, id)
 

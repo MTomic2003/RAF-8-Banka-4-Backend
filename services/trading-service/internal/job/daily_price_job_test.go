@@ -48,7 +48,7 @@ func (m *mockListingRepo) FindFutures(ctx context.Context, filter repository.Lis
 func (m *mockListingRepo) FindOptions(ctx context.Context, filter repository.ListingFilter) ([]model.Listing, int64, error) {
 	return nil, 0, nil
 }
-func (m *mockListingRepo) FindByID(ctx context.Context, id uint) (*model.Listing, error) {
+func (m *mockListingRepo) FindByID(ctx context.Context, id uint, daysBack int) (*model.Listing, error) {
 	return nil, nil
 }
 func (m *mockListingRepo) Upsert(ctx context.Context, listing *model.Listing) error { return nil }

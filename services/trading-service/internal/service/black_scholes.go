@@ -12,9 +12,12 @@ const riskFreeRate = 0.05
 //	T     = time to expiration in years
 //	r     = risk-free interest rate
 //	sigma = volatility of the underlying
+
 func BlackScholesCall(S, K, T, r, sigma float64) float64 {
+	if K <= 0 || S <= 0 {
+		return math.Max(S-K, 0)
+	}
 	if T <= 0 || sigma <= 0 {
-		// Expired or zero-vol → intrinsic value only.
 		return math.Max(S-K, 0)
 	}
 	d1 := (math.Log(S/K) + (r+0.5*sigma*sigma)*T) / (sigma * math.Sqrt(T))
@@ -22,8 +25,10 @@ func BlackScholesCall(S, K, T, r, sigma float64) float64 {
 	return S*cdf(d1) - K*math.Exp(-r*T)*cdf(d2)
 }
 
-// BlackScholesPut returns the theoretical price of a European put option.
 func BlackScholesPut(S, K, T, r, sigma float64) float64 {
+	if K <= 0 || S <= 0 {
+		return math.Max(K-S, 0)
+	}
 	if T <= 0 || sigma <= 0 {
 		return math.Max(K-S, 0)
 	}

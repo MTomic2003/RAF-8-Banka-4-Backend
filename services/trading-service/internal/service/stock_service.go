@@ -6,6 +6,7 @@ import (
 	"log"
 	"sync"
 	"time"
+	"math"
 
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
@@ -327,6 +328,10 @@ func (s *StockService) seedGeneratedOption(
 	if premium < 0.01 {
 		premium = 0.01 // floor so the price is never zero
 	}
+
+	if math.IsNaN(premium) || math.IsInf(premium, 0) || premium < 0.01 {
+    premium = 0.01
+	}
 	// --- end calculation ---
 
 	asset := &model.Asset{
@@ -423,7 +428,11 @@ func (s *StockService) RefreshOptions(ctx context.Context) error {
 
 		var strikes []float64
 		for i := -5; i <= 5; i++ {
-			strikes = append(strikes, float64(basePrice+i))
+			strike := float64(basePrice + i)
+			if strike <= 0 {
+				continue
+			}
+			strikes = append(strikes, strike)
 		}
 
 		for _, exp := range expirations {

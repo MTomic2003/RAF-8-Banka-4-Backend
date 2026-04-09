@@ -63,12 +63,13 @@ func (h *ListingHandler) GetStocks(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param listingId path int true "Listing ID"
+// @Param days_back query integer false "History range in days"
 // @Success 200 {object} dto.StockDetailedResponse
 // @Failure 400 {object} errors.AppError
 // @Failure 404 {object} errors.AppError
 // @Failure 500 {object} errors.AppError
 // @Security BearerAuth
-// @Router /api/listings/stock/listingId [get]
+// @Router /api/listings/stock/{listingId} [get]
 func (h *ListingHandler) GetStockDetails(c *gin.Context) {
 	listingId, err := strconv.ParseUint(c.Param("listingId"), 10, 64)
 	if err != nil {
@@ -76,7 +77,12 @@ func (h *ListingHandler) GetStockDetails(c *gin.Context) {
 		return
 	}
 
-	result, err := h.svc.GetStockDetails(c.Request.Context(), uint(listingId))
+	var req dto.ListingDetailsQuery
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.Error(errors.BadRequestErr("invalid query parameters: " + err.Error()))
+		return
+	}
+	result, err := h.svc.GetStockDetails(c.Request.Context(), uint(listingId), req.DaysBack)
 	if err != nil {
 		c.Error(err)
 		return
@@ -196,6 +202,7 @@ func (h *ListingHandler) GetOptions(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param listingId path int true "Listing ID"
+// @Param days query integer false "History range in days"
 // @Success 200 {object} dto.FutureDetailedResponse
 // @Failure 400 {object} errors.AppError
 // @Failure 404 {object} errors.AppError
@@ -209,7 +216,12 @@ func (h *ListingHandler) GetFutureDetails(c *gin.Context) {
 		return
 	}
 
-	result, err := h.svc.GetFutureDetails(c.Request.Context(), uint(listingId))
+	var req dto.ListingDetailsQuery
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.Error(errors.BadRequestErr("invalid query parameters: " + err.Error()))
+		return
+	}
+	result, err := h.svc.GetFutureDetails(c.Request.Context(), uint(listingId), req.DaysBack)
 	if err != nil {
 		c.Error(err)
 		return
@@ -224,6 +236,7 @@ func (h *ListingHandler) GetFutureDetails(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param listingId path int true "Listing ID"
+// @Param days query integer false "History range in days"
 // @Success 200 {object} dto.ForexDetailedResponse
 // @Failure 400 {object} errors.AppError
 // @Failure 404 {object} errors.AppError
@@ -236,8 +249,12 @@ func (h *ListingHandler) GetForexDetails(c *gin.Context) {
 		c.Error(errors.BadRequestErr("invalid listing id"))
 		return
 	}
-
-	result, err := h.svc.GetForexDetails(c.Request.Context(), uint(listingId))
+	var req dto.ListingDetailsQuery
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.Error(errors.BadRequestErr("invalid query parameters: " + err.Error()))
+		return
+	}
+	result, err := h.svc.GetForexDetails(c.Request.Context(), uint(listingId), req.DaysBack)
 	if err != nil {
 		c.Error(err)
 		return
@@ -252,6 +269,7 @@ func (h *ListingHandler) GetForexDetails(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param listingId path int true "Listing ID"
+// @Param days query integer false "History range in days"
 // @Success 200 {object} dto.OptionDetailedResponse
 // @Failure 400 {object} errors.AppError
 // @Failure 404 {object} errors.AppError
@@ -265,7 +283,12 @@ func (h *ListingHandler) GetOptionDetails(c *gin.Context) {
 		return
 	}
 
-	result, err := h.svc.GetOptionDetails(c.Request.Context(), uint(listingId))
+	var req dto.ListingDetailsQuery
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.Error(errors.BadRequestErr("invalid query parameters: " + err.Error()))
+		return
+	}
+	result, err := h.svc.GetOptionDetails(c.Request.Context(), uint(listingId), req.DaysBack)
 	if err != nil {
 		c.Error(err)
 		return

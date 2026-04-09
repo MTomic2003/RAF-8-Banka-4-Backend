@@ -560,6 +560,12 @@
                         "name": "listingId",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "History range in days",
+                        "name": "days",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -732,6 +738,12 @@
                         "name": "listingId",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "History range in days",
+                        "name": "days",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -904,6 +916,12 @@
                         "name": "listingId",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "History range in days",
+                        "name": "days",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -934,7 +952,7 @@
                 }
             }
         },
-        "/api/listings/stock/listingId": {
+        "/api/listings/stock/{listingId}": {
             "get": {
                 "security": [
                     {
@@ -959,6 +977,12 @@
                         "name": "listingId",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "History range in days",
+                        "name": "days_back",
+                        "in": "query"
                     }
                 ],
                 "responses": {

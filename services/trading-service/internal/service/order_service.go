@@ -155,7 +155,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 		return nil, err
 	}
 
-	listing, err := s.listingRepo.FindByID(ctx, req.ListingID)
+	listing, err := s.listingRepo.FindByID(ctx, req.ListingID, 0)
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
@@ -374,7 +374,7 @@ func (s *OrderService) processDueOrders(ctx context.Context) error {
 }
 
 func (s *OrderService) processOrder(ctx context.Context, order *model.Order) error {
-	listing, err := s.listingRepo.FindByID(ctx, order.ListingID)
+	listing, err := s.listingRepo.FindByID(ctx, order.ListingID, 0)
 	if err != nil {
 		return err
 	}

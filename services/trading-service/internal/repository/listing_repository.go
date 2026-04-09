@@ -12,7 +12,7 @@ type ListingRepository interface {
 	FindStocks(ctx context.Context, filter ListingFilter) ([]model.Listing, int64, error)
 	FindFutures(ctx context.Context, filter ListingFilter) ([]model.Listing, int64, error)
 	FindOptions(ctx context.Context, filter ListingFilter) ([]model.Listing, int64, error)
-	FindByID(ctx context.Context, id uint) (*model.Listing, error)
+	FindByID(ctx context.Context, id uint, daysBack int) (*model.Listing, error)
 	FindLatestDailyPriceInfo(ctx context.Context, listingID uint) (*model.ListingDailyPriceInfo, error)
 	Upsert(ctx context.Context, listing *model.Listing) error
 	UpdatePriceAndAsk(ctx context.Context, listing *model.Listing, price, ask float64) error

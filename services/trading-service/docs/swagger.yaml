@@ -967,6 +967,10 @@ paths:
         name: listingId
         required: true
         type: integer
+      - description: History range in days
+        in: query
+        name: days
+        type: integer
       produces:
       - application/json
       responses:
@@ -1079,6 +1083,10 @@ paths:
         in: path
         name: listingId
         required: true
+        type: integer
+      - description: History range in days
+        in: query
+        name: days
         type: integer
       produces:
       - application/json
@@ -1193,6 +1201,10 @@ paths:
         name: listingId
         required: true
         type: integer
+      - description: History range in days
+        in: query
+        name: days
+        type: integer
       produces:
       - application/json
       responses:
@@ -1217,7 +1229,7 @@ paths:
       summary: Get option details
       tags:
       - listings
-  /api/listings/stock/listingId:
+  /api/listings/stock/{listingId}:
     get:
       consumes:
       - application/json
@@ -1227,6 +1239,10 @@ paths:
         in: path
         name: listingId
         required: true
+        type: integer
+      - description: History range in days
+        in: query
+        name: days_back
         type: integer
       produces:
       - application/json
