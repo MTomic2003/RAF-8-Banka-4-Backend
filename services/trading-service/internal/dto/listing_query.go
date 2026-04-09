@@ -20,7 +20,7 @@ type ListingQuery struct {
 	PageSize       int     `form:"page_size"`
 }
 type ListingDetailsQuery struct {
-	Minutes int `form:"minutes" binding:"omitempty,min=0" example:"1440"`
+	DaysBack int `form:"days_back" binding:"omitempty"`
 }
 
 func (q *ListingQuery) Normalize() {
