@@ -35,7 +35,7 @@ services:
       retries: 10
       start_period: 30s
     volumes:
-      - .:/app:Z
+      - .:/app:z
       - /app/tmp
       - /go/pkg/mod
     working_dir: /app/services/user-service
@@ -61,7 +61,7 @@ services:
     healthcheck:
       test: curl -f http://localhost:${BANKING_SERVICE_PORT}/api/health || exit 1
     volumes:
-      - .:/app:Z
+      - .:/app:z
       - /app/tmp
       - /go/pkg/mod
     working_dir: /app/services/banking-service
@@ -87,7 +87,7 @@ services:
     healthcheck:
       test: curl -f http://localhost:${TRADING_SERVICE_PORT}/api/health || exit 1
     volumes:
-      - .:/app:Z
+      - .:/app:z
       - /app/tmp
       - /go/pkg/mod
     working_dir: /app/services/trading-service
