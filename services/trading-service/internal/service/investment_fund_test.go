@@ -238,7 +238,8 @@ func (f *fakeUserClient) GetIdentityByUserId(ctx context.Context, userID uint64,
 // ── Helper for creating service with listingRepo ───────────────────────────
 
 func newTestFundServiceWithListing(fundRepo *fakeFundRepo, listingRepo *fakeListingRepo, bankingClient *fakeFundBankingClient, userClient *fakeUserClient) *InvestmentFundService {
-	svc := NewInvestmentFundService(fundRepo, &fakePositionRepo{}, listingRepo, &fakeInvestmentRepo{}, &fakeAssetOwnershipRepo{}, bankingClient, userClient)
+	exchange := defaultExchange()
+	svc := NewInvestmentFundService(fundRepo, &fakePositionRepo{}, listingRepo, &fakeInvestmentRepo{}, &fakeAssetOwnershipRepo{}, &fakeExchangeRepo{exchange: exchange}, bankingClient, userClient)
 	svc.listingRepo = listingRepo // inject listingRepo
 	return svc
 }
@@ -284,8 +285,8 @@ func TestGetFundDetail_Success(t *testing.T) {
 	}
 	listingRepo := &fakeListingRepo{
 		byAssetIDs: []model.Listing{
-			{AssetID: 100, Price: 120, MaintenanceMargin: 10, ListingID: 1000},
-			{AssetID: 101, Price: 110, MaintenanceMargin: 8, ListingID: 1001},
+			{AssetID: 100, Price: 120, MaintenanceMargin: 10, ListingID: 1000, Exchange: &model.Exchange{MicCode: "XSIM"}},
+			{AssetID: 101, Price: 110, MaintenanceMargin: 8, ListingID: 1001, Exchange: &model.Exchange{MicCode: "XSIM"}},
 		},
 		dailyPriceInfo: &model.ListingDailyPriceInfo{Change: 2.5, Volume: 1000},
 	}
@@ -322,7 +323,8 @@ func newTestFundService(
 	bankingClient *fakeFundBankingClient,
 	userClient *fakeFundUserClient,
 ) *InvestmentFundService {
-	return NewInvestmentFundService(fundRepo, &fakePositionRepo{}, listingRepo, &fakeInvestmentRepo{}, ownershipRepo, bankingClient, userClient)
+	exchange := defaultExchange()
+	return NewInvestmentFundService(fundRepo, &fakePositionRepo{}, listingRepo, &fakeInvestmentRepo{}, ownershipRepo, &fakeExchangeRepo{exchange: exchange}, bankingClient, userClient)
 }
 
 // ── CreateFund tests ──────────────────────────────────────────────

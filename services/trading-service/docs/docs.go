@@ -3381,6 +3381,9 @@ const docTemplate = `{
                 "change": {
                     "type": "number"
                 },
+                "currency": {
+                    "type": "string"
+                },
                 "initial_margin_cost": {
                     "type": "number"
                 },

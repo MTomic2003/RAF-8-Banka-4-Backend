@@ -751,6 +751,8 @@ definitions:
         type: string
       change:
         type: number
+      currency:
+        type: string
       initial_margin_cost:
         type: number
       price:

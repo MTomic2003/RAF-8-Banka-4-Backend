@@ -23,6 +23,7 @@ type InvestmentFundService struct {
 	positionRepo   repository.ClientFundPositionRepository
 	investmentRepo repository.ClientFundInvestmentRepository
 	ownershipRepo  repository.AssetOwnershipRepository
+	exchangeRepo   repository.ExchangeRepository
 	bankingClient  client.BankingClient
 	userClient     client.UserServiceClient
 	now            func() time.Time
@@ -34,6 +35,7 @@ func NewInvestmentFundService(
 	listingRepo repository.ListingRepository,
 	investmentRepo repository.ClientFundInvestmentRepository,
 	ownershipRepo repository.AssetOwnershipRepository,
+	exchangeRepo repository.ExchangeRepository,
 	bankingClient client.BankingClient,
 	userClient client.UserServiceClient,
 ) *InvestmentFundService {
@@ -43,6 +45,7 @@ func NewInvestmentFundService(
 		listingRepo:    listingRepo,
 		investmentRepo: investmentRepo,
 		ownershipRepo:  ownershipRepo,
+		exchangeRepo:   exchangeRepo,
 		bankingClient:  bankingClient,
 		userClient:     userClient,
 		now:            time.Now,
@@ -469,6 +472,14 @@ func (s *InvestmentFundService) GetFundDetail(ctx context.Context, fundID uint) 
 		}
 		dailyInfo, _ := s.listingRepo.FindLastDailyPriceInfo(ctx, listing.ListingID, time.Now())
 		currentPrice := listing.Price
+
+		exchangeMic := listing.Exchange.MicCode
+		exchange, err := s.exchangeRepo.FindByMicCode(ctx, exchangeMic)
+		if err != nil {
+			return nil, err
+		}
+		listingCurrency := exchange.Currency
+
 		marketValue := h.Amount * currentPrice
 		fundValue += marketValue
 
@@ -482,6 +493,7 @@ func (s *InvestmentFundService) GetFundDetail(ctx context.Context, fundID uint) 
 		holdingsResp = append(holdingsResp, dto.SecurityHoldingResponse{
 			Ticker:            h.Asset.Ticker,
 			Price:             currentPrice,
+			Currency:          listingCurrency,
 			Change:            change,
 			Volume:            volume,
 			InitialMarginCost: listing.MaintenanceMargin,
