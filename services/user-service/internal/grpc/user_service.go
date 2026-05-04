@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 
+	pkgerrors "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/service"
 	"google.golang.org/grpc/codes"
@@ -14,10 +15,10 @@ import (
 
 type UserService struct {
 	pb.UnimplementedUserServiceServer
-	clientRepo      repository.ClientRepository
-	employeeRepo    repository.EmployeeRepository
-	clientService   *service.ClientService
-	actuaryService  *service.ActuaryService
+	clientRepo     repository.ClientRepository
+	employeeRepo   repository.EmployeeRepository
+	clientService  *service.ClientService
+	actuaryService *service.ActuaryService
 }
 
 func NewUserService(clientRepo repository.ClientRepository, employeeRepo repository.EmployeeRepository, clientService *service.ClientService,
@@ -135,32 +136,41 @@ func (s *UserService) GetIdentityByUserId(ctx context.Context, req *pb.GetIdenti
 	var identityID uint
 
 	switch userType := req.UserType; userType {
-		case "ACTUARY":
-			employee, err := s.employeeRepo.FindByID(ctx, uint(req.UserId))
-			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed to fetch employee: %v", err)
-			}
-			if employee == nil {
-				return nil, status.Errorf(codes.NotFound, "employee %d not found", req.UserId)
-			}
-			identityID = employee.Identity.ID
-		case "CLIENT":
-			client, err := s.clientRepo.FindByID(ctx, uint(req.UserId))
-			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed to fetch client: %v", err)
-			}
-			if client == nil {
-				return nil, status.Errorf(codes.NotFound, "client %d not found", req.UserId)
-			}
-			identityID = client.Identity.ID
-		default:
-			return nil, status.Errorf(codes.Internal, "wrong user type: %s", userType)
+	case "ACTUARY":
+		employee, err := s.employeeRepo.FindByID(ctx, uint(req.UserId))
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to fetch employee: %v", err)
+		}
+		if employee == nil {
+			return nil, status.Errorf(codes.NotFound, "employee %d not found", req.UserId)
+		}
+		identityID = employee.Identity.ID
+	case "CLIENT":
+		client, err := s.clientRepo.FindByID(ctx, uint(req.UserId))
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to fetch client: %v", err)
+		}
+		if client == nil {
+			return nil, status.Errorf(codes.NotFound, "client %d not found", req.UserId)
+		}
+		identityID = client.Identity.ID
+	default:
+		return nil, status.Errorf(codes.Internal, "wrong user type: %s", userType)
 
 	}
 
-	resp := &pb.GetIdentityByUserIdResponse {
+	resp := &pb.GetIdentityByUserIdResponse{
 		IdentityId: uint64(identityID),
 	}
 
 	return resp, nil
+}
+
+func (s *UserService) IncrementUsedLimit(ctx context.Context, req *pb.IncrementUsedLimitRequest) (*pb.IncrementUsedLimitResponse, error) {
+	usedLimit, err := s.actuaryService.IncrementUsedLimit(ctx, uint(req.EmployeeId), req.Amount)
+	if err != nil {
+		return nil, pkgerrors.MapGrpcToHttpError(err)
+	}
+
+	return &pb.IncrementUsedLimitResponse{UsedLimit: usedLimit}, nil
 }

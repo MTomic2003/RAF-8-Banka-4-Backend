@@ -278,7 +278,7 @@ func (s *OrderService) ApproveOrder(ctx context.Context, orderID uint) (*model.O
 	if exchange == nil {
 		return nil, errors.NotFoundErr("exchange not found")
 	}
-	
+
 	if err := s.validateSettlementDate(ctx, &order.Listing); err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func (s *OrderService) ApproveOrder(ctx context.Context, orderID uint) (*model.O
 	if authCtx.IdentityType == auth.IdentityEmployee {
 		ownerType = model.OwnerTypeActuary
 	}
-	
+
 	if order.Direction == model.OrderDirectionSell && order.Listing.Asset != nil {
 		if err := s.validateSellOwnership(ctx, authCtx.IdentityID, ownerType, order.Listing.AssetID, float64(order.Quantity)); err != nil {
 			return nil, err
@@ -521,7 +521,40 @@ func (s *OrderService) processOrder(ctx context.Context, order *model.Order) err
 		return err
 	}
 
+	if err := s.updateActuaryUsedLimit(ctx, order, grossAmount, tradeCurrency); err != nil {
+		return err
+	}
+
 	_ = settlement
+	return nil
+}
+
+func (s *OrderService) updateActuaryUsedLimit(ctx context.Context, order *model.Order, grossAmount float64, tradeCurrency string) error {
+	if order.OwnerType != model.OwnerTypeActuary || order.Direction != model.OrderDirectionBuy || grossAmount <= 0 {
+		return nil
+	}
+
+	employee, err := s.userClient.GetEmployeeById(ctx, uint64(order.UserID))
+	if err != nil {
+		return err
+	}
+	if !employee.IsAgent {
+		return nil
+	}
+
+	amountRSD := grossAmount
+	if tradeCurrency != "RSD" {
+		amountRSD, err = s.bankingClient.ConvertCurrency(ctx, grossAmount, tradeCurrency, "RSD")
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = s.userClient.IncrementUsedLimit(ctx, uint64(order.UserID), amountRSD)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1079,7 +1112,7 @@ func (s *OrderService) getOwnershipForOrder(ctx context.Context, order *model.Or
 	if order.Listing.Asset == nil {
 		return nil, nil
 	}
-	
+
 	resp, err := s.userClient.GetIdentityByUserId(ctx, uint64(order.UserID), string(order.OwnerType))
 	if err != nil {
 		return nil, errors.InternalErr(err)

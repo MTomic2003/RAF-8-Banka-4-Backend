@@ -172,6 +172,12 @@ type fakeUserServiceClient struct {
 	clientErr    error
 	identityResp *pb.GetIdentityByUserIdResponse
 	identityErr  error
+
+	incrementUsedLimitResp       *pb.IncrementUsedLimitResponse
+	incrementUsedLimitErr        error
+	incrementUsedLimitCalled     bool
+	incrementUsedLimitEmployeeID uint64
+	incrementUsedLimitAmount     float64
 }
 
 func (c *fakeUserServiceClient) GetEmployeeById(_ context.Context, _ uint64) (*pb.GetEmployeeByIdResponse, error) {
@@ -194,16 +200,29 @@ func (c *fakeUserServiceClient) GetIdentityByUserId(_ context.Context, _ uint64,
 	return c.identityResp, c.identityErr
 }
 
+func (c *fakeUserServiceClient) IncrementUsedLimit(_ context.Context, employeeID uint64, amount float64) (*pb.IncrementUsedLimitResponse, error) {
+	c.incrementUsedLimitCalled = true
+	c.incrementUsedLimitEmployeeID = employeeID
+	c.incrementUsedLimitAmount = amount
+	if c.incrementUsedLimitErr != nil {
+		return nil, c.incrementUsedLimitErr
+	}
+	if c.incrementUsedLimitResp != nil {
+		return c.incrementUsedLimitResp, nil
+	}
+	return &pb.IncrementUsedLimitResponse{UsedLimit: amount}, nil
+}
+
 // ── Fake Banking Client (order-specific) ──────────────────────────
 
 type fakeOrderBankingClient struct {
-	accountResp     *pb.GetAccountByNumberResponse
-	accountErr      error
-  hasActiveLoan    bool
+	accountResp      *pb.GetAccountByNumberResponse
+	accountErr       error
+	hasActiveLoan    bool
 	hasActiveLoanErr error
-	settlementResp  *pb.ExecuteTradeSettlementResponse
-	settlementErr   error
-	accountCurrency string
+	settlementResp   *pb.ExecuteTradeSettlementResponse
+	settlementErr    error
+	accountCurrency  string
 }
 
 func (c *fakeOrderBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
@@ -1698,6 +1717,151 @@ func TestProcessOrder_MarketOrder_FullFill(t *testing.T) {
 }
 
 // ── processDueOrders Tests ───────────────────────────────────────
+
+func TestProcessOrder_ActuaryBuy_IncrementsUsedLimit(t *testing.T) {
+	listing := defaultListing()
+	exchange := defaultExchange()
+	userClient := &fakeUserServiceClient{
+		employeeResp: &pb.GetEmployeeByIdResponse{Id: 42, IsAgent: true},
+		identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5},
+	}
+	bankingClient := &fakeOrderBankingClient{
+		settlementResp: &pb.ExecuteTradeSettlementResponse{
+			SourceAmount:            302.0,
+			SourceCurrencyCode:      "USD",
+			DestinationAmount:       302.0,
+			DestinationCurrencyCode: "USD",
+		},
+	}
+	svc := newTestOrderService(
+		&fakeOrderRepo{},
+		&fakeOrderTransactionRepo{},
+		&fakeExchangeRepo{exchange: exchange},
+		&fakeListingRepo{listing: listing},
+		userClient,
+		bankingClient,
+		&fakeTaxRecorder{},
+	)
+
+	order := &model.Order{
+		OrderID:          1,
+		UserID:           42,
+		ListingID:        1,
+		OrderType:        model.OrderTypeMarket,
+		Direction:        model.OrderDirectionBuy,
+		Quantity:         2,
+		FilledQty:        0,
+		ContractSize:     1,
+		Triggered:        true,
+		AllOrNone:        true,
+		Status:           model.OrderStatusApproved,
+		AccountNumber:    "444000100000000110",
+		CommissionExempt: true,
+		OwnerType:        model.OwnerTypeActuary,
+	}
+
+	err := svc.processOrder(context.Background(), order)
+	require.NoError(t, err)
+	require.True(t, userClient.incrementUsedLimitCalled)
+	require.Equal(t, uint64(42), userClient.incrementUsedLimitEmployeeID)
+	require.InDelta(t, 302.0, userClient.incrementUsedLimitAmount, 0.01)
+}
+
+func TestProcessOrder_SupervisorBuy_DoesNotIncrementUsedLimit(t *testing.T) {
+	listing := defaultListing()
+	exchange := defaultExchange()
+	userClient := &fakeUserServiceClient{
+		employeeResp: &pb.GetEmployeeByIdResponse{Id: 42, IsAgent: false, IsSupervisor: true},
+		identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5},
+	}
+	bankingClient := &fakeOrderBankingClient{
+		settlementResp: &pb.ExecuteTradeSettlementResponse{
+			SourceAmount:            151.0,
+			SourceCurrencyCode:      "USD",
+			DestinationAmount:       151.0,
+			DestinationCurrencyCode: "USD",
+		},
+	}
+	svc := newTestOrderService(
+		&fakeOrderRepo{},
+		&fakeOrderTransactionRepo{},
+		&fakeExchangeRepo{exchange: exchange},
+		&fakeListingRepo{listing: listing},
+		userClient,
+		bankingClient,
+		&fakeTaxRecorder{},
+	)
+
+	order := &model.Order{
+		OrderID:          1,
+		UserID:           42,
+		ListingID:        1,
+		OrderType:        model.OrderTypeMarket,
+		Direction:        model.OrderDirectionBuy,
+		Quantity:         1,
+		FilledQty:        0,
+		ContractSize:     1,
+		Triggered:        true,
+		AllOrNone:        true,
+		Status:           model.OrderStatusApproved,
+		AccountNumber:    "444000100000000110",
+		CommissionExempt: true,
+		OwnerType:        model.OwnerTypeActuary,
+	}
+
+	err := svc.processOrder(context.Background(), order)
+	require.NoError(t, err)
+	require.False(t, userClient.incrementUsedLimitCalled)
+}
+
+func TestProcessOrder_ActuarySell_DoesNotIncrementUsedLimit(t *testing.T) {
+	listing := defaultListing()
+	exchange := defaultExchange()
+	userClient := &fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}}
+	bankingClient := &fakeOrderBankingClient{
+		settlementResp: &pb.ExecuteTradeSettlementResponse{
+			SourceAmount:            151.0,
+			SourceCurrencyCode:      "USD",
+			DestinationAmount:       151.0,
+			DestinationCurrencyCode: "USD",
+		},
+	}
+	svc := newTestOrderService(
+		&fakeOrderRepo{},
+		&fakeOrderTransactionRepo{},
+		&fakeExchangeRepo{exchange: exchange},
+		&fakeListingRepo{listing: listing},
+		userClient,
+		bankingClient,
+		&fakeTaxRecorder{},
+	)
+	svc.assetOwnershipRepo = &fakeAssetOwnershipRepo{
+		ownerships: []model.AssetOwnership{
+			{AssetID: listing.AssetID, IdentityID: 5, OwnerType: model.OwnerTypeActuary, Amount: 1, AvgBuyPriceRSD: 200},
+		},
+	}
+
+	order := &model.Order{
+		OrderID:          1,
+		UserID:           42,
+		ListingID:        1,
+		OrderType:        model.OrderTypeMarket,
+		Direction:        model.OrderDirectionSell,
+		Quantity:         1,
+		FilledQty:        0,
+		ContractSize:     1,
+		Triggered:        true,
+		AllOrNone:        true,
+		Status:           model.OrderStatusApproved,
+		AccountNumber:    "444000100000000110",
+		CommissionExempt: true,
+		OwnerType:        model.OwnerTypeActuary,
+	}
+
+	err := svc.processOrder(context.Background(), order)
+	require.NoError(t, err)
+	require.False(t, userClient.incrementUsedLimitCalled)
+}
 
 func TestProcessDueOrders_NoReadyOrders(t *testing.T) {
 	orderRepo := &fakeOrderRepo{readyOrders: []model.Order{}}

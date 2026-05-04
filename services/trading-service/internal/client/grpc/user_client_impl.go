@@ -53,11 +53,22 @@ func (c *UserServiceClient) GetAllActuaries(ctx context.Context, page, pageSize 
 }
 
 func (c *UserServiceClient) GetIdentityByUserId(ctx context.Context, userID uint64, userType string) (*pb.GetIdentityByUserIdResponse, error) {
-	resp, err := c.stub.GetIdentityByUserId(ctx, &pb.GetIdentityByUserIdRequest {
+	resp, err := c.stub.GetIdentityByUserId(ctx, &pb.GetIdentityByUserIdRequest{
 		UserId: userID, UserType: userType,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("user client GetIdentityByUserId: %w", err)
+	}
+	return resp, nil
+}
+
+func (c *UserServiceClient) IncrementUsedLimit(ctx context.Context, employeeID uint64, amount float64) (*pb.IncrementUsedLimitResponse, error) {
+	resp, err := c.stub.IncrementUsedLimit(ctx, &pb.IncrementUsedLimitRequest{
+		EmployeeId: employeeID,
+		Amount:     amount,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("user client IncrementUsedLimit: %w", err)
 	}
 	return resp, nil
 }
