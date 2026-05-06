@@ -294,6 +294,10 @@ definitions:
     type: object
   dto.UpdateActuarySettingsRequest:
     properties:
+      is_agent:
+        type: boolean
+      is_supervisor:
+        type: boolean
       limit:
         minimum: 0
         type: number
@@ -474,8 +478,8 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Updates an agent's limit and approval settings. Only supervisors
-        can perform this action.
+      description: Updates an actuary's settings including limit, approval, isAgent
+        and isSupervisor flags. Only admins can perform this action.
       parameters:
       - description: Employee ID
         in: path

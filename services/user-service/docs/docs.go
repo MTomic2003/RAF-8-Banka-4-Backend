@@ -134,7 +134,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates an agent's limit and approval settings. Only supervisors can perform this action.",
+                "description": "Updates an actuary's settings including limit, approval, isAgent and isSupervisor flags. Only admins can perform this action.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1575,6 +1575,12 @@ const docTemplate = `{
         "dto.UpdateActuarySettingsRequest": {
             "type": "object",
             "properties": {
+                "is_agent": {
+                    "type": "boolean"
+                },
+                "is_supervisor": {
+                    "type": "boolean"
+                },
                 "limit": {
                     "type": "number",
                     "minimum": 0
