@@ -177,7 +177,7 @@ func (h *OtcOfferHandler) GetMyActiveOffers(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	c.JSON(http.StatusOK, dto.ToOtcOfferResponseList(offers))
+	c.JSON(http.StatusOK, offers)
 }
 
 // GetMyOptionContracts returns all option contracts in which the authenticated user participates.

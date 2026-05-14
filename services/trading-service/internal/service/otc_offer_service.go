@@ -299,12 +299,61 @@ func (s *OtcOfferService) RejectOffer(ctx context.Context, offerID uint, req dto
 }
 
 // GetActiveOffersForUser returns all active negotiations in which the given user participates.
-func (s *OtcOfferService) GetActiveOffersForUser(ctx context.Context, userID uint) ([]model.OtcOffer, error) {
+func (s *OtcOfferService) GetActiveOffersForUser(ctx context.Context, userID uint) ([]dto.OtcOfferResponse, error) {
 	offers, err := s.offerRepo.FindActiveForUser(ctx, userID)
 	if err != nil {
 		return nil, errors.InternalErr(err)
 	}
-	return offers, nil
+
+	// --- 1. Collect AssetIDs ---
+	assetIDSet := make(map[uint]struct{})
+	for _, o := range offers {
+		assetIDSet[o.StockAssetID] = struct{}{}
+	}
+	assetIDs := make([]uint, 0, len(assetIDSet))
+	for id := range assetIDSet {
+		assetIDs = append(assetIDs, id)
+	}
+
+	// --- 2. Fetch stocks ---
+	stocks, err := s.stockRepo.FindByAssetIDs(ctx, assetIDs)
+	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+
+	// --- 3. Build market data map ---
+	type marketData struct {
+		price    float64
+		currency string
+	}
+	dataMap := make(map[uint]marketData)
+	for _, stock := range stocks {
+		if stock.Listing != nil {
+			md := marketData{
+				price: stock.Listing.Price,
+			}
+			if stock.Listing.Exchange != nil {
+				md.currency = stock.Listing.Exchange.Currency
+			}
+			dataMap[stock.AssetID] = md
+		}
+	}
+
+	// --- 4. Convert to DTO ---
+	resp := dto.ToOtcOfferResponseList(offers)
+
+	// --- 5. Inject market data ---
+	for i := range resp {
+		if md, ok := dataMap[resp[i].StockAssetID]; ok {
+			resp[i].CurrentPrice = &md.price
+			resp[i].ListingCurrency = md.currency
+		} else {
+			resp[i].CurrentPrice = nil
+			resp[i].ListingCurrency = ""
+		}
+	}
+
+	return resp, nil
 }
 
 func (s *OtcOfferService) GetOptionContractsForUser(

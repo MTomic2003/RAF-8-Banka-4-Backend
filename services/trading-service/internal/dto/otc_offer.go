@@ -42,14 +42,18 @@ type RejectOfferRequest struct {
 // --- Response DTOs ---
 
 type OtcOfferResponse struct {
-	OtcOfferID          uint                 `json:"otc_offer_id"`
-	BuyerID             uint                 `json:"buyer_id"`
-	SellerID            uint                 `json:"seller_id"`
-	StockAssetID        uint                 `json:"stock_asset_id"`
-	Ticker              string               `json:"ticker,omitempty"`
-	StockName           string               `json:"stock_name,omitempty"`
-	Amount              int                  `json:"amount"`
-	PricePerStockRSD    float64              `json:"price_per_stock_rsd"`
+	OtcOfferID       uint    `json:"otc_offer_id"`
+	BuyerID          uint    `json:"buyer_id"`
+	SellerID         uint    `json:"seller_id"`
+	StockAssetID     uint    `json:"stock_asset_id"`
+	Ticker           string  `json:"ticker,omitempty"`
+	StockName        string  `json:"stock_name,omitempty"`
+	Amount           int     `json:"amount"`
+	PricePerStockRSD float64 `json:"price_per_stock_rsd"`
+
+	CurrentPrice    *float64 `json:"current_price,omitempty"`
+	ListingCurrency string   `json:"listing_currency,omitempty"`
+
 	PremiumRSD          float64              `json:"premium_rsd"`
 	SettlementDate      time.Time            `json:"settlement_date"`
 	BuyerAccountNumber  string               `json:"buyer_account_number"`
