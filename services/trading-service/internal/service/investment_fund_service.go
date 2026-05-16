@@ -187,7 +187,7 @@ func (s *InvestmentFundService) GetBankFundPositions(ctx context.Context) ([]dto
 			bankPct = 0
 		}
 
-		bankValue := bankPct * (liquidAssets + secVal)
+		bankValue := bankPct / 100.0 * (liquidAssets + secVal)
 		profit := bankValue - bankInvested
 
 		managerName := ""
