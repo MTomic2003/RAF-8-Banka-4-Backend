@@ -1,0 +1,316 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Bank-to-bank coordination service implementing the inter-bank\ntransaction and OTC negotiation protocol. Authentication is\nper-peer via the X-Api-Key header (see §2.10).",
+        "title": "Interbank Service API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "paths": {
+        "/interbank": {
+            "post": {
+                "description": "Single ingress endpoint for the bank-to-bank protocol (§2.11).\nAccepts NEW_TX, COMMIT_TX and ROLLBACK_TX messages. The\nX-Api-Key header authenticates the sending bank.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "interbank"
+                ],
+                "summary": "Receive an inter-bank message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Peer bank API key issued to the caller",
+                        "name": "X-Api-Key",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Message envelope (messageType + body)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.MessageEnvelope"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "NEW_TX accepted with a vote",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TransactionVote"
+                        }
+                    },
+                    "202": {
+                        "description": "Accepted, sender must retransmit later"
+                    },
+                    "204": {
+                        "description": "Accepted, no response body"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "dto.Asset": {
+            "type": "object",
+            "required": [
+                "asset",
+                "type"
+            ],
+            "properties": {
+                "asset": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "type": {
+                    "enum": [
+                        "MONAS",
+                        "STOCK",
+                        "OPTION"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.AssetType"
+                        }
+                    ]
+                }
+            }
+        },
+        "dto.AssetType": {
+            "type": "string",
+            "enum": [
+                "MONAS",
+                "STOCK",
+                "OPTION"
+            ],
+            "x-enum-varnames": [
+                "AssetMonas",
+                "AssetStock",
+                "AssetOption"
+            ]
+        },
+        "dto.ForeignBankId": {
+            "type": "object",
+            "required": [
+                "id",
+                "routingNumber"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "routingNumber": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.IdempotenceKey": {
+            "type": "object",
+            "required": [
+                "locallyGeneratedKey",
+                "routingNumber"
+            ],
+            "properties": {
+                "locallyGeneratedKey": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "routingNumber": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.MessageEnvelope": {
+            "type": "object",
+            "required": [
+                "idempotenceKey",
+                "messageType"
+            ],
+            "properties": {
+                "idempotenceKey": {
+                    "$ref": "#/definitions/dto.IdempotenceKey"
+                },
+                "messageType": {
+                    "enum": [
+                        "NEW_TX",
+                        "COMMIT_TX",
+                        "ROLLBACK_TX"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.MessageType"
+                        }
+                    ]
+                }
+            }
+        },
+        "dto.MessageType": {
+            "type": "string",
+            "enum": [
+                "NEW_TX",
+                "COMMIT_TX",
+                "ROLLBACK_TX"
+            ],
+            "x-enum-varnames": [
+                "MessageTypeNewTx",
+                "MessageTypeCommitTx",
+                "MessageTypeRollbackTx"
+            ]
+        },
+        "dto.NoVoteReason": {
+            "type": "object",
+            "properties": {
+                "posting": {
+                    "$ref": "#/definitions/dto.Posting"
+                },
+                "reason": {
+                    "$ref": "#/definitions/dto.NoVoteReasonKind"
+                }
+            }
+        },
+        "dto.NoVoteReasonKind": {
+            "type": "string",
+            "enum": [
+                "UNBALANCED_TX",
+                "NO_SUCH_ACCOUNT",
+                "NO_SUCH_ASSET",
+                "UNACCEPTABLE_ASSET",
+                "INSUFFICIENT_ASSET",
+                "OPTION_AMOUNT_INCORRECT",
+                "OPTION_USED_OR_EXPIRED",
+                "OPTION_NEGOTIATION_NOT_FOUND"
+            ],
+            "x-enum-varnames": [
+                "ReasonUnbalancedTx",
+                "ReasonNoSuchAccount",
+                "ReasonNoSuchAsset",
+                "ReasonUnacceptableAsset",
+                "ReasonInsufficientAsset",
+                "ReasonOptionAmountIncorrect",
+                "ReasonOptionUsedOrExpired",
+                "ReasonOptionNegotiationNotFound"
+            ]
+        },
+        "dto.Posting": {
+            "type": "object",
+            "required": [
+                "account",
+                "amount",
+                "asset"
+            ],
+            "properties": {
+                "account": {
+                    "$ref": "#/definitions/dto.TxAccount"
+                },
+                "amount": {
+                    "type": "number"
+                },
+                "asset": {
+                    "$ref": "#/definitions/dto.Asset"
+                }
+            }
+        },
+        "dto.TransactionVote": {
+            "type": "object",
+            "properties": {
+                "reasons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.NoVoteReason"
+                    }
+                },
+                "vote": {
+                    "$ref": "#/definitions/dto.VoteKind"
+                }
+            }
+        },
+        "dto.TxAccount": {
+            "type": "object",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "id": {
+                    "$ref": "#/definitions/dto.ForeignBankId"
+                },
+                "num": {
+                    "type": "string"
+                },
+                "type": {
+                    "enum": [
+                        "PERSON",
+                        "ACCOUNT",
+                        "OPTION"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.TxAccountType"
+                        }
+                    ]
+                }
+            }
+        },
+        "dto.TxAccountType": {
+            "type": "string",
+            "enum": [
+                "PERSON",
+                "ACCOUNT",
+                "OPTION"
+            ],
+            "x-enum-varnames": [
+                "TxAccountPerson",
+                "TxAccountAccount",
+                "TxAccountOption"
+            ]
+        },
+        "dto.VoteKind": {
+            "type": "string",
+            "enum": [
+                "YES",
+                "NO"
+            ],
+            "x-enum-varnames": [
+                "VoteYes",
+                "VoteNo"
+            ]
+        },
+        "errors.AppError": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

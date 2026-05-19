@@ -23,6 +23,7 @@ jobs:
           - user-service
           - banking-service
           - trading-service
+          - interbank-service
 
     steps:
       - name: Check out ${{ github.ref }} after a ${{ github.event_name }} event

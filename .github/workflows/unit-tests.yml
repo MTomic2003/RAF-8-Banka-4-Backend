@@ -15,6 +15,7 @@ jobs:
         target:
           - ./common
           - ./services/banking-service
+          - ./services/interbank-service
           - ./services/trading-service
           - ./services/user-service
     

@@ -1,0 +1,222 @@
+definitions:
+  dto.Asset:
+    properties:
+      asset:
+        additionalProperties: {}
+        type: object
+      type:
+        allOf:
+        - $ref: '#/definitions/dto.AssetType'
+        enum:
+        - MONAS
+        - STOCK
+        - OPTION
+    required:
+    - asset
+    - type
+    type: object
+  dto.AssetType:
+    enum:
+    - MONAS
+    - STOCK
+    - OPTION
+    type: string
+    x-enum-varnames:
+    - AssetMonas
+    - AssetStock
+    - AssetOption
+  dto.ForeignBankId:
+    properties:
+      id:
+        maxLength: 64
+        type: string
+      routingNumber:
+        type: integer
+    required:
+    - id
+    - routingNumber
+    type: object
+  dto.IdempotenceKey:
+    properties:
+      locallyGeneratedKey:
+        maxLength: 64
+        type: string
+      routingNumber:
+        type: integer
+    required:
+    - locallyGeneratedKey
+    - routingNumber
+    type: object
+  dto.MessageEnvelope:
+    properties:
+      idempotenceKey:
+        $ref: '#/definitions/dto.IdempotenceKey'
+      messageType:
+        allOf:
+        - $ref: '#/definitions/dto.MessageType'
+        enum:
+        - NEW_TX
+        - COMMIT_TX
+        - ROLLBACK_TX
+    required:
+    - idempotenceKey
+    - messageType
+    type: object
+  dto.MessageType:
+    enum:
+    - NEW_TX
+    - COMMIT_TX
+    - ROLLBACK_TX
+    type: string
+    x-enum-varnames:
+    - MessageTypeNewTx
+    - MessageTypeCommitTx
+    - MessageTypeRollbackTx
+  dto.NoVoteReason:
+    properties:
+      posting:
+        $ref: '#/definitions/dto.Posting'
+      reason:
+        $ref: '#/definitions/dto.NoVoteReasonKind'
+    type: object
+  dto.NoVoteReasonKind:
+    enum:
+    - UNBALANCED_TX
+    - NO_SUCH_ACCOUNT
+    - NO_SUCH_ASSET
+    - UNACCEPTABLE_ASSET
+    - INSUFFICIENT_ASSET
+    - OPTION_AMOUNT_INCORRECT
+    - OPTION_USED_OR_EXPIRED
+    - OPTION_NEGOTIATION_NOT_FOUND
+    type: string
+    x-enum-varnames:
+    - ReasonUnbalancedTx
+    - ReasonNoSuchAccount
+    - ReasonNoSuchAsset
+    - ReasonUnacceptableAsset
+    - ReasonInsufficientAsset
+    - ReasonOptionAmountIncorrect
+    - ReasonOptionUsedOrExpired
+    - ReasonOptionNegotiationNotFound
+  dto.Posting:
+    properties:
+      account:
+        $ref: '#/definitions/dto.TxAccount'
+      amount:
+        type: number
+      asset:
+        $ref: '#/definitions/dto.Asset'
+    required:
+    - account
+    - amount
+    - asset
+    type: object
+  dto.TransactionVote:
+    properties:
+      reasons:
+        items:
+          $ref: '#/definitions/dto.NoVoteReason'
+        type: array
+      vote:
+        $ref: '#/definitions/dto.VoteKind'
+    type: object
+  dto.TxAccount:
+    properties:
+      id:
+        $ref: '#/definitions/dto.ForeignBankId'
+      num:
+        type: string
+      type:
+        allOf:
+        - $ref: '#/definitions/dto.TxAccountType'
+        enum:
+        - PERSON
+        - ACCOUNT
+        - OPTION
+    required:
+    - type
+    type: object
+  dto.TxAccountType:
+    enum:
+    - PERSON
+    - ACCOUNT
+    - OPTION
+    type: string
+    x-enum-varnames:
+    - TxAccountPerson
+    - TxAccountAccount
+    - TxAccountOption
+  dto.VoteKind:
+    enum:
+    - "YES"
+    - "NO"
+    type: string
+    x-enum-varnames:
+    - VoteYes
+    - VoteNo
+  errors.AppError:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: |-
+    Bank-to-bank coordination service implementing the inter-bank
+    transaction and OTC negotiation protocol. Authentication is
+    per-peer via the X-Api-Key header (see §2.10).
+  title: Interbank Service API
+  version: "1.0"
+paths:
+  /interbank:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Single ingress endpoint for the bank-to-bank protocol (§2.11).
+        Accepts NEW_TX, COMMIT_TX and ROLLBACK_TX messages. The
+        X-Api-Key header authenticates the sending bank.
+      parameters:
+      - description: Peer bank API key issued to the caller
+        in: header
+        name: X-Api-Key
+        required: true
+        type: string
+      - description: Message envelope (messageType + body)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.MessageEnvelope'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: NEW_TX accepted with a vote
+          schema:
+            $ref: '#/definitions/dto.TransactionVote'
+        "202":
+          description: Accepted, sender must retransmit later
+        "204":
+          description: Accepted, no response body
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: Receive an inter-bank message
+      tags:
+      - interbank
+swagger: "2.0"
