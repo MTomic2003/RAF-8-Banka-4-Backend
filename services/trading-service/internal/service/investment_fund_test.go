@@ -2010,6 +2010,65 @@ func TestGetClientFundPositions_UsesUnitsForShareAndProfit(t *testing.T) {
 	require.InDelta(t, 600.0, resp[0].TotalProfit, 0.0001)
 }
 
+func TestGetClientFundPositions_MixedLegacyAndUnitsShareProfit(t *testing.T) {
+	fund := model.InvestmentFund{
+		FundID:        1,
+		Name:          "Mixed Fund",
+		Description:   "legacy + units",
+		AccountNumber: "fund-account",
+	}
+
+	positionRepo := &fakePositionRepo{
+		findByClientRes: []model.ClientFundPosition{
+			{
+				ClientID:            1,
+				OwnerType:           model.OwnerTypeClient,
+				FundID:              fund.FundID,
+				Fund:                &fund,
+				TotalInvestedAmount: 1000,
+			},
+		},
+		findByFundRes: []model.ClientFundPosition{
+			{ClientID: 1, OwnerType: model.OwnerTypeClient, FundID: fund.FundID, TotalInvestedAmount: 1000},
+			{ClientID: 2, OwnerType: model.OwnerTypeClient, FundID: fund.FundID, UnitsOwned: 500, TotalInvestedAmount: 500},
+		},
+	}
+
+	bankingClient := &fakeFundBankingClient{
+		accountsByNumber: map[string]*pb.GetAccountByNumberResponse{
+			"fund-account": {AccountNumber: "fund-account", AvailableBalance: 3000, CurrencyCode: "RSD"},
+		},
+	}
+
+	exchange := defaultExchange()
+	svc := NewInvestmentFundService(
+		&fakeFundRepo{findByIDResult: &fund},
+		positionRepo,
+		&fakeListingRepo{},
+		&fakeInvestmentRepo{},
+		&fakeRedemptionRepo{},
+		&fakeAssetOwnershipRepo{},
+		&fakeExchangeRepo{exchange: exchange},
+		&fakeStockRepo{},
+		&fakeOptionRepo{},
+		&fakeFuturesRepo{},
+		&fakeForexRepo{},
+		bankingClient,
+		&fakeFundUserClient{},
+		nil,
+	)
+
+	resp, err := svc.GetClientFundPositions(context.Background(), 1)
+	require.NoError(t, err)
+	require.Len(t, resp, 1)
+	// total units = 1000 (legacy fallback) + 500 = 1500
+	// client 1 share = 1000/1500 = 66.6667%
+	// fund value = 3000, share value = 2000, profit = 2000 - 1000 = 1000
+	require.InDelta(t, 66.6667, resp[0].ClientsSharePercent, 0.0001)
+	require.InDelta(t, 2000.0, resp[0].ClientsShareValueRSD, 0.0001)
+	require.InDelta(t, 1000.0, resp[0].TotalProfit, 0.0001)
+}
+
 func TestInvestInFund_UsesNAVToCalculateUnits(t *testing.T) {
 	fund := &model.InvestmentFund{
 		FundID:              1,
@@ -2059,4 +2118,26 @@ func TestInvestInFund_UsesNAVToCalculateUnits(t *testing.T) {
 	require.InDelta(t, 500.0, positionRepo.upserted.UnitsOwned, 0.0001)
 	require.InDelta(t, 1000.0, positionRepo.upserted.TotalInvestedAmount, 0.0001)
 	require.Equal(t, 1000.0, resp.TotalInvestedRSD)
+}
+
+func TestApplyRedemptionToPosition_MultiplePartialRedemptionsPreserveProportionalCostBasis(t *testing.T) {
+	position := &model.ClientFundPosition{
+		ClientID:            99,
+		OwnerType:           model.OwnerTypeClient,
+		FundID:              1,
+		UnitsOwned:          1000,
+		TotalInvestedAmount: 1000,
+	}
+
+	nav := 2.0
+	applyRedemptionToPosition(position, 500, nav)
+	require.InDelta(t, 750.0, position.UnitsOwned, 0.0001)
+	require.InDelta(t, 750.0, position.TotalInvestedAmount, 0.0001)
+
+	applyRedemptionToPosition(position, 500, nav)
+	require.InDelta(t, 500.0, position.UnitsOwned, 0.0001)
+	require.InDelta(t, 500.0, position.TotalInvestedAmount, 0.0001)
+
+	avgCostPerUnit := position.TotalInvestedAmount / position.UnitsOwned
+	require.InDelta(t, 1.0, avgCostPerUnit, 0.0001)
 }
