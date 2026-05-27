@@ -10,7 +10,7 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
-	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/audit"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/audit"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/config"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/model"
@@ -25,7 +25,7 @@ type EmployeeService struct {
 	emailService        Mailer
 	cfg                 *config.Configuration
 	txManager           repository.TransactionManager
-	auditRepo           audit.Repository
+	auditSvc            *audit.Service
 }
 
 func NewEmployeeService(
@@ -36,7 +36,7 @@ func NewEmployeeService(
 	emailService Mailer,
 	cfg *config.Configuration,
 	txManager repository.TransactionManager,
-	auditRepo audit.Repository,
+	auditSvc *audit.Service,
 ) *EmployeeService {
 	return &EmployeeService{
 		employeeRepo:        employeeRepo,
@@ -46,7 +46,7 @@ func NewEmployeeService(
 		emailService:        emailService,
 		cfg:                 cfg,
 		txManager:           txManager,
-		auditRepo:           auditRepo,
+		auditSvc:            auditSvc,
 	}
 }
 
@@ -290,11 +290,7 @@ func (s *EmployeeService) UpdateEmployee(ctx context.Context, id uint, req *dto.
 
 	if req.Permissions != nil {
 		if authCtx := auth.GetAuthFromContext(ctx); authCtx != nil && authCtx.EmployeeID != nil {
-			if err := s.auditRepo.Save(ctx, &audit.AuditLog{
-				ActionType:    audit.ActionEmployeePermissionsChanged,
-				PerformedByID: *authCtx.EmployeeID,
-				Details:       fmt.Sprintf("employee_id=%d", id),
-			}); err != nil {
+			if err := s.auditSvc.Log(ctx, audit.ActionEmployeePermissionsChanged, *authCtx.EmployeeID, fmt.Sprintf("employee_id=%d", id)); err != nil {
 				return nil, errors.InternalErr(err)
 			}
 		}

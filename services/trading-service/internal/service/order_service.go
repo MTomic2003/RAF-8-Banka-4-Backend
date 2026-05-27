@@ -17,7 +17,7 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/permission"
-	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/audit"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/audit"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/model"
@@ -79,7 +79,7 @@ type OrderService struct {
 	userClient           client.UserServiceClient
 	bankingClient        client.BankingClient
 	taxService           TaxRecorder
-	auditRepo            audit.Repository
+	auditSvc             *audit.Service
 	now                  func() time.Time
 	rng                  *rand.Rand
 
@@ -99,7 +99,7 @@ func NewOrderService(
 	userClient client.UserServiceClient,
 	bankingClient client.BankingClient,
 	taxService TaxRecorder,
-	auditRepo audit.Repository,
+	auditSvc *audit.Service,
 ) *OrderService {
 	return &OrderService{
 		orderRepo:            orderRepo,
@@ -113,7 +113,7 @@ func NewOrderService(
 		userClient:           userClient,
 		bankingClient:        bankingClient,
 		taxService:           taxService,
-		auditRepo:            auditRepo,
+		auditSvc:             auditSvc,
 		now:                  time.Now,
 		rng:                  rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
@@ -460,11 +460,7 @@ func (s *OrderService) ApproveOrder(ctx context.Context, orderID uint) (*model.O
 	}
 
 	if authCtx.EmployeeID != nil {
-		if err := s.auditRepo.Save(ctx, &audit.AuditLog{
-			ActionType:    audit.ActionOrderApproved,
-			PerformedByID: *authCtx.EmployeeID,
-			Details:       fmt.Sprintf("order_id=%d", orderID),
-		}); err != nil {
+		if err := s.auditSvc.Log(ctx, audit.ActionOrderApproved, *authCtx.EmployeeID, fmt.Sprintf("order_id=%d", orderID)); err != nil {
 			return nil, errors.InternalErr(err)
 		}
 	}
@@ -501,11 +497,7 @@ func (s *OrderService) DeclineOrder(ctx context.Context, orderID uint) (*model.O
 	}
 
 	if authCtx.EmployeeID != nil {
-		if err := s.auditRepo.Save(ctx, &audit.AuditLog{
-			ActionType:    audit.ActionOrderDeclined,
-			PerformedByID: *authCtx.EmployeeID,
-			Details:       fmt.Sprintf("order_id=%d", orderID),
-		}); err != nil {
+		if err := s.auditSvc.Log(ctx, audit.ActionOrderDeclined, *authCtx.EmployeeID, fmt.Sprintf("order_id=%d", orderID)); err != nil {
 			return nil, errors.InternalErr(err)
 		}
 	}

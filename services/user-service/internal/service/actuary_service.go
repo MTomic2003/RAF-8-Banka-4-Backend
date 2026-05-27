@@ -7,7 +7,7 @@ import (
 
 	commonauth "github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/auth"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/errors"
-	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/audit"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/audit"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/client"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/dto"
 	"github.com/RAF-SI-2025/Banka-4-Backend/services/user-service/internal/repository"
@@ -18,20 +18,20 @@ type ActuaryService struct {
 	actuaryRepo   repository.ActuaryRepository
 	employeeRepo  repository.EmployeeRepository
 	tradingClient client.TradingClient
-	auditRepo     audit.Repository
+	auditSvc      *audit.Service
 }
 
 func NewActuaryService(
 	actuaryRepo repository.ActuaryRepository,
 	employeeRepo repository.EmployeeRepository,
 	tradingClient client.TradingClient,
-	auditRepo audit.Repository,
+	auditSvc *audit.Service,
 ) *ActuaryService {
 	return &ActuaryService{
 		actuaryRepo:   actuaryRepo,
 		employeeRepo:  employeeRepo,
 		tradingClient: tradingClient,
-		auditRepo:     auditRepo,
+		auditSvc:      auditSvc,
 	}
 }
 func (s *ActuaryService) GetAllActuaries(ctx context.Context, query *dto.ListActuariesQuery) (*dto.ListActuariesResponse, error) {
@@ -96,11 +96,7 @@ func (s *ActuaryService) UpdateActuarySettings(ctx context.Context, employeeID u
 	employee.ActuaryInfo = actuary
 
 	if req.Limit != nil {
-		if err := s.auditRepo.Save(ctx, &audit.AuditLog{
-			ActionType:    audit.ActionActuaryLimitChanged,
-			PerformedByID: callerID,
-			Details:       fmt.Sprintf("agent_id=%d new_limit=%.2f", employeeID, *req.Limit),
-		}); err != nil {
+		if err := s.auditSvc.Log(ctx, audit.ActionActuaryLimitChanged, callerID, fmt.Sprintf("agent_id=%d new_limit=%.2f", employeeID, *req.Limit)); err != nil {
 			return nil, errors.InternalErr(err)
 		}
 	}
@@ -161,11 +157,7 @@ func (s *ActuaryService) ResetUsedLimit(ctx context.Context, employeeID uint) (*
 	}
 
 	if authCtx := commonauth.GetAuthFromContext(ctx); authCtx != nil && authCtx.EmployeeID != nil {
-		if err := s.auditRepo.Save(ctx, &audit.AuditLog{
-			ActionType:    audit.ActionActuaryLimitReset,
-			PerformedByID: *authCtx.EmployeeID,
-			Details:       fmt.Sprintf("agent_id=%d", employeeID),
-		}); err != nil {
+		if err := s.auditSvc.Log(ctx, audit.ActionActuaryLimitReset, *authCtx.EmployeeID, fmt.Sprintf("agent_id=%d", employeeID)); err != nil {
 			return nil, errors.InternalErr(err)
 		}
 	}

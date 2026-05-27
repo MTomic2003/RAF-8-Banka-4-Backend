@@ -355,7 +355,7 @@ func newTestOrderService(
 	bankingClient *fakeOrderBankingClient,
 	taxRecorder *fakeTaxRecorder,
 ) *OrderService {
-	svc := NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, &fakeAssetOwnershipRepo{}, &fakeFuturesRepo{}, &fakeOptionRepo{}, &fakeFundRepo{}, userClient, bankingClient, taxRecorder, &fakeAuditRepo{})
+	svc := NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, &fakeAssetOwnershipRepo{}, &fakeFuturesRepo{}, &fakeOptionRepo{}, &fakeFundRepo{}, userClient, bankingClient, taxRecorder, fakeAuditService(nil))
 	svc.now = func() time.Time {
 		return time.Date(2025, 6, 4, 10, 0, 0, 0, time.UTC)
 	}
@@ -504,7 +504,7 @@ func TestCreateOrder_LimitSell_Success(t *testing.T) {
 		&fakeUserServiceClient{identityResp: &pb.GetIdentityByUserIdResponse{IdentityId: 5}},
 		&fakeOrderBankingClient{accountResp: defaultAccountResp(10)},
 		&fakeTaxRecorder{},
-		&fakeAuditRepo{},
+		fakeAuditService(nil),
 	)
 	svc.now = func() time.Time {
 		return time.Date(2025, 6, 4, 10, 0, 0, 0, time.UTC)
@@ -2419,7 +2419,7 @@ func newFundOrderService(fundRepo *fakeFundRepo, ownershipRepo *fakeAssetOwnersh
 		userClient,
 		&fakeOrderBankingClient{accountResp: defaultFundAccountResp(1_000_000)},
 		&fakeTaxRecorder{},
-		&fakeAuditRepo{},
+		fakeAuditService(nil),
 	)
 	svc.now = func() time.Time { return time.Date(2025, 6, 4, 10, 0, 0, 0, time.UTC) }
 	return svc

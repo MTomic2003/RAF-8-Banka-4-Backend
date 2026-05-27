@@ -27,7 +27,7 @@ import (
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/jwt"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/logging"
 	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/pb"
-	"github.com/RAF-SI-2025/Banka-4-Backend/services/trading-service/internal/audit"
+	"github.com/RAF-SI-2025/Banka-4-Backend/common/pkg/audit"
 	"github.com/robfig/cron/v3"
 )
 
@@ -66,6 +66,7 @@ func main() {
 				return permission.NewGrpcPermissionProvider(c)
 			},
 			audit.NewRepository,
+			audit.NewService,
 			handler.NewHealthHandler,
 			repository.NewAssetRepository,
 			repository.NewAssetOwnershipRepository,
