@@ -17,10 +17,10 @@ const (
 )
 
 type RecurringOrder struct {
-	RecurringOrderID uint                  `gorm:"primaryKey;autoIncrement"`
-	UserID           uint                  `gorm:"not null;index"`
-	OwnerType        OwnerType             `gorm:"not null;size:10"`
-	ListingID        uint                  `gorm:"not null;index"`
+	RecurringOrderID uint      `gorm:"primaryKey;autoIncrement"`
+	UserID           uint      `gorm:"not null;index"`
+	OwnerType        OwnerType `gorm:"not null;size:10"`
+	ListingID        uint      `gorm:"not null;index"`
 	Listing          Listing
 	Direction        OrderDirection        `gorm:"not null;size:4"`
 	Mode             RecurringOrderMode    `gorm:"not null;size:20"`
