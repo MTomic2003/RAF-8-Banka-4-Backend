@@ -232,15 +232,13 @@ func (s *DividendPayoutService) resolveTargetAccount(
 	return "", "", commonerrors.InternalErr(fmt.Errorf("no suitable account found for user %d", ownership.UserId))
 }
 
-// resolveCurrencyForStock returns the listing currency by checking the exchange.
-// Falls back to "USD" for unknown exchanges.
-func (s *DividendPayoutService) resolveCurrencyForStock(ctx context.Context, stock model.Stock) (string, error) {
+func (s *DividendPayoutService) resolveCurrencyForStock(_ context.Context, stock model.Stock) (string, error) {
 	if stock.Listing == nil {
 		return "USD", nil
 	}
-	// GetAccountCurrency is per-account; for exchange currency we rely on the
-	// listing's exchange MIC. A future improvement is to store currency on Exchange.
-	// For now: USD for non-RSD exchanges, RSD for simulated.
+	if stock.Listing.Exchange != nil && stock.Listing.Exchange.Currency != "" {
+		return stock.Listing.Exchange.Currency, nil
+	}
 	if stock.Listing.ExchangeMIC == model.SimulatedExchangeMIC {
 		return "RSD", nil
 	}
