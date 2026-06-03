@@ -20,6 +20,15 @@ type fakeOtcOfferRepo struct {
 	offers map[uint]*model.OtcOffer
 	nextID uint
 }
+type fakeOtcHistoryService struct{}
+
+func (f *fakeOtcHistoryService) CreateNegotiationHistory(ctx context.Context, offerID uint, oldOffer *model.OtcOffer, newOffer *model.OtcOffer, modifiedBy uint) error {
+	return nil
+}
+
+func (f *fakeOtcHistoryService) GetNegotiationHistory(ctx context.Context, offerID uint, statusFilter string, dateFrom *time.Time, dateTo *time.Time, counterpartyFilter uint) ([]*model.OtcNegotiationHistory, error) {
+	return nil, nil
+}
 
 func newFakeOtcOfferRepo() *fakeOtcOfferRepo {
 	return &fakeOtcOfferRepo{offers: make(map[uint]*model.OtcOffer), nextID: 1}
@@ -308,7 +317,7 @@ func newOtcTestService(t *testing.T) (*OtcOfferService, *fakeOtcOfferRepo, *fake
 		banking,
 	)
 
-	svc := NewOtcOfferService(offerRepo, contractRepo, ownershipRepo, stockRepo, banking, &fakeUserClient{}, processingSvc)
+	svc := NewOtcOfferService(offerRepo, contractRepo, ownershipRepo, stockRepo, banking, &fakeUserClient{}, processingSvc, &fakeOtcHistoryService{})
 	return svc, offerRepo, contractRepo, ownershipRepo, banking
 }
 
