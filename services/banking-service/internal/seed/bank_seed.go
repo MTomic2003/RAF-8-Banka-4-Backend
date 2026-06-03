@@ -316,9 +316,9 @@ var accounts = []struct {
 	},
 	{
 		AccountNumber: "444000000000000008",
-		Name:          "Bank Tax Account",
-		ClientID:      1,                 // Promenjeno na 1 (Banka 4)
-		CompanyID:     getUintPointer(1), // Promenjeno na 1 (Banka 4 kompanija)
+		Name:          "Republika Srbija Tax Account",
+		ClientID:      6,
+		CompanyID:     getUintPointer(5),
 		EmployeeID:    3,
 		Balance:       0,
 		ExpiresAt:     time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
