@@ -127,6 +127,15 @@ func main() {
 			service.NewDividendPayoutService,
 			handler.NewDividendHandler,
 			job.NewDividendPayoutJob,
+			client.NewEmailServiceConnection,
+			func(conn *clientgrpc.EmailClient) service.Mailer {
+				return conn
+			},
+			clientgrpc.NewEmailClient,
+			repository.NewRecurringOrderRepository,
+			service.NewRecurringOrderService,
+			handler.NewRecurringOrderHandler,
+			service.NewRecurringOrderScheduler,
 			tradinggrpc.NewTradingServiceServer,
 		),
 		fx.Invoke(func(cfg *config.Configuration) error {
@@ -168,6 +177,7 @@ func main() {
 				&model.Watchlist{},
 				&model.WatchlistItem{},
 				&model.DividendPayout{},
+				&model.RecurringOrder{},
 			)
 		}),
 		fx.Invoke(func(lc fx.Lifecycle, svc *service.StockService) {
@@ -273,6 +283,18 @@ func main() {
 				},
 				OnStop: func(ctx context.Context) error {
 					otcProcessingService.Stop()
+					return nil
+				},
+			})
+		}),
+		fx.Invoke(func(lifecycle fx.Lifecycle, scheduler *service.RecurringOrderScheduler) {
+			lifecycle.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					scheduler.Start()
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					scheduler.Stop()
 					return nil
 				},
 			})

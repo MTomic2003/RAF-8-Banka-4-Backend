@@ -93,6 +93,7 @@ func TestMain(m *testing.M) {
 		&model.Watchlist{},
 		&model.WatchlistItem{},
 		&model.DividendPayout{},
+		&model.RecurringOrder{},
 	); err != nil {
 		log.Fatalf("auto migrate test schema: %v", err)
 	}
@@ -383,11 +384,15 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	dividendSvc := service.NewDividendPayoutService(dividendRepo, assetOwnershipRepo, stockRepo, listingRepo, taxSvc, bankingClient, cfg)
 	dividendHandler := handler.NewDividendHandler(dividendSvc)
 
+	recurringOrderRepo := repository.NewRecurringOrderRepository(db)
+	recurringOrderSvc := service.NewRecurringOrderService(recurringOrderRepo, listingRepo)
+	recurringOrderHandler := handler.NewRecurringOrderHandler(recurringOrderSvc)
+
 	verifier := auth.TokenVerifier(commonjwt.NewJWTVerifier(cfg.JWTSecret))
 
 	r := gin.New()
 	server.InitRouter(r, cfg)
-	server.SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, dividendHandler, verifier, permProvider, userClient)
+	server.SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, recurringOrderHandler, dividendHandler, verifier, permProvider, userClient)
 
 	return r, userClient
 }

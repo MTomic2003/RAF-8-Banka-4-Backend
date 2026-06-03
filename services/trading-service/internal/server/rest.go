@@ -38,6 +38,7 @@ func NewServer(
 	otcOfferHandler *handler.OtcOfferHandler,
 	fundHandler *handler.InvestmentFundHandler,
 	watchlistHandler *handler.WatchlistHandler,
+  recurringOrderHandler *handler.RecurringOrderHandler,
 	dividendHandler *handler.DividendHandler,
 	verifier auth.TokenVerifier,
 	permProvider auth.PermissionProvider,
@@ -47,7 +48,7 @@ func NewServer(
 
 	InitRouter(r, cfg)
 
-	SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, dividendHandler, verifier, permProvider, userClient)
+	SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, recurringOrderHandler, dividendHandler, verifier, permProvider, userClient)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -87,6 +88,7 @@ func SetupRoutes(
 	otcOfferHandler *handler.OtcOfferHandler,
 	fundHandler *handler.InvestmentFundHandler,
 	watchlistHandler *handler.WatchlistHandler,
+  recurringOrderHandler *handler.RecurringOrderHandler,
 	dividendHandler *handler.DividendHandler,
 	verifier auth.TokenVerifier,
 	permProvider auth.PermissionProvider,
@@ -271,6 +273,15 @@ func SetupRoutes(
 			dividends.GET("", middleware.RequireSupervisor(userClient), dividendHandler.GetAllDividendPayouts)
 			// DEV ONLY - manual trigger
 			dividends.POST("/process", middleware.RequireSupervisor(userClient), dividendHandler.TriggerDividends)
+    }
+    
+		recurringOrders := api.Group("/recurring-orders")
+		recurringOrders.Use(authMw, auth.RequirePermission(permission.Trading))
+		{
+			recurringOrders.GET("", recurringOrderHandler.GetMyRecurringOrders)
+			recurringOrders.POST("", recurringOrderHandler.CreateRecurringOrder)
+			recurringOrders.DELETE("/:id", recurringOrderHandler.DeleteRecurringOrder)
+			recurringOrders.PATCH("/:id/pause", recurringOrderHandler.PauseRecurringOrder)
 		}
 
 		profit := api.Group("/profit")
