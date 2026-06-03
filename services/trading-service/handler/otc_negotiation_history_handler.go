@@ -73,7 +73,7 @@ func (h *OtcNegotiationHistoryHandler) GetNegotiationHistory(c *gin.Context) {
 		}
 	}
 
-	history, err := h.otcNegotiationHistoryService.GetNegotiationHistory(uint(offerID), status, dateFrom, dateTo, uint(counterparty))
+	history, err := h.otcNegotiationHistoryService.GetNegotiationHistory(c.Request.Context(), uint(offerID), status, dateFrom, dateTo, uint(counterparty))
 	if err != nil {
 		_ = c.Error(err)
 		return
