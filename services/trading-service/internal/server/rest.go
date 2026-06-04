@@ -43,12 +43,14 @@ func NewServer(
 	verifier auth.TokenVerifier,
 	permProvider auth.PermissionProvider,
 	userClient client.UserServiceClient,
+	otcNegotiationHistoryHandler *handler.OtcNegotiationHistoryHandler,
 ) {
+
 	r := gin.New()
 
 	InitRouter(r, cfg)
 
-	SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, recurringOrderHandler, dividendHandler, verifier, permProvider, userClient)
+	SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, otcNegotiationHistoryHandler, recurringOrderHandler, dividendHandler, verifier, permProvider, userClient)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -76,24 +78,9 @@ func InitRouter(r *gin.Engine, cfg *config.Configuration) {
 	validator.RegisterValidators()
 }
 
-func SetupRoutes(
-	r *gin.Engine,
-	healthHandler *handler.HealthHandler,
-	taxHandler *handler.TaxHandler,
-	exchangeHandler *handler.ExchangeHandler,
-	orderHandler *handler.OrderHandler,
-	portfolioHandler *handler.PortfolioHandler,
-	listingHandler *handler.ListingHandler,
-	otcHandler *handler.OTCHandler,
-	otcOfferHandler *handler.OtcOfferHandler,
-	fundHandler *handler.InvestmentFundHandler,
-	watchlistHandler *handler.WatchlistHandler,
-	recurringOrderHandler *handler.RecurringOrderHandler,
-	dividendHandler *handler.DividendHandler,
-	verifier auth.TokenVerifier,
-	permProvider auth.PermissionProvider,
-	userClient client.UserServiceClient,
-) {
+func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, otcOfferHandler *handler.OtcOfferHandler, fundHandler *handler.InvestmentFundHandler, watchlistHandler *handler.WatchlistHandler, otcNegotiationHistoryHandler *handler.OtcNegotiationHistoryHandler, recurringOrderHandler *handler.RecurringOrderHandler,
+	dividendHandler *handler.DividendHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
+
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	api := r.Group("/api")
@@ -246,6 +233,8 @@ func SetupRoutes(
 
 			// Odustajanje — bilo koja strana može odustati od pregovora.
 			otc.PATCH("/offers/:id/reject", otcOfferHandler.RejectOffer)
+
+			otc.GET("/offers/:id/history", otcNegotiationHistoryHandler.GetNegotiationHistory)
 		}
 
 		orders := api.Group("/orders")
