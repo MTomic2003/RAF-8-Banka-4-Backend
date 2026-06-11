@@ -35,7 +35,7 @@ services:
     env_file: .env
     environment:
       TRADING_SERVICE_ADDR: trading_service:50053
-      EMAIL_SERVICE_ADDR: email_service:50054
+      EMAIL_SERVICE_ADDR: email_service:50055
     depends_on:
       user_service_db:
         condition: service_healthy
@@ -59,7 +59,7 @@ services:
       USER_SERVICE_ADDR: user_service:50051
       USER_SERVICE_BASE_URL: http://user_service:${PORT}
       INTERBANK_SERVICE_ADDR: interbank_service:50054
-      EMAIL_SERVICE_ADDR: email_service:50054
+      EMAIL_SERVICE_ADDR: email_service:50055
       WORK_CODES_CACHE_TTL: 24h
     depends_on:
       user_service_db:
@@ -82,7 +82,7 @@ services:
       USER_SERVICE_ADDR: user_service:50051
       USER_SERVICE_BASE_URL: http://user_service:${PORT}
       BANKING_SERVICE_ADDR: banking_service:50052
-      EMAIL_SERVICE_ADDR: email_service:50054
+      EMAIL_SERVICE_ADDR: email_service:50055
     depends_on:
       user_service_db:
         condition: service_healthy
@@ -119,7 +119,7 @@ services:
       test: curl -f http://localhost:${INTERBANK_SERVICE_PORT}/api/health || exit 1
     volumes:
       # Operator-provided peer registry (copy from peers.example.yaml).
-      - ./services/interbank-service/peers.yaml:/app/peers.yaml:ro
+      - ./peers.yaml:/app/peers.yaml:ro
 
   email_service:
     image: ghcr.io/raf-si-2025/banka-4-backend/email-service
@@ -128,7 +128,7 @@ services:
     env_file: .env
     environment:
       PORT: ${EMAIL_SERVICE_PORT}
-      GRPC_PORT: "50054"
+      GRPC_PORT: "50055"
     depends_on:
       maildev:
         condition: service_started

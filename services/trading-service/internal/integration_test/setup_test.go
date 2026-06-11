@@ -95,6 +95,7 @@ func TestMain(m *testing.M) {
 		&model.WatchlistItem{},
 		&model.DividendPayout{},
 		&model.RecurringOrder{},
+		&model.PriceAlert{},
 	); err != nil {
 		log.Fatalf("auto migrate test schema: %v", err)
 	}
@@ -369,7 +370,8 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	listingSvc := service.NewListingService(listingRepo, futuresRepo, forexRepo, optionRepo)
 	fundRepo := repository.NewInvestmentFundRepository(db)
 	var taxRecorder service.TaxRecorder = &fakeTaxRecorder{}
-	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, assetOwnershipRepo, futuresRepo, optionRepo, fundRepo, userClient, bankingClient, taxRecorder, auditSvc)
+	notifier := service.NewNotificationService(mailer, userClient)
+	orderSvc := service.NewOrderService(orderRepo, orderTxRepo, exchangeRepo, listingRepo, assetOwnershipRepo, futuresRepo, optionRepo, fundRepo, userClient, bankingClient, taxRecorder, auditSvc, notifier)
 	positionRepo := repository.NewClientFundPositionRepository(db)
 	investmentRepo := repository.NewClientFundInvestmentRepository(db)
 	redemptionRepo := repository.NewClientFundRedemptionRepository(db)
@@ -403,11 +405,15 @@ func setupTestRouterWithPermissions(t *testing.T, db *gorm.DB, perms []permissio
 	recurringOrderSvc := service.NewRecurringOrderService(recurringOrderRepo, listingRepo)
 	recurringOrderHandler := handler.NewRecurringOrderHandler(recurringOrderSvc)
 
+	priceAlertRepo := repository.NewPriceAlertRepository(db)
+	priceAlertSvc := service.NewPriceAlertService(priceAlertRepo, listingRepo, notifier)
+	priceAlertHandler := handler.NewPriceAlertHandler(priceAlertSvc)
+
 	verifier := auth.TokenVerifier(commonjwt.NewJWTVerifier(cfg.JWTSecret))
 
 	r := gin.New()
 	server.InitRouter(r, cfg)
-	server.SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, otcHistoryHandler, recurringOrderHandler, dividendHandler, verifier, permProvider, userClient)
+	server.SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, otcHistoryHandler, recurringOrderHandler, dividendHandler, priceAlertHandler, verifier, permProvider, userClient)
 
 	return r, userClient
 }

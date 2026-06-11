@@ -1173,6 +1173,71 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes an investment fund by ID. Only supervisors can delete funds. Fails if the fund has active client positions.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "investment-funds"
+                ],
+                "summary": "Delete an investment fund",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fund ID",
+                        "name": "fundId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
             }
         },
         "/api/investment-funds/{fundId}/invest": {
@@ -2874,6 +2939,147 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/price-alerts": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lists every price alert owned by the authenticated user (active and already-triggered ones).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "price-alerts"
+                ],
+                "summary": "List my price alerts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.PriceAlertResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a one-shot price alert for the authenticated user. When the listing's current price crosses the threshold in the configured direction, the user receives an email and the alert auto-deactivates.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "price-alerts"
+                ],
+                "summary": "Create a price alert",
+                "parameters": [
+                    {
+                        "description": "Alert definition",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreatePriceAlertRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.PriceAlertResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/price-alerts/{priceAlertId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes one of the authenticated user's price alerts. Other users' alerts return 404 (the resource is hidden, not refused with 403).",
+                "tags": [
+                    "price-alerts"
+                ],
+                "summary": "Delete a price alert",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Price alert id",
+                        "name": "priceAlertId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/profit/actuaries": {
             "get": {
                 "security": [
@@ -3898,6 +4104,29 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.CreatePriceAlertRequest": {
+            "type": "object",
+            "required": [
+                "condition",
+                "listing_id",
+                "threshold"
+            ],
+            "properties": {
+                "condition": {
+                    "type": "string",
+                    "enum": [
+                        "ABOVE",
+                        "BELOW"
+                    ]
+                },
+                "listing_id": {
+                    "type": "integer"
+                },
+                "threshold": {
+                    "type": "number"
+                }
+            }
+        },
         "dto.CreateRecurringOrderRequest": {
             "type": "object",
             "required": [
@@ -4127,6 +4356,9 @@ const docTemplate = `{
                 "change": {
                     "type": "number"
                 },
+                "currency": {
+                    "type": "string"
+                },
                 "exchange": {
                     "type": "string"
                 },
@@ -4182,6 +4414,9 @@ const docTemplate = `{
                 },
                 "change": {
                     "type": "number"
+                },
+                "currency": {
+                    "type": "string"
                 },
                 "exchange": {
                     "type": "string"
@@ -4408,6 +4643,9 @@ const docTemplate = `{
                 "contract_unit": {
                     "type": "string"
                 },
+                "currency": {
+                    "type": "string"
+                },
                 "exchange": {
                     "type": "string"
                 },
@@ -4459,6 +4697,9 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "contract_unit": {
+                    "type": "string"
+                },
+                "currency": {
                     "type": "string"
                 },
                 "exchange": {
@@ -4615,6 +4856,9 @@ const docTemplate = `{
                 "change": {
                     "type": "number"
                 },
+                "currency": {
+                    "type": "string"
+                },
                 "exchange": {
                     "type": "string"
                 },
@@ -4673,6 +4917,9 @@ const docTemplate = `{
                 },
                 "change": {
                     "type": "number"
+                },
+                "currency": {
+                    "type": "string"
                 },
                 "exchange": {
                     "type": "string"
@@ -5153,6 +5400,38 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.PriceAlertResponse": {
+            "type": "object",
+            "properties": {
+                "condition": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "listing_id": {
+                    "type": "integer"
+                },
+                "notification_type": {
+                    "type": "string"
+                },
+                "price_alert_id": {
+                    "type": "integer"
+                },
+                "threshold": {
+                    "type": "number"
+                },
+                "ticker": {
+                    "type": "string"
+                },
+                "triggered_at": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.PublishAssetRequest": {
             "type": "object",
             "required": [
@@ -5263,6 +5542,9 @@ const docTemplate = `{
                 "change": {
                     "type": "number"
                 },
+                "currency": {
+                    "type": "string"
+                },
                 "dividend_yield": {
                     "type": "number"
                 },
@@ -5318,6 +5600,9 @@ const docTemplate = `{
                 },
                 "change": {
                     "type": "number"
+                },
+                "currency": {
+                    "type": "string"
                 },
                 "dividend_yield": {
                     "type": "number"
@@ -5419,6 +5704,9 @@ const docTemplate = `{
                 },
                 "change": {
                     "type": "number"
+                },
+                "currency": {
+                    "type": "string"
                 },
                 "exchange": {
                     "type": "string"
