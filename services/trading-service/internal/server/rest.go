@@ -40,6 +40,7 @@ func NewServer(
 	watchlistHandler *handler.WatchlistHandler,
 	recurringOrderHandler *handler.RecurringOrderHandler,
 	dividendHandler *handler.DividendHandler,
+	priceAlertHandler *handler.PriceAlertHandler,
 	verifier auth.TokenVerifier,
 	permProvider auth.PermissionProvider,
 	userClient client.UserServiceClient,
@@ -50,7 +51,7 @@ func NewServer(
 
 	InitRouter(r, cfg)
 
-	SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, otcNegotiationHistoryHandler, recurringOrderHandler, dividendHandler, verifier, permProvider, userClient)
+	SetupRoutes(r, healthHandler, taxHandler, exchangeHandler, orderHandler, portfolioHandler, listingHandler, otcHandler, otcOfferHandler, fundHandler, watchlistHandler, otcNegotiationHistoryHandler, recurringOrderHandler, dividendHandler, priceAlertHandler, verifier, permProvider, userClient)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -78,9 +79,26 @@ func InitRouter(r *gin.Engine, cfg *config.Configuration) {
 	validator.RegisterValidators()
 }
 
-func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler *handler.TaxHandler, exchangeHandler *handler.ExchangeHandler, orderHandler *handler.OrderHandler, portfolioHandler *handler.PortfolioHandler, listingHandler *handler.ListingHandler, otcHandler *handler.OTCHandler, otcOfferHandler *handler.OtcOfferHandler, fundHandler *handler.InvestmentFundHandler, watchlistHandler *handler.WatchlistHandler, otcNegotiationHistoryHandler *handler.OtcNegotiationHistoryHandler, recurringOrderHandler *handler.RecurringOrderHandler,
-	dividendHandler *handler.DividendHandler, verifier auth.TokenVerifier, permProvider auth.PermissionProvider, userClient client.UserServiceClient) {
-
+func SetupRoutes(
+	r *gin.Engine,
+	healthHandler *handler.HealthHandler,
+	taxHandler *handler.TaxHandler,
+	exchangeHandler *handler.ExchangeHandler,
+	orderHandler *handler.OrderHandler,
+	portfolioHandler *handler.PortfolioHandler,
+	listingHandler *handler.ListingHandler,
+	otcHandler *handler.OTCHandler,
+	otcOfferHandler *handler.OtcOfferHandler,
+	fundHandler *handler.InvestmentFundHandler,
+	watchlistHandler *handler.WatchlistHandler,
+	otcNegotiationHistoryHandler *handler.OtcNegotiationHistoryHandler,
+	recurringOrderHandler *handler.RecurringOrderHandler,
+	dividendHandler *handler.DividendHandler,
+	priceAlertHandler *handler.PriceAlertHandler,
+	verifier auth.TokenVerifier,
+	permProvider auth.PermissionProvider,
+	userClient client.UserServiceClient,
+) {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	api := r.Group("/api")
@@ -147,6 +165,21 @@ func SetupRoutes(r *gin.Engine, healthHandler *handler.HealthHandler, taxHandler
 			watchlists.DELETE("/:watchlistId", watchlistHandler.DeleteWatchlist)
 			watchlists.POST("/:watchlistId/items", watchlistHandler.AddListing)
 			watchlists.DELETE("/:watchlistId/items/:listingId", watchlistHandler.RemoveListing)
+		}
+
+		// Price alerts — personalne threshold notifikacije za listings. Dostupne
+		// svim korisnicima sa Trading permisijom (klijent, aktuar, supervizor).
+		// Vlasništvo se određuje preko (UserID, OwnerType) iz tokena, isto kao
+		// kod watchlists.
+		priceAlerts := api.Group("/price-alerts")
+		priceAlerts.Use(
+			authMw,
+			auth.RequirePermission(permission.Trading),
+		)
+		{
+			priceAlerts.GET("", priceAlertHandler.GetMyPriceAlerts)
+			priceAlerts.POST("", priceAlertHandler.CreatePriceAlert)
+			priceAlerts.DELETE("/:priceAlertId", priceAlertHandler.DeletePriceAlert)
 		}
 
 		funds := api.Group("/investment-funds")

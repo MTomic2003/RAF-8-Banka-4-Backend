@@ -1504,6 +1504,7 @@ func newTestFundServiceWithOrderService(
 		orderBankingClient,
 		&fakeTaxRecorder{},
 		fakeAuditService(nil),
+		nil,
 	)
 	return NewInvestmentFundService(
 		&fakeFundRepo{},

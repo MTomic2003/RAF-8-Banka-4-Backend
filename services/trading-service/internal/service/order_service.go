@@ -80,6 +80,7 @@ type OrderService struct {
 	bankingClient        client.BankingClient
 	taxService           TaxRecorder
 	auditSvc             *audit.Service
+	notifier             *NotificationService
 	now                  func() time.Time
 	rng                  *rand.Rand
 
@@ -100,6 +101,7 @@ func NewOrderService(
 	bankingClient client.BankingClient,
 	taxService TaxRecorder,
 	auditSvc *audit.Service,
+	notifier *NotificationService,
 ) *OrderService {
 	return &OrderService{
 		orderRepo:            orderRepo,
@@ -114,6 +116,7 @@ func NewOrderService(
 		bankingClient:        bankingClient,
 		taxService:           taxService,
 		auditSvc:             auditSvc,
+		notifier:             notifier,
 		now:                  time.Now,
 		rng:                  rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
@@ -415,6 +418,10 @@ func (s *OrderService) placeOrder(ctx context.Context, authCtx *auth.AuthContext
 		return nil, errors.InternalErr(err)
 	}
 
+	if order.Status == model.OrderStatusPending {
+		s.notifier.NotifyOrderPending(order)
+	}
+
 	return &order, nil
 }
 
@@ -502,6 +509,8 @@ func (s *OrderService) ApproveOrder(ctx context.Context, orderID uint) (*model.O
 		return nil, errors.InternalErr(err)
 	}
 
+	s.notifier.NotifyOrderApproved(*order)
+
 	if authCtx.EmployeeID != nil {
 		if err := s.auditSvc.Log(ctx, audit.ActionOrderApproved, *authCtx.EmployeeID, fmt.Sprintf("order_id=%d", orderID)); err != nil {
 			return nil, errors.InternalErr(err)
@@ -539,6 +548,8 @@ func (s *OrderService) DeclineOrder(ctx context.Context, orderID uint) (*model.O
 	if err := s.orderRepo.Save(ctx, order); err != nil {
 		return nil, errors.InternalErr(err)
 	}
+
+	s.notifier.NotifyOrderDeclined(*order)
 
 	if authCtx.EmployeeID != nil {
 		if err := s.auditSvc.Log(ctx, audit.ActionOrderDeclined, *authCtx.EmployeeID, fmt.Sprintf("order_id=%d", orderID)); err != nil {
@@ -726,6 +737,12 @@ func (s *OrderService) processOrder(ctx context.Context, order *model.Order) err
 
 	if err := s.orderRepo.Save(ctx, order); err != nil {
 		return err
+	}
+
+	if order.IsDone {
+		s.notifier.NotifyOrderFilled(*order)
+	} else if fillQty > 0 {
+		s.notifier.NotifyOrderPartialFill(*order, fillQty, pricePerUnit)
 	}
 
 	if err := s.updateAssetOwnership(ctx, order, fillQty, pricePerUnit, tradeCurrency); err != nil {
@@ -1167,7 +1184,11 @@ func (s *OrderService) failOrder(ctx context.Context, order *model.Order, status
 	order.IsDone = true
 	order.NextExecutionAt = nil
 	order.UpdatedAt = s.now()
-	return s.orderRepo.Save(ctx, order)
+	if err := s.orderRepo.Save(ctx, order); err != nil {
+		return err
+	}
+	s.notifier.NotifyOrderAutoCancelled(*order)
+	return nil
 }
 
 func validateOrderTypeFields(p placeOrderParams) error {
