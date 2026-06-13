@@ -24,13 +24,7 @@ func TestAccountValidators(t *testing.T) {
 		t.Fatalf("register currency_code: %v", err)
 	}
 
-	var payload struct {
-		AccountType  model.AccountType  `validate:"account_type"`
-		AccountKind  model.AccountKind  `validate:"account_kind"`
-		CurrencyCode model.CurrencyCode `validate:"currency_code"`
-	}
-
-	payload = struct {
+	payload := struct {
 		AccountType  model.AccountType  `validate:"account_type"`
 		AccountKind  model.AccountKind  `validate:"account_kind"`
 		CurrencyCode model.CurrencyCode `validate:"currency_code"`

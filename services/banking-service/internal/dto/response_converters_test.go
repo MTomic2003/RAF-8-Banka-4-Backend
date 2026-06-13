@@ -12,25 +12,25 @@ func TestAccountAndCardResponses(t *testing.T) {
 
 	companyID := uint(9)
 	account := &model.Account{
-		AccountNumber:     "444000100000000001",
-		Name:              "Main",
-		ClientID:          1,
-		CompanyID:         &companyID,
-		EmployeeID:        2,
-		Balance:           150,
-		AvailableBalance:  125,
-		Currency:          model.Currency{Code: model.EUR},
-		Status:            "Active",
-		AccountType:       model.AccountTypeBusiness,
-		AccountKind:       model.AccountKindCurrent,
-		Subtype:           model.SubtypeLLC,
-		MaintenanceFee:    10,
-		DailyLimit:        1000,
-		MonthlyLimit:      5000,
-		DailySpending:     100,
-		MonthlySpending:   200,
-		CreatedAt:         time.Now(),
-		ExpiresAt:         time.Now().Add(24 * time.Hour),
+		AccountNumber:    "444000100000000001",
+		Name:             "Main",
+		ClientID:         1,
+		CompanyID:        &companyID,
+		EmployeeID:       2,
+		Balance:          150,
+		AvailableBalance: 125,
+		Currency:         model.Currency{Code: model.EUR},
+		Status:           "Active",
+		AccountType:      model.AccountTypeBusiness,
+		AccountKind:      model.AccountKindCurrent,
+		Subtype:          model.SubtypeLLC,
+		MaintenanceFee:   10,
+		DailyLimit:       1000,
+		MonthlyLimit:     5000,
+		DailySpending:    100,
+		MonthlySpending:  200,
+		CreatedAt:        time.Now(),
+		ExpiresAt:        time.Now().Add(24 * time.Hour),
 	}
 
 	accountResp := ToAccountResponse(account)
@@ -92,12 +92,12 @@ func TestExchangeAndPaymentResponses(t *testing.T) {
 
 	now := time.Now()
 	rates := ToExchangeRatesResponse([]model.ExchangeRate{{
-		BaseCurrency:      model.RSD,
-		CurrencyCode:      model.EUR,
-		BuyRate:           117.123,
-		MiddleRate:        117.456,
-		SellRate:          118.789,
-		ProviderUpdatedAt: now,
+		BaseCurrency:         model.RSD,
+		CurrencyCode:         model.EUR,
+		BuyRate:              117.123,
+		MiddleRate:           117.456,
+		SellRate:             118.789,
+		ProviderUpdatedAt:    now,
 		ProviderNextUpdateAt: now.Add(24 * time.Hour),
 	}})
 	if rates.BaseCurrency != string(model.RSD) || rates.Rates[0].BuyRate != 117.12 {

@@ -92,7 +92,7 @@ func TestPeerNegotiationMappingHelpers(t *testing.T) {
 	}
 
 	negotiation := toPeerNegotiationDTO(n)
-	if !negotiation.IsOngoing || negotiation.OtcOffer.Amount != offer.Amount {
+	if !negotiation.IsOngoing || negotiation.Amount != offer.Amount {
 		t.Fatalf("unexpected negotiation dto %#v", negotiation)
 	}
 
