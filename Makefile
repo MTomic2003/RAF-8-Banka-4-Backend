@@ -71,8 +71,11 @@ saga-e2e-up:
 saga-e2e-down:
 	$(SAGA_COMPOSE) down
 
+# e2e is a standalone, test-only module (kept out of go.work so it never enters
+# the production Docker build graph). Run it from its own directory with
+# GOWORK=off so it resolves via its own go.mod replace directives.
 test-saga-e2e:
-	go test -tags=saga_e2e ./e2e/... -count=1 -v -timeout 30m
+	cd e2e && GOWORK=off go test -tags=saga_e2e ./... -count=1 -v -timeout 30m
 
 # Packages excluded from coverage: infrastructure with no business logic
 #   cmd, docs, config, seed, server, logging, db, pb, middleware, job - bootstrap/infra
