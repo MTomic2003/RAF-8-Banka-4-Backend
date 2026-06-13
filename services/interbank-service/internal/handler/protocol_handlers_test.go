@@ -122,7 +122,7 @@ func newProtocolHandlerSetup(t *testing.T) *protocolHandlerSetup {
 	}
 
 	peers := service.NewPeerResolver(
-		config.NewPeerRegistry([]config.Peer{{RoutingNumber: 111, BaseURL: "http://peer", OurAPIKey: "to-peer", TheirAPIKey: "from-peer"}}),
+		config.NewPeerRegistry([]config.Peer{{RoutingNumber: 111, BaseURL: "http://127.0.0.1:1", OurAPIKey: "to-peer", TheirAPIKey: "from-peer"}}),
 		&config.Configuration{OurRoutingNumber: handlerOurRouting, OurBankDisplayName: "Banka 4"},
 	)
 	inbound := repository.NewInboundMessageRepository(database)
@@ -150,6 +150,7 @@ func newProtocolHandlerSetup(t *testing.T) *protocolHandlerSetup {
 	router.POST("/interbank", interbankHandler.Receive)
 	router.POST("/interbank/negotiations", peerOtcHandler.CreateNegotiation)
 	router.GET("/interbank/negotiations/:rn/:id", peerOtcHandler.GetNegotiation)
+	router.PUT("/interbank/negotiations/:rn/:id", peerOtcHandler.UpdateNegotiation)
 	router.DELETE("/interbank/negotiations/:rn/:id", peerOtcHandler.DeleteNegotiation)
 	router.GET("/interbank/public-stock", peerOtcHandler.PublicStock)
 	router.GET("/interbank/user/:rn/:id", peerOtcHandler.UserLookup)
@@ -286,6 +287,11 @@ func TestPeerOtcHandlerNegotiationLookupAndClose(t *testing.T) {
 		t.Fatalf("unexpected negotiation %#v", negotiation)
 	}
 
+	rec = performJSON(setup.router, http.MethodPut, "/interbank/negotiations/444/"+id.ID, offer)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("same party counter status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
 	rec = performJSON(setup.router, http.MethodDelete, "/interbank/negotiations/444/"+id.ID, nil)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("delete status = %d body=%s", rec.Code, rec.Body.String())
@@ -339,6 +345,8 @@ func TestPeerOtcFrontendHandlerListsLocalState(t *testing.T) {
 		c.Next()
 	})
 	frontend := NewPeerOtcFrontendHandler(setup.otc)
+	authRouter.GET("/api/peer-otc/public-stocks", frontend.ListPublicStocks)
+	authRouter.POST("/api/peer-otc/negotiations", frontend.CreateNegotiation)
 	authRouter.GET("/api/peer-otc/negotiations", frontend.ListMyNegotiations)
 	authRouter.GET("/api/peer-otc/contracts", frontend.ListMyContracts)
 
@@ -383,7 +391,34 @@ func TestPeerOtcFrontendHandlerListsLocalState(t *testing.T) {
 		t.Fatalf("seed contract: %v", err)
 	}
 
-	rec := performJSON(authRouter, http.MethodGet, "/api/peer-otc/negotiations", nil)
+	rec := performJSON(authRouter, http.MethodGet, "/api/peer-otc/public-stocks", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list peer public stocks status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var peerStocks []dto.PublicStock
+	if err := json.Unmarshal(rec.Body.Bytes(), &peerStocks); err != nil {
+		t.Fatalf("decode peer public stocks: %v", err)
+	}
+	if len(peerStocks) != 0 {
+		t.Fatalf("expected unavailable peer to be skipped, got %#v", peerStocks)
+	}
+
+	rec = performJSON(authRouter, http.MethodPost, "/api/peer-otc/negotiations", gin.H{
+		"sellerId":        gin.H{"routingNumber": handlerOurRouting, "id": "7"},
+		"ticker":          "AAPL",
+		"amount":          1,
+		"pricePerStock":   100,
+		"priceCurrency":   "RSD",
+		"premium":         5,
+		"premiumCurrency": "RSD",
+		"settlementDate":  "2030-01-01",
+		"accountNumber":   "444000000000000011",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("same-bank negotiation status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performJSON(authRouter, http.MethodGet, "/api/peer-otc/negotiations", nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list negotiations status = %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -405,5 +440,107 @@ func TestPeerOtcFrontendHandlerListsLocalState(t *testing.T) {
 	}
 	if len(contracts) != 1 || contracts[0].ID.ID != "local-contract" {
 		t.Fatalf("unexpected contracts %#v", contracts)
+	}
+}
+
+func TestPeerOtcHandlerRejectsInvalidProtocolRequests(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	peerHandler := NewPeerOtcHandler(nil)
+	router := gin.New()
+	router.Use(errors.ErrorHandler())
+	router.Use(func(c *gin.Context) {
+		c.Set(middleware.PeerContextKey, 111)
+		c.Next()
+	})
+	router.POST("/interbank/negotiations", peerHandler.CreateNegotiation)
+	router.GET("/interbank/negotiations/:rn/:id", peerHandler.GetNegotiation)
+	router.PUT("/interbank/negotiations/:rn/:id", peerHandler.UpdateNegotiation)
+	router.DELETE("/interbank/negotiations/:rn/:id", peerHandler.DeleteNegotiation)
+	router.GET("/interbank/negotiations/:rn/:id/accept", peerHandler.AcceptNegotiation)
+	router.GET("/interbank/user/:rn/:id", peerHandler.UserLookup)
+
+	cases := []struct {
+		name   string
+		method string
+		path   string
+		body   any
+	}{
+		{name: "create malformed offer", method: http.MethodPost, path: "/interbank/negotiations"},
+		{name: "get bad routing number", method: http.MethodGet, path: "/interbank/negotiations/bad/neg-1"},
+		{name: "update bad routing number", method: http.MethodPut, path: "/interbank/negotiations/bad/neg-1", body: dto.OtcOffer{}},
+		{name: "update malformed offer", method: http.MethodPut, path: "/interbank/negotiations/444/neg-1"},
+		{name: "delete bad routing number", method: http.MethodDelete, path: "/interbank/negotiations/bad/neg-1"},
+		{name: "accept bad routing number", method: http.MethodGet, path: "/interbank/negotiations/bad/neg-1/accept"},
+		{name: "user lookup bad routing number", method: http.MethodGet, path: "/interbank/user/bad/7"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := performJSON(router, tc.method, tc.path, tc.body)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("%s %s status = %d body=%s", tc.method, tc.path, rec.Code, rec.Body.String())
+			}
+		})
+	}
+
+	noPeerRouter := gin.New()
+	noPeerRouter.Use(errors.ErrorHandler())
+	noPeerRouter.POST("/interbank/negotiations", peerHandler.CreateNegotiation)
+	rec := performJSON(noPeerRouter, http.MethodPost, "/interbank/negotiations", dto.OtcOffer{})
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("missing peer context status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPeerOtcFrontendHandlerRejectsInvalidRequests(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	frontend := NewPeerOtcFrontendHandler(nil)
+
+	router := gin.New()
+	router.Use(errors.ErrorHandler())
+	router.Use(func(c *gin.Context) {
+		auth.SetAuth(c, &auth.AuthContext{IdentityID: 9})
+		c.Next()
+	})
+	router.POST("/api/peer-otc/negotiations", frontend.CreateNegotiation)
+	router.PUT("/api/peer-otc/negotiations/:rn/:id/counter", frontend.SendCounterOffer)
+	router.POST("/api/peer-otc/negotiations/:rn/:id/accept", frontend.AcceptNegotiation)
+	router.DELETE("/api/peer-otc/negotiations/:rn/:id", frontend.Withdraw)
+	router.POST("/api/peer-otc/contracts/:rn/:id/exercise", frontend.ExerciseContract)
+
+	cases := []struct {
+		name   string
+		method string
+		path   string
+		body   any
+	}{
+		{name: "create missing fields", method: http.MethodPost, path: "/api/peer-otc/negotiations", body: gin.H{"ticker": "AAPL"}},
+		{name: "counter bad routing number", method: http.MethodPut, path: "/api/peer-otc/negotiations/bad/neg-1/counter", body: gin.H{}},
+		{name: "counter missing terms", method: http.MethodPut, path: "/api/peer-otc/negotiations/111/neg-1/counter", body: gin.H{"amount": 0}},
+		{name: "accept bad routing number", method: http.MethodPost, path: "/api/peer-otc/negotiations/bad/neg-1/accept", body: gin.H{}},
+		{name: "withdraw bad routing number", method: http.MethodDelete, path: "/api/peer-otc/negotiations/bad/neg-1"},
+		{name: "exercise bad routing number", method: http.MethodPost, path: "/api/peer-otc/contracts/bad/contract-1/exercise", body: gin.H{"accountNumber": "444000000000000011"}},
+		{name: "exercise missing account", method: http.MethodPost, path: "/api/peer-otc/contracts/111/contract-1/exercise", body: gin.H{}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := performJSON(router, tc.method, tc.path, tc.body)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("%s %s status = %d body=%s", tc.method, tc.path, rec.Code, rec.Body.String())
+			}
+		})
+	}
+
+	noAuthRouter := gin.New()
+	noAuthRouter.Use(errors.ErrorHandler())
+	noAuthRouter.GET("/api/peer-otc/negotiations", frontend.ListMyNegotiations)
+	rec := performJSON(noAuthRouter, http.MethodGet, "/api/peer-otc/negotiations", nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("missing auth status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
