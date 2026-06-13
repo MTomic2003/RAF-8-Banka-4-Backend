@@ -292,14 +292,14 @@ func (w *OutboxWorker) sendHTTP(ctx context.Context, peer config.Peer, payload [
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Api-Key", peer.OurAPIKey)
 
-	zap.L().Info("interbank outbound (outbox)",
+	zap.L().Info("[OUTBOUND] outbox",
 		zap.String("url", url),
 		zap.ByteString("request", payload),
 	)
 
 	resp, err := w.httpClient.Do(req)
 	if err != nil {
-		zap.L().Error("interbank outbound (outbox) error",
+		zap.L().Error("[OUTBOUND] outbox error",
 			zap.String("url", url),
 			zap.Error(err),
 		)
@@ -309,7 +309,7 @@ func (w *OutboxWorker) sendHTTP(ctx context.Context, peer config.Peer, payload [
 
 	body, err := io.ReadAll(resp.Body)
 
-	zap.L().Info("interbank outbound (outbox) response",
+	zap.L().Info("[OUTBOUND] outbox response",
 		zap.String("url", url),
 		zap.Int("status", resp.StatusCode),
 		zap.ByteString("response", body),

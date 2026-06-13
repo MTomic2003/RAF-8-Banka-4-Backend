@@ -22,6 +22,11 @@ func (w *captureWriter) Write(b []byte) (int, error) {
 // response body. Must run after APIKeyAuth so PeerContextKey is already set.
 func PeerMessageLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c.Request.URL.Path == "/public-stock" {
+			c.Next()
+			return
+		}
+
 		peerRouting, _ := c.Get(PeerContextKey)
 
 		var reqBody []byte
@@ -35,7 +40,7 @@ func PeerMessageLogger() gin.HandlerFunc {
 
 		c.Next()
 
-		zap.L().Info("interbank inbound",
+		zap.L().Info("[INBOUND]",
 			zap.Any("peer", peerRouting),
 			zap.String("method", c.Request.Method),
 			zap.String("path", c.Request.URL.Path),

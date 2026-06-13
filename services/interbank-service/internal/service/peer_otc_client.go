@@ -193,16 +193,19 @@ func (c *PeerOtcClient) do(ctx context.Context, peerRouting int, method, path st
 	}
 	req.Header.Set("X-Api-Key", peer.OurAPIKey)
 
-	zap.L().Info("interbank outbound",
-		zap.Int("peer", peerRouting),
-		zap.String("method", method),
-		zap.String("url", peer.BaseURL+path),
-		zap.ByteString("request", rawBody),
-	)
+	verbose := path != "/public-stock"
+	if verbose {
+		zap.L().Info("[OUTBOUND]",
+			zap.Int("peer", peerRouting),
+			zap.String("method", method),
+			zap.String("url", peer.BaseURL+path),
+			zap.ByteString("request", rawBody),
+		)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		zap.L().Error("interbank outbound error",
+		zap.L().Error("[OUTBOUND] error",
 			zap.Int("peer", peerRouting),
 			zap.String("url", peer.BaseURL+path),
 			zap.Error(err),
@@ -217,13 +220,15 @@ func (c *PeerOtcClient) do(ctx context.Context, peerRouting int, method, path st
 
 	respBody, _ := io.ReadAll(resp.Body)
 
-	zap.L().Info("interbank outbound response",
-		zap.Int("peer", peerRouting),
-		zap.String("method", method),
-		zap.String("url", peer.BaseURL+path),
-		zap.Int("status", resp.StatusCode),
-		zap.ByteString("response", respBody),
-	)
+	if verbose {
+		zap.L().Info("[OUTBOUND] response",
+			zap.Int("peer", peerRouting),
+			zap.String("method", method),
+			zap.String("url", peer.BaseURL+path),
+			zap.Int("status", resp.StatusCode),
+			zap.ByteString("response", respBody),
+		)
+	}
 
 	if resp.StatusCode >= 400 {
 		return errors.NewAppError(
