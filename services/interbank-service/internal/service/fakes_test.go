@@ -489,10 +489,12 @@ func (b *fakeBanking) rollbackCount() int {
 type fakeTrading struct {
 	mu sync.Mutex
 
-	reserveErr error
-	releaseErr error
-	consumeErr error
-	creditErr  error
+	publicStocks    *pb.ListPublicStocksResponse
+	publicStocksErr error
+	reserveErr      error
+	releaseErr      error
+	consumeErr      error
+	creditErr       error
 
 	reserveCalls []*pb.ReservePeerOtcSharesRequest
 	releaseCalls []string
@@ -501,6 +503,12 @@ type fakeTrading struct {
 }
 
 func (t *fakeTrading) ListPublicStocks(context.Context) (*pb.ListPublicStocksResponse, error) {
+	if t.publicStocksErr != nil {
+		return nil, t.publicStocksErr
+	}
+	if t.publicStocks != nil {
+		return t.publicStocks, nil
+	}
 	return &pb.ListPublicStocksResponse{}, nil
 }
 
