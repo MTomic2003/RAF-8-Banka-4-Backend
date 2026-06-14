@@ -661,6 +661,51 @@ paths:
       summary: Browse public OTC stocks across all peer banks
       tags:
       - peer-otc
+  /api/peer-otc/user/{rn}/{id}:
+    get:
+      description: |-
+        Resolves {rn, id} into the owning bank's display name and the
+        user's display name. When rn is ours the lookup is local;
+        otherwise §3.7 is called on the owning peer bank.
+      parameters:
+      - description: Owning bank routing number
+        in: path
+        name: rn
+        required: true
+        type: integer
+      - description: User id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserInformation'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "502":
+          description: Peer unreachable or returned non-2xx
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - BearerAuth: []
+      summary: Resolve a user (local or peer bank) into a display name
+      tags:
+      - peer-otc
   /interbank:
     post:
       consumes:
@@ -707,7 +752,7 @@ paths:
       summary: Receive an inter-bank message
       tags:
       - interbank
-  /interbank/negotiations:
+  /negotiations:
     post:
       consumes:
       - application/json
@@ -745,7 +790,7 @@ paths:
       summary: Create OTC negotiation (peer-initiated)
       tags:
       - interbank-otc
-  /interbank/negotiations/{rn}/{id}:
+  /negotiations/{rn}/{id}:
     delete:
       description: |-
         §3.5 — either party may withdraw from a negotiation (the
@@ -894,7 +939,7 @@ paths:
       summary: Post counter-offer
       tags:
       - interbank-otc
-  /interbank/negotiations/{rn}/{id}/accept:
+  /negotiations/{rn}/{id}/accept:
     get:
       description: |-
         §3.6 — accepts the current offer on a negotiation owned by us
@@ -943,7 +988,7 @@ paths:
       summary: Accept OTC negotiation
       tags:
       - interbank-otc
-  /interbank/public-stock:
+  /public-stock:
     get:
       description: |-
         §3.1 — returns every stock holding at this bank that has
@@ -976,7 +1021,7 @@ paths:
       summary: List public stocks at this bank
       tags:
       - interbank-otc
-  /interbank/user/{rn}/{id}:
+  /user/{rn}/{id}:
     get:
       description: |-
         §3.7 — peer banks call us to resolve one of our users into

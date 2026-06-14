@@ -76,6 +76,45 @@ func (h *PeerOtcFrontendHandler) ListPublicStocks(c *gin.Context) {
 	c.JSON(http.StatusOK, stocks)
 }
 
+// LookupUser godoc
+// @Summary Resolve a user (local or peer bank) into a display name
+// @Description Resolves {rn, id} into the owning bank's display name and the
+// @Description user's display name. When rn is ours the lookup is local;
+// @Description otherwise §3.7 is called on the owning peer bank.
+// @Tags peer-otc
+// @Produce json
+// @Param rn path int true "Owning bank routing number"
+// @Param id path string true "User id"
+// @Success 200 {object} dto.UserInformation
+// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Failure 502 {object} errors.AppError "Peer unreachable or returned non-2xx"
+// @Security BearerAuth
+// @Router /api/peer-otc/user/{rn}/{id} [get]
+func (h *PeerOtcFrontendHandler) LookupUser(c *gin.Context) {
+	rnRaw := c.Param("rn")
+	rn, err := strconv.Atoi(rnRaw)
+	if err != nil {
+		_ = c.Error(errors.BadRequestErr("rn must be an integer"))
+		return
+	}
+
+	id := c.Param("id")
+	if id == "" {
+		_ = c.Error(errors.BadRequestErr("id is required"))
+		return
+	}
+
+	info, err := h.service.LookupUser(c.Request.Context(), dto.ForeignBankId{RoutingNumber: rn, ID: id})
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, info)
+}
+
 // ListMyNegotiations godoc
 // @Summary List my cross-bank OTC negotiations
 // @Description Returns every cross-bank negotiation in which the

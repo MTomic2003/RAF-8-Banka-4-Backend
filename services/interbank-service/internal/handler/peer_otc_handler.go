@@ -36,7 +36,7 @@ func NewPeerOtcHandler(svc *service.PeerOtcService) *PeerOtcHandler {
 // @Success 200 {object} dto.ForeignBankId
 // @Failure 400 {object} errors.AppError
 // @Failure 401 {object} errors.AppError
-// @Router /interbank/negotiations [post]
+// @Router /negotiations [post]
 func (h *PeerOtcHandler) CreateNegotiation(c *gin.Context) {
 	senderRouting, ok := senderRoutingFromContext(c)
 	if !ok {
@@ -72,7 +72,7 @@ func (h *PeerOtcHandler) CreateNegotiation(c *gin.Context) {
 // @Failure 400 {object} errors.AppError
 // @Failure 401 {object} errors.AppError
 // @Failure 404 {object} errors.AppError
-// @Router /interbank/negotiations/{rn}/{id} [get]
+// @Router /negotiations/{rn}/{id} [get]
 func (h *PeerOtcHandler) GetNegotiation(c *gin.Context) {
 	rn, ok := parseRoutingNumber(c)
 	if !ok {
@@ -114,7 +114,7 @@ func (h *PeerOtcHandler) GetNegotiation(c *gin.Context) {
 // @Failure 403 {object} errors.AppError
 // @Failure 404 {object} errors.AppError
 // @Failure 409 {object} errors.AppError "Turn violation or negotiation closed"
-// @Router /interbank/negotiations/{rn}/{id} [put]
+// @Router /negotiations/{rn}/{id} [put]
 func (h *PeerOtcHandler) UpdateNegotiation(c *gin.Context) {
 	senderRouting, ok := senderRoutingFromContext(c)
 	if !ok {
@@ -162,7 +162,7 @@ func (h *PeerOtcHandler) UpdateNegotiation(c *gin.Context) {
 // @Failure 401 {object} errors.AppError
 // @Failure 403 {object} errors.AppError
 // @Failure 404 {object} errors.AppError
-// @Router /interbank/negotiations/{rn}/{id} [delete]
+// @Router /negotiations/{rn}/{id} [delete]
 func (h *PeerOtcHandler) DeleteNegotiation(c *gin.Context) {
 	senderRouting, ok := senderRoutingFromContext(c)
 	if !ok {
@@ -204,7 +204,7 @@ func (h *PeerOtcHandler) DeleteNegotiation(c *gin.Context) {
 // @Failure 401 {object} errors.AppError
 // @Failure 404 {object} errors.AppError
 // @Failure 409 {object} errors.AppError
-// @Router /interbank/negotiations/{rn}/{id}/accept [get]
+// @Router /negotiations/{rn}/{id}/accept [get]
 func (h *PeerOtcHandler) AcceptNegotiation(c *gin.Context) {
 	senderRouting, ok := senderRoutingFromContext(c)
 	if !ok {
@@ -243,7 +243,7 @@ func (h *PeerOtcHandler) AcceptNegotiation(c *gin.Context) {
 // @Success 200 {array} dto.PublicStock
 // @Failure 401 {object} errors.AppError
 // @Failure 500 {object} errors.AppError
-// @Router /interbank/public-stock [get]
+// @Router /public-stock [get]
 func (h *PeerOtcHandler) PublicStock(c *gin.Context) {
 	stocks, err := h.service.ListLocalPublicStocks(c.Request.Context())
 	if err != nil {
@@ -267,7 +267,7 @@ func (h *PeerOtcHandler) PublicStock(c *gin.Context) {
 // @Failure 400 {object} errors.AppError
 // @Failure 401 {object} errors.AppError
 // @Failure 404 {object} errors.AppError
-// @Router /interbank/user/{rn}/{id} [get]
+// @Router /user/{rn}/{id} [get]
 func (h *PeerOtcHandler) UserLookup(c *gin.Context) {
 	rn, ok := parseRoutingNumber(c)
 	if !ok {

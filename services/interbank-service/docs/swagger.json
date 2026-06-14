@@ -387,6 +387,71 @@
                 }
             }
         },
+        "/api/peer-otc/user/{rn}/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Resolves {rn, id} into the owning bank's display name and the\nuser's display name. When rn is ours the lookup is local;\notherwise §3.7 is called on the owning peer bank.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "peer-otc"
+                ],
+                "summary": "Resolve a user (local or peer bank) into a display name",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Owning bank routing number",
+                        "name": "rn",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "User id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.UserInformation"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    },
+                    "502": {
+                        "description": "Peer unreachable or returned non-2xx",
+                        "schema": {
+                            "$ref": "#/definitions/errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/interbank": {
             "post": {
                 "description": "Single ingress endpoint for the bank-to-bank protocol (§2.11).\nAccepts NEW_TX, COMMIT_TX and ROLLBACK_TX messages. The\nX-Api-Key header authenticates the sending bank.",
@@ -452,7 +517,7 @@
                 }
             }
         },
-        "/interbank/negotiations": {
+        "/negotiations": {
             "post": {
                 "description": "§3.2 — peer bank's buyer initiates a negotiation against\na seller in our bank. Returns the ForeignBankId of the\nnew negotiation owned by us.",
                 "consumes": [
@@ -505,7 +570,7 @@
                 }
             }
         },
-        "/interbank/negotiations/{rn}/{id}": {
+        "/negotiations/{rn}/{id}": {
             "get": {
                 "description": "§3.4 — returns the current negotiation state as the spec shape\n(the OtcOffer fields plus isOngoing). The :rn path parameter is\nthe negotiation's authoritative (seller's) routing number.",
                 "produces": [
@@ -708,7 +773,7 @@
                 }
             }
         },
-        "/interbank/negotiations/{rn}/{id}/accept": {
+        "/negotiations/{rn}/{id}/accept": {
             "get": {
                 "description": "§3.6 — accepts the current offer on a negotiation owned by us\n(we are the seller's authoritative bank). Forms the option\ncontract and drives the §2 NEW_TX that moves the premium, then\nreturns the resulting contract.",
                 "produces": [
@@ -775,7 +840,7 @@
                 }
             }
         },
-        "/interbank/public-stock": {
+        "/public-stock": {
             "get": {
                 "description": "§3.1 — returns every stock holding at this bank that has\na non-zero public amount, grouped by ticker with the list\nof sellers and their available quantities. Data pulled\nfrom trading-service via gRPC.",
                 "produces": [
@@ -819,7 +884,7 @@
                 }
             }
         },
-        "/interbank/user/{rn}/{id}": {
+        "/user/{rn}/{id}": {
             "get": {
                 "description": "§3.7 — peer banks call us to resolve one of our users into\na display name. routingNumber must match ours; id is the\nlocal user id encoded as a decimal string.",
                 "produces": [
