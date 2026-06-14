@@ -77,9 +77,9 @@ func setupRoutes(
 		// authorised clients only.
 		peerOtc := api.Group("/peer-otc")
 		peerOtc.Use(auth.Middleware(verifier, permissions))
-		peerOtc.Use(auth.RequireIdentityType(auth.IdentityClient))
 		{
 			peerOtc.GET("/public-stocks", peerOtcFrontendHandler.ListPublicStocks)
+			peerOtc.GET("/user/:rn/:id", peerOtcFrontendHandler.LookupUser)
 
 			peerOtcNegotiations := peerOtc.Group("/negotiations")
 			{

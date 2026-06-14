@@ -460,7 +460,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/interbank/negotiations": {
+        "/negotiations": {
             "post": {
                 "description": "§3.2 — peer bank's buyer initiates a negotiation against\na seller in our bank. Returns the ForeignBankId of the\nnew negotiation owned by us.",
                 "consumes": [
@@ -513,7 +513,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/interbank/negotiations/{rn}/{id}": {
+        "/negotiations/{rn}/{id}": {
             "get": {
                 "description": "§3.4 — returns the current negotiation state as the spec shape\n(the OtcOffer fields plus isOngoing). The :rn path parameter is\nthe negotiation's authoritative (seller's) routing number.",
                 "produces": [
@@ -716,7 +716,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/interbank/negotiations/{rn}/{id}/accept": {
+        "/negotiations/{rn}/{id}/accept": {
             "get": {
                 "description": "§3.6 — accepts the current offer on a negotiation owned by us\n(we are the seller's authoritative bank). Forms the option\ncontract and drives the §2 NEW_TX that moves the premium, then\nreturns the resulting contract.",
                 "produces": [
@@ -783,7 +783,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/interbank/public-stock": {
+        "/public-stock": {
             "get": {
                 "description": "§3.1 — returns every stock holding at this bank that has\na non-zero public amount, grouped by ticker with the list\nof sellers and their available quantities. Data pulled\nfrom trading-service via gRPC.",
                 "produces": [
@@ -827,7 +827,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/interbank/user/{rn}/{id}": {
+        "/user/{rn}/{id}": {
             "get": {
                 "description": "§3.7 — peer banks call us to resolve one of our users into\na display name. routingNumber must match ours; id is the\nlocal user id encoded as a decimal string.",
                 "produces": [

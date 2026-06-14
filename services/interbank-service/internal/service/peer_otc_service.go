@@ -786,6 +786,17 @@ func (s *PeerOtcService) LookupLocalUser(ctx context.Context, routingNumber int,
 	}, nil
 }
 
+// LookupUser resolves a user into a display name regardless of which bank
+// owns them. When the routing number is ours, it resolves locally; otherwise
+// it calls §3.7 GET /interbank/user/{rn}/{id} on the owning peer bank.
+func (s *PeerOtcService) LookupUser(ctx context.Context, userID dto.ForeignBankId) (*dto.UserInformation, error) {
+	if userID.RoutingNumber == s.peers.OurRoutingNumber() {
+		return s.LookupLocalUser(ctx, userID.RoutingNumber, userID.ID)
+	}
+
+	return s.client.UserLookup(ctx, userID)
+}
+
 // findLocalMirrorByRemote loads our mirror row for an authoritative
 // negotiation id and verifies that the calling user is a party to it.
 func (s *PeerOtcService) findLocalMirrorByRemote(

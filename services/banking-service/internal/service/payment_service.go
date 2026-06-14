@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/go-pdf/fpdf"
@@ -344,8 +345,11 @@ func (s *PaymentService) VerifyPayment(ctx context.Context, id uint, code, autho
 		return nil, err
 	}
 
+	// The payment is already executed at this point; a failed confirmation email
+	// is a non-fatal side effect and must not turn a successful payment into an
+	// error response to the client. Log it and return success.
 	if err := s.sendPaymentExecutedEmail(ctx, payerAccount.ClientID, payment); err != nil {
-		return nil, err
+		log.Printf("payment %d executed but confirmation email failed: %v", id, err)
 	}
 
 	return payment, nil

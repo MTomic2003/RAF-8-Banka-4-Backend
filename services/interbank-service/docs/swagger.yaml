@@ -707,7 +707,7 @@ paths:
       summary: Receive an inter-bank message
       tags:
       - interbank
-  /interbank/negotiations:
+  /negotiations:
     post:
       consumes:
       - application/json
@@ -745,7 +745,7 @@ paths:
       summary: Create OTC negotiation (peer-initiated)
       tags:
       - interbank-otc
-  /interbank/negotiations/{rn}/{id}:
+  /negotiations/{rn}/{id}:
     delete:
       description: |-
         §3.5 — either party may withdraw from a negotiation (the
@@ -894,7 +894,7 @@ paths:
       summary: Post counter-offer
       tags:
       - interbank-otc
-  /interbank/negotiations/{rn}/{id}/accept:
+  /negotiations/{rn}/{id}/accept:
     get:
       description: |-
         §3.6 — accepts the current offer on a negotiation owned by us
@@ -943,7 +943,7 @@ paths:
       summary: Accept OTC negotiation
       tags:
       - interbank-otc
-  /interbank/public-stock:
+  /public-stock:
     get:
       description: |-
         §3.1 — returns every stock holding at this bank that has
@@ -976,7 +976,7 @@ paths:
       summary: List public stocks at this bank
       tags:
       - interbank-otc
-  /interbank/user/{rn}/{id}:
+  /user/{rn}/{id}:
     get:
       description: |-
         §3.7 — peer banks call us to resolve one of our users into
