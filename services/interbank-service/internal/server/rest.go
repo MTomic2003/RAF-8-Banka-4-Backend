@@ -77,9 +77,9 @@ func setupRoutes(
 		// authorised clients only.
 		peerOtc := api.Group("/peer-otc")
 		peerOtc.Use(auth.Middleware(verifier, permissions))
-		peerOtc.Use(auth.RequireIdentityType(auth.IdentityClient))
 		{
 			peerOtc.GET("/public-stocks", peerOtcFrontendHandler.ListPublicStocks)
+			peerOtc.GET("/user/:rn/:id", peerOtcFrontendHandler.LookupUser)
 
 			peerOtcNegotiations := peerOtc.Group("/negotiations")
 			{
@@ -98,6 +98,7 @@ func setupRoutes(
 	// Peer-to-peer protocol endpoints, authenticated via X-Api-Key.
 	crossBank := r.Group("")
 	crossBank.Use(middleware.APIKeyAuth(peers))
+	crossBank.Use(middleware.PeerMessageLogger())
 	{
 		// §2 transaction protocol.
 		crossBank.POST("/interbank", interbankHandler.Receive)

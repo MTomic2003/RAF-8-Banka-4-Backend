@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var log *zap.Logger
@@ -20,12 +21,18 @@ func Error(msg string, fields ...zap.Field) {
 func Init(env string) error {
 	var err error
 	if env == "production" {
-		log, err = zap.NewProduction()
+		cfg := zap.NewProductionConfig()
+		cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+		log, err = cfg.Build()
 	} else {
 		log, err = zap.NewDevelopment()
 	}
+	if err != nil {
+		return err
+	}
 
-	return err
+	zap.ReplaceGlobals(log)
+	return nil
 }
 
 // Logger returns a Gin middleware that logs incoming HTTP requests.

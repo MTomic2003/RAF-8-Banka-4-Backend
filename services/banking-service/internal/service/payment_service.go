@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/go-pdf/fpdf"
@@ -61,6 +62,9 @@ func NewPaymentService(
 func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymentRequest, skipSameClientCheck ...bool) (*model.Payment, error) {
 	payerAccount, err := s.accountRepo.FindByAccountNumber(ctx, req.PayerAccountNumber)
 	if err != nil {
+		return nil, errors.InternalErr(err)
+	}
+	if payerAccount == nil {
 		return nil, errors.NotFoundErr("payer account not found")
 	}
 
@@ -75,6 +79,9 @@ func (s *PaymentService) CreatePayment(ctx context.Context, req dto.CreatePaymen
 	if !model.IsForeignAccountNumber(req.RecipientAccountNumber) {
 		recipientAccount, err := s.accountRepo.FindByAccountNumber(ctx, req.RecipientAccountNumber)
 		if err != nil {
+			return nil, errors.InternalErr(err)
+		}
+		if recipientAccount == nil {
 			return nil, errors.NotFoundErr("recipient account not found")
 		}
 
@@ -338,8 +345,11 @@ func (s *PaymentService) VerifyPayment(ctx context.Context, id uint, code, autho
 		return nil, err
 	}
 
+	// The payment is already executed at this point; a failed confirmation email
+	// is a non-fatal side effect and must not turn a successful payment into an
+	// error response to the client. Log it and return success.
 	if err := s.sendPaymentExecutedEmail(ctx, payerAccount.ClientID, payment); err != nil {
-		return nil, err
+		log.Printf("payment %d executed but confirmation email failed: %v", id, err)
 	}
 
 	return payment, nil

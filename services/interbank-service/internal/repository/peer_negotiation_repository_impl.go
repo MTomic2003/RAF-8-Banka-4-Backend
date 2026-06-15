@@ -23,11 +23,20 @@ func (r *peerNegotiationRepository) Create(ctx context.Context, n *model.PeerNeg
 	return db.DBFromContext(ctx, r.db).Create(n).Error
 }
 
-func (r *peerNegotiationRepository) FindByID(ctx context.Context, id string) (*model.PeerNegotiation, error) {
+func (r *peerNegotiationRepository) Upsert(ctx context.Context, n *model.PeerNegotiation) error {
+	return db.DBFromContext(ctx, r.db).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "seller_routing_number"}, {Name: "id"}},
+			UpdateAll: true,
+		}).
+		Create(n).Error
+}
+
+func (r *peerNegotiationRepository) FindByID(ctx context.Context, routingNumber int, id string) (*model.PeerNegotiation, error) {
 	var n model.PeerNegotiation
 
 	err := db.DBFromContext(ctx, r.db).
-		Where("id = ?", id).
+		Where("seller_routing_number = ? AND id = ?", routingNumber, id).
 		First(&n).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -45,11 +54,11 @@ func (r *peerNegotiationRepository) Update(ctx context.Context, n *model.PeerNeg
 	return db.DBFromContext(ctx, r.db).Save(n).Error
 }
 
-func (r *peerNegotiationRepository) FindByIDForUpdate(ctx context.Context, id string) (*model.PeerNegotiation, error) {
+func (r *peerNegotiationRepository) FindByIDForUpdate(ctx context.Context, routingNumber int, id string) (*model.PeerNegotiation, error) {
 	var n model.PeerNegotiation
 
 	err := db.DBFromContext(ctx, r.db).
-		Where("id = ?", id).
+		Where("seller_routing_number = ? AND id = ?", routingNumber, id).
 		Clauses(clause.Locking{Strength: "UPDATE"}).
 		First(&n).Error
 

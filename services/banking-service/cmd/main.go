@@ -134,6 +134,10 @@ func main() {
 				return err
 			}
 
+			if err := dropStaleTransactionConstraints(db); err != nil {
+				return err
+			}
+
 			if err := db.AutoMigrate(
 				&model.Currency{},
 				&model.WorkCode{},
@@ -186,6 +190,27 @@ func main() {
 		}),
 		fx.Invoke(server.NewServer, server.NewGRPCServer),
 	).Run()
+}
+
+// dropStaleTransactionConstraints removes the foreign-key constraints that
+// earlier schema versions created on transactions.payer/recipient_account_number
+// (back when Account modelled Transactions as has-many relations). They are no
+// longer part of the model, but AutoMigrate never drops constraints it didn't
+// just create, so they linger in existing databases and reject inter-bank
+// payments whose counterparty account lives at another bank (SQLSTATE 23503).
+func dropStaleTransactionConstraints(db *gorm.DB) error {
+	if !db.Migrator().HasTable("transactions") {
+		return nil
+	}
+	for _, constraint := range []string{
+		"fk_accounts_transactions_payer",
+		"fk_accounts_transactions_recipient",
+	} {
+		if err := db.Exec("ALTER TABLE transactions DROP CONSTRAINT IF EXISTS " + constraint).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func normalizeVerificationTokensSchema(db *gorm.DB) error {
