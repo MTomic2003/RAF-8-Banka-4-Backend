@@ -789,6 +789,12 @@ func (p *MessageProcessor) commitOptionPosting(ctx context.Context, tx *dto.Tran
 	if err := p.contracts.Create(ctx, contract); err != nil {
 		return err
 	}
+
+	negotiation, err := p.negotiations.FindByID(ctx, option.NegotiationID.RoutingNumber, option.NegotiationID.ID)
+	if err == nil && negotiation != nil && negotiation.Status == model.PeerNegotiationOngoing {
+		negotiation.Status = model.PeerNegotiationAccepted
+		_ = p.negotiations.Update(ctx, negotiation)
+	}
 	return nil
 }
 
