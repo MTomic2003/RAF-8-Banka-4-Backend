@@ -489,13 +489,13 @@ func TestTaxRepositoryLifecycle(t *testing.T) {
 	employeeID := uint(77)
 	now := time.Now().UTC()
 
-	if err := repo.AddTaxOwed(ctx, "444000100000000003", nil, 250, "RSD"); err != nil {
+	if err := repo.AddTaxOwed(ctx, "444000100000000003", nil, 250); err != nil {
 		t.Fatalf("add client tax: %v", err)
 	}
-	if err := repo.AddTaxOwed(ctx, "444000100000000003", nil, 125, "RSD"); err != nil {
+	if err := repo.AddTaxOwed(ctx, "444000100000000003", nil, 125); err != nil {
 		t.Fatalf("add client tax again: %v", err)
 	}
-	if err := repo.AddTaxOwed(ctx, "444000100000000004", &employeeID, 400, "RSD"); err != nil {
+	if err := repo.AddTaxOwed(ctx, "444000100000000004", &employeeID, 400); err != nil {
 		t.Fatalf("add employee tax: %v", err)
 	}
 
@@ -558,7 +558,6 @@ func TestTaxRepositoryLifecycle(t *testing.T) {
 	collection := &model.TaxCollection{
 		AccountNumber:     "444000100000000003",
 		TaxOwed:           50,
-		CurrencyCode:      "RSD",
 		Status:            model.TaxStatusCollected,
 		TaxingPeriodStart: now.AddDate(0, -1, 0),
 		TaxingPeriodEnd:   &now,
@@ -571,7 +570,6 @@ func TestTaxRepositoryLifecycle(t *testing.T) {
 	failed := &model.TaxCollection{
 		AccountNumber:     "444000100000000004",
 		TaxOwed:           400,
-		CurrencyCode:      "RSD",
 		EmployeeID:        &employeeID,
 		Status:            model.TaxStatusFailed,
 		FailureReason:     &failedReason,

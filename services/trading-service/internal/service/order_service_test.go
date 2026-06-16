@@ -337,7 +337,7 @@ func (f *fakeTaxRecorder) RecordTax(_ context.Context, accountNumber string, emp
 	return f.recordErr
 }
 
-func (f *fakeTaxRecorder) ReduceTax(_ context.Context, accountNumber string, _ *uint, lossBase float64) error {
+func (f *fakeTaxRecorder) ReduceTax(_ context.Context, accountNumber string, _ *uint, lossBase float64, _ string) error {
 	f.reduceCalled = true
 	f.reducedAccountNumber = accountNumber
 	f.reducedLossBase = lossBase

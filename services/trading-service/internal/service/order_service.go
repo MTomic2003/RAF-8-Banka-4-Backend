@@ -1319,7 +1319,7 @@ func normalizeCurrencyCode(currency string) string {
 }
 
 func (s *OrderService) recordProfitTax(ctx context.Context, order *model.Order, fillQty uint, pricePerUnit float64, tradeCurrency string) error {
-	if order.Direction != model.OrderDirectionSell || order.RemainingPortions() != 0 {
+	if order.Direction != model.OrderDirectionSell {
 		return nil
 	}
 

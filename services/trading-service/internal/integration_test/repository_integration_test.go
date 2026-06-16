@@ -19,14 +19,13 @@ func TestTaxRepo_AddTaxOwed_CreatesNewRecord(t *testing.T) {
 	repo := repository.NewTaxRepository(db)
 	ctx := context.Background()
 
-	err := repo.AddTaxOwed(ctx, "444000100000000001", nil, 100.0, "RSD")
+	err := repo.AddTaxOwed(ctx, "444000100000000001", nil, 100.0)
 	require.NoError(t, err)
 
 	tax, err := repo.FindAccumulatedTaxByAccountNumber(ctx, "444000100000000001")
 	require.NoError(t, err)
 	require.NotNil(t, tax)
 	assert.Equal(t, 100.0, tax.TaxOwed)
-	assert.Equal(t, "RSD", tax.CurrencyCode)
 }
 
 func TestTaxRepo_AddTaxOwed_AccumulatesOnExistingRecord(t *testing.T) {
@@ -35,10 +34,10 @@ func TestTaxRepo_AddTaxOwed_AccumulatesOnExistingRecord(t *testing.T) {
 	repo := repository.NewTaxRepository(db)
 	ctx := context.Background()
 
-	err := repo.AddTaxOwed(ctx, "444000100000000002", nil, 50.0, "RSD")
+	err := repo.AddTaxOwed(ctx, "444000100000000002", nil, 50.0)
 	require.NoError(t, err)
 
-	err = repo.AddTaxOwed(ctx, "444000100000000002", nil, 30.0, "RSD")
+	err = repo.AddTaxOwed(ctx, "444000100000000002", nil, 30.0)
 	require.NoError(t, err)
 
 	tax, err := repo.FindAccumulatedTaxByAccountNumber(ctx, "444000100000000002")
@@ -54,7 +53,7 @@ func TestTaxRepo_AddTaxOwed_WithEmployeeID(t *testing.T) {
 	ctx := context.Background()
 
 	eid := uint(42)
-	err := repo.AddTaxOwed(ctx, "444000100000000003", &eid, 200.0, "RSD")
+	err := repo.AddTaxOwed(ctx, "444000100000000003", &eid, 200.0)
 	require.NoError(t, err)
 
 	taxes, _, err := repo.FindAllAccumulatedTax(ctx, []string{"444000100000000003"}, 1, 10)
@@ -82,9 +81,9 @@ func TestTaxRepo_FindAllAccumulatedTax_FiltersByAccountNumbers(t *testing.T) {
 	repo := repository.NewTaxRepository(db)
 	ctx := context.Background()
 
-	_ = repo.AddTaxOwed(ctx, "444000100000000010", nil, 10.0, "RSD")
-	_ = repo.AddTaxOwed(ctx, "444000100000000011", nil, 20.0, "RSD")
-	_ = repo.AddTaxOwed(ctx, "444000100000000012", nil, 30.0, "RSD")
+	_ = repo.AddTaxOwed(ctx, "444000100000000010", nil, 10.0)
+	_ = repo.AddTaxOwed(ctx, "444000100000000011", nil, 20.0)
+	_ = repo.AddTaxOwed(ctx, "444000100000000012", nil, 30.0)
 
 	taxes, count, err := repo.FindAllAccumulatedTax(ctx, []string{"444000100000000010", "444000100000000011"}, 1, 10)
 	require.NoError(t, err)
@@ -98,8 +97,8 @@ func TestTaxRepo_FindAllAccumulatedTax_NoFilter(t *testing.T) {
 	repo := repository.NewTaxRepository(db)
 	ctx := context.Background()
 
-	_ = repo.AddTaxOwed(ctx, "444000200000000001", nil, 5.0, "RSD")
-	_ = repo.AddTaxOwed(ctx, "444000200000000002", nil, 15.0, "RSD")
+	_ = repo.AddTaxOwed(ctx, "444000200000000001", nil, 5.0)
+	_ = repo.AddTaxOwed(ctx, "444000200000000002", nil, 15.0)
 
 	taxes, count, err := repo.FindAllAccumulatedTax(ctx, nil, 1, 10)
 	require.NoError(t, err)
@@ -119,7 +118,7 @@ func TestTaxRepo_FindAllAccumulatedTax_Pagination(t *testing.T) {
 		"444000300000000003",
 	}
 	for _, acc := range accounts {
-		_ = repo.AddTaxOwed(ctx, acc, nil, 1.0, "RSD")
+		_ = repo.AddTaxOwed(ctx, acc, nil, 1.0)
 	}
 
 	page1, count, err := repo.FindAllAccumulatedTax(ctx, accounts, 1, 2)
@@ -138,7 +137,7 @@ func TestTaxRepo_ClearTax(t *testing.T) {
 	repo := repository.NewTaxRepository(db)
 	ctx := context.Background()
 
-	err := repo.AddTaxOwed(ctx, "444000100000000020", nil, 500.0, "RSD")
+	err := repo.AddTaxOwed(ctx, "444000100000000020", nil, 500.0)
 	require.NoError(t, err)
 
 	clearedAt := time.Now()
@@ -158,7 +157,7 @@ func TestTaxRepo_SaveAccumulatedTax(t *testing.T) {
 	repo := repository.NewTaxRepository(db)
 	ctx := context.Background()
 
-	err := repo.AddTaxOwed(ctx, "444000100000000030", nil, 100.0, "RSD")
+	err := repo.AddTaxOwed(ctx, "444000100000000030", nil, 100.0)
 	require.NoError(t, err)
 
 	tax, err := repo.FindAccumulatedTaxByAccountNumber(ctx, "444000100000000030")
@@ -185,7 +184,6 @@ func TestTaxRepo_CreateTaxCollection(t *testing.T) {
 	collection := &model.TaxCollection{
 		AccountNumber:     "444000100000000040",
 		TaxOwed:           75.0,
-		CurrencyCode:      "RSD",
 		Status:            model.TaxStatusCollected,
 		TaxingPeriodStart: periodStart,
 	}
@@ -223,7 +221,6 @@ func TestTaxRepo_FindTaxCollectionsByAccountNumber_OrderedDesc(t *testing.T) {
 		c := &model.TaxCollection{
 			AccountNumber:     acct,
 			TaxOwed:           float64(10 * (i + 1)),
-			CurrencyCode:      "RSD",
 			Status:            model.TaxStatusCollected,
 			TaxingPeriodStart: time.Now().AddDate(0, -(i + 1), 0),
 		}
@@ -249,7 +246,6 @@ func TestTaxRepo_FindLatestTaxCollection(t *testing.T) {
 		c := &model.TaxCollection{
 			AccountNumber:     acct,
 			TaxOwed:           float64(100 + i),
-			CurrencyCode:      "RSD",
 			Status:            model.TaxStatusCollected,
 			TaxingPeriodStart: time.Now().AddDate(0, -(3 - i), 0),
 		}
@@ -281,14 +277,13 @@ func TestTaxRepo_RecordCollectionResult_WithClearTax(t *testing.T) {
 	ctx := context.Background()
 
 	acct := "444000100000000070"
-	err := repo.AddTaxOwed(ctx, acct, nil, 300.0, "RSD")
+	err := repo.AddTaxOwed(ctx, acct, nil, 300.0)
 	require.NoError(t, err)
 
 	clearedAt := time.Now()
 	collection := &model.TaxCollection{
 		AccountNumber:     acct,
 		TaxOwed:           300.0,
-		CurrencyCode:      "RSD",
 		Status:            model.TaxStatusCollected,
 		TaxingPeriodStart: time.Now().AddDate(0, -1, 0),
 	}
@@ -310,14 +305,13 @@ func TestTaxRepo_RecordCollectionResult_WithoutClearTax(t *testing.T) {
 	ctx := context.Background()
 
 	acct := "444000100000000080"
-	err := repo.AddTaxOwed(ctx, acct, nil, 400.0, "RSD")
+	err := repo.AddTaxOwed(ctx, acct, nil, 400.0)
 	require.NoError(t, err)
 
 	reason := "payment failed"
 	collection := &model.TaxCollection{
 		AccountNumber:     acct,
 		TaxOwed:           400.0,
-		CurrencyCode:      "RSD",
 		Status:            model.TaxStatusFailed,
 		FailureReason:     &reason,
 		TaxingPeriodStart: time.Now().AddDate(0, -1, 0),

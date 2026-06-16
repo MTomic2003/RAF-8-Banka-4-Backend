@@ -303,7 +303,6 @@ func TestOTC_AcceptOffer_RecordsPremiumTaxForSeller(t *testing.T) {
 	err := db.Where("account_number = ?", "seller-acc").First(&tax).Error
 	require.NoError(t, err)
 	assert.InDelta(t, 172.50, tax.TaxOwed, 1e-6)
-	assert.Equal(t, "RSD", tax.CurrencyCode)
 	assert.Nil(t, tax.EmployeeID)
 }
 

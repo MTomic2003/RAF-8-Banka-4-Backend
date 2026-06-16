@@ -111,7 +111,7 @@ func (s *OtcTaxService) RecordExpiryLoss(ctx context.Context, contract *model.Ot
 		return nil
 	}
 
-	return s.taxRecorder.ReduceTax(ctx, contract.BuyerAccountNumber, nil, contract.PremiumRSD)
+	return s.taxRecorder.ReduceTax(ctx, contract.BuyerAccountNumber, nil, contract.PremiumRSD, "RSD")
 }
 
 // marketPriceRSD resolves the current market price of a stock (by asset id) in RSD.

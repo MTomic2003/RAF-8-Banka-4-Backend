@@ -51,7 +51,7 @@ type fakeTaxRepo struct {
 	reduceTaxErr         error
 }
 
-func (f *fakeTaxRepo) AddTaxOwed(_ context.Context, _ string, _ *uint, _ float64, _ string) error {
+func (f *fakeTaxRepo) AddTaxOwed(_ context.Context, _ string, _ *uint, _ float64) error {
 	return f.addTaxErr
 }
 
@@ -61,7 +61,12 @@ func (f *fakeTaxRepo) ReduceTaxOwed(_ context.Context, accountNumber string, _ *
 	return f.reduceTaxErr
 }
 
-func (c *fakeBankingClient) GetAccountCurrency(_ context.Context, _ string) (string, error) {
+func (f *fakeBankingClient) GetAccountCurrency(_ context.Context, accountNumber string) (string, error) {
+	if f.accountCurrencies != nil {
+		if currency, ok := f.accountCurrencies[accountNumber]; ok {
+			return currency, nil
+		}
+	}
 	return "RSD", nil
 }
 
@@ -126,6 +131,9 @@ type fakeBankingClient struct {
 	paymentErr  error
 
 	accountByNumber map[string]uint64
+
+	// GetAccountCurrency — per-account currency; absent accounts default to "RSD".
+	accountCurrencies map[string]string
 }
 
 func (f *fakeBankingClient) GetAccountByNumber(_ context.Context, acc string) (*pb.GetAccountByNumberResponse, error) {
@@ -217,7 +225,7 @@ func TestReduceTax_SubtractsFifteenPercentOfLoss(t *testing.T) {
 	svc := newTestTaxService(repo, &fakeBankingClient{})
 
 	// lossBase=1150 (premija), reduction = 15% = 172.50 oduzeto od akumuliranog poreza.
-	err := svc.ReduceTax(context.Background(), "444000000000000000", nil, 1150)
+	err := svc.ReduceTax(context.Background(), "444000000000000000", nil, 1150, "RSD")
 	require.NoError(t, err)
 	require.Equal(t, "444000000000000000", repo.reducedAccountNumber)
 	require.InDelta(t, 172.50, repo.reducedAmount, 1e-9)
@@ -227,8 +235,8 @@ func TestReduceTax_SkipsNonPositiveLoss(t *testing.T) {
 	repo := &fakeTaxRepo{}
 	svc := newTestTaxService(repo, &fakeBankingClient{})
 
-	require.NoError(t, svc.ReduceTax(context.Background(), "acc", nil, 0))
-	require.NoError(t, svc.ReduceTax(context.Background(), "acc", nil, -50))
+	require.NoError(t, svc.ReduceTax(context.Background(), "acc", nil, 0, "RSD"))
+	require.NoError(t, svc.ReduceTax(context.Background(), "acc", nil, -50, "RSD"))
 	require.Equal(t, 0.0, repo.reducedAmount, "no reduction attempted for non-positive loss")
 }
 
@@ -268,7 +276,6 @@ func TestCollectTaxes_Success(t *testing.T) {
 				AccountNumber: "444000000000000000",
 				EmployeeID:    &empID,
 				TaxOwed:       12000,
-				CurrencyCode:  "RSD",
 				LastUpdatedAt: now,
 			},
 		},
@@ -292,7 +299,6 @@ func TestCollectTaxes_PaymentFails_RecordsFailedStatus(t *testing.T) {
 			{
 				AccountNumber: "444000112345678911",
 				TaxOwed:       8500,
-				CurrencyCode:  "RSD",
 				LastUpdatedAt: now,
 			},
 		},
@@ -325,7 +331,6 @@ func TestCollectTaxes_RecordCollectionError(t *testing.T) {
 			{
 				AccountNumber: "444000000000000000",
 				TaxOwed:       5000,
-				CurrencyCode:  "RSD",
 				LastUpdatedAt: now,
 			},
 		},
@@ -345,7 +350,6 @@ func TestCollectTaxes_SetsCorrectPeriodTimes(t *testing.T) {
 			{
 				AccountNumber: "444000000000000000",
 				TaxOwed:       1000,
-				CurrencyCode:  "RSD",
 				LastUpdatedAt: periodStart,
 			},
 		},
@@ -366,7 +370,6 @@ func TestGetAccumulatedTax_Success(t *testing.T) {
 	expected := &model.AccumulatedTax{
 		AccountNumber: "444000112345678911",
 		TaxOwed:       8500,
-		CurrencyCode:  "RSD",
 	}
 	repo := &fakeTaxRepo{accumulatedTax: expected}
 	svc := newTestTaxService(repo, &fakeBankingClient{})
@@ -398,8 +401,8 @@ func TestGetAccumulatedTax_RepoError(t *testing.T) {
 
 func TestGetTaxCollections_Success(t *testing.T) {
 	collections := []model.TaxCollection{
-		{AccountNumber: "444000112345678911", TaxOwed: 8500, CurrencyCode: "RSD", Status: model.TaxStatusCollected},
-		{AccountNumber: "444000112345678911", TaxOwed: 3000, CurrencyCode: "RSD", Status: model.TaxStatusFailed},
+		{AccountNumber: "444000112345678911", TaxOwed: 8500, Status: model.TaxStatusCollected},
+		{AccountNumber: "444000112345678911", TaxOwed: 3000, Status: model.TaxStatusFailed},
 	}
 	repo := &fakeTaxRepo{collections: collections}
 	svc := newTestTaxService(repo, &fakeBankingClient{})
@@ -435,7 +438,7 @@ func TestGetEmployeeTotalTax_AllRSD(t *testing.T) {
 	empID := uint(4)
 	repo := &fakeTaxRepo{
 		employeeTaxes: []model.AccumulatedTax{
-			{AccountNumber: "444000000000000000", EmployeeID: &empID, TaxOwed: 12000, CurrencyCode: "RSD"},
+			{AccountNumber: "444000000000000000", EmployeeID: &empID, TaxOwed: 12000},
 		},
 	}
 	svc := newTestTaxService(repo, &fakeBankingClient{})
@@ -449,13 +452,19 @@ func TestGetEmployeeTotalTax_MultiCurrency(t *testing.T) {
 	empID := uint(4)
 	repo := &fakeTaxRepo{
 		employeeTaxes: []model.AccumulatedTax{
-			{AccountNumber: "444000000000000000", EmployeeID: &empID, TaxOwed: 12000, CurrencyCode: "RSD"},
-			{AccountNumber: "444000000000000001", EmployeeID: &empID, TaxOwed: 80, CurrencyCode: "EUR"},
-			{AccountNumber: "444000000000000002", EmployeeID: &empID, TaxOwed: 150, CurrencyCode: "USD"},
+			{AccountNumber: "444000000000000000", EmployeeID: &empID, TaxOwed: 12000},
+			{AccountNumber: "444000000000000001", EmployeeID: &empID, TaxOwed: 80},
+			{AccountNumber: "444000000000000002", EmployeeID: &empID, TaxOwed: 150},
 		},
 	}
 	// ConvertCurrency multiplies by convertedAmount (acts as exchange rate)
-	banking := &fakeBankingClient{convertedAmount: 117.0} // ~117 RSD per foreign unit
+	banking := &fakeBankingClient{
+		convertedAmount: 117.0, // ~117 RSD per foreign unit
+		accountCurrencies: map[string]string{
+			"444000000000000001": "EUR",
+			"444000000000000002": "USD",
+		},
+	}
 	svc := newTestTaxService(repo, banking)
 
 	total, err := svc.GetEmployeeTotalTax(context.Background(), 4)
@@ -486,10 +495,13 @@ func TestGetEmployeeTotalTax_ConvertError(t *testing.T) {
 	empID := uint(5)
 	repo := &fakeTaxRepo{
 		employeeTaxes: []model.AccumulatedTax{
-			{AccountNumber: "444000000000000004", EmployeeID: &empID, TaxOwed: 60, CurrencyCode: "GBP"},
+			{AccountNumber: "444000000000000004", EmployeeID: &empID, TaxOwed: 60},
 		},
 	}
-	banking := &fakeBankingClient{convertErr: errors.New("exchange rate unavailable")}
+	banking := &fakeBankingClient{
+		convertErr:        errors.New("exchange rate unavailable"),
+		accountCurrencies: map[string]string{"444000000000000004": "GBP"},
+	}
 	svc := newTestTaxService(repo, banking)
 
 	total, err := svc.GetEmployeeTotalTax(context.Background(), 5)
@@ -501,9 +513,9 @@ func TestGetEmployeeTotalTax_AggregatesSameCurrency(t *testing.T) {
 	empID := uint(6)
 	repo := &fakeTaxRepo{
 		employeeTaxes: []model.AccumulatedTax{
-			{AccountNumber: "444000000000000005", EmployeeID: &empID, TaxOwed: 3000, CurrencyCode: "RSD"},
-			{AccountNumber: "444000000000000006", EmployeeID: &empID, TaxOwed: 2000, CurrencyCode: "RSD"},
-			{AccountNumber: "444000000000000007", EmployeeID: &empID, TaxOwed: 5000, CurrencyCode: "RSD"},
+			{AccountNumber: "444000000000000005", EmployeeID: &empID, TaxOwed: 3000},
+			{AccountNumber: "444000000000000006", EmployeeID: &empID, TaxOwed: 2000},
+			{AccountNumber: "444000000000000007", EmployeeID: &empID, TaxOwed: 5000},
 		},
 	}
 	svc := newTestTaxService(repo, &fakeBankingClient{})
@@ -519,8 +531,8 @@ func TestGetEmployeeTotalTax_SkipsNegativeCurrencyTotal(t *testing.T) {
 	repo := &fakeTaxRepo{
 		employeeTaxes: []model.AccumulatedTax{
 			// EUR totals to -50, skipped by sumToRSD since amount <= 0
-			{AccountNumber: "444000000000000005", EmployeeID: &empID, TaxOwed: -50, CurrencyCode: "EUR"},
-			{AccountNumber: "444000000000000007", EmployeeID: &empID, TaxOwed: 5000, CurrencyCode: "RSD"},
+			{AccountNumber: "444000000000000005", EmployeeID: &empID, TaxOwed: -50},
+			{AccountNumber: "444000000000000007", EmployeeID: &empID, TaxOwed: 5000},
 		},
 	}
 	svc := newTestTaxService(repo, &fakeBankingClient{})
@@ -536,8 +548,8 @@ func TestGetEmployeeTotalTax_SkipsNegativeCurrencyTotal(t *testing.T) {
 func TestGetClientTotalTax_Success(t *testing.T) {
 	repo := &fakeTaxRepo{
 		clientTaxes: []model.AccumulatedTax{
-			{AccountNumber: "444000112345678911", TaxOwed: 8500, CurrencyCode: "RSD"},
-			{AccountNumber: "444000112345678913", TaxOwed: 120, CurrencyCode: "EUR"},
+			{AccountNumber: "444000112345678911", TaxOwed: 8500},
+			{AccountNumber: "444000112345678913", TaxOwed: 120},
 		},
 	}
 	banking := &fakeBankingClient{
@@ -547,7 +559,8 @@ func TestGetClientTotalTax_Success(t *testing.T) {
 				{AccountNumber: "444000112345678913"},
 			},
 		},
-		convertedAmount: 117.0,
+		convertedAmount:   117.0,
+		accountCurrencies: map[string]string{"444000112345678913": "EUR"},
 	}
 	svc := newTestTaxService(repo, banking)
 
@@ -560,7 +573,7 @@ func TestGetClientTotalTax_Success(t *testing.T) {
 func TestGetClientTotalTax_OnlyUSD(t *testing.T) {
 	repo := &fakeTaxRepo{
 		clientTaxes: []model.AccumulatedTax{
-			{AccountNumber: "444000112345678922", TaxOwed: 250, CurrencyCode: "USD"},
+			{AccountNumber: "444000112345678922", TaxOwed: 250},
 		},
 	}
 	banking := &fakeBankingClient{
@@ -569,7 +582,8 @@ func TestGetClientTotalTax_OnlyUSD(t *testing.T) {
 				{AccountNumber: "444000112345678922"},
 			},
 		},
-		convertedAmount: 110.0,
+		convertedAmount:   110.0,
+		accountCurrencies: map[string]string{"444000112345678922": "USD"},
 	}
 	svc := newTestTaxService(repo, banking)
 
@@ -619,7 +633,7 @@ func TestGetClientTotalTax_RepoError(t *testing.T) {
 func TestGetClientTotalTax_ConvertError(t *testing.T) {
 	repo := &fakeTaxRepo{
 		clientTaxes: []model.AccumulatedTax{
-			{AccountNumber: "444000112345678922", TaxOwed: 250, CurrencyCode: "USD"},
+			{AccountNumber: "444000112345678922", TaxOwed: 250},
 		},
 	}
 	banking := &fakeBankingClient{
@@ -628,7 +642,8 @@ func TestGetClientTotalTax_ConvertError(t *testing.T) {
 				{AccountNumber: "444000112345678922"},
 			},
 		},
-		convertErr: errors.New("exchange rate unavailable"),
+		convertErr:        errors.New("exchange rate unavailable"),
+		accountCurrencies: map[string]string{"444000112345678922": "USD"},
 	}
 	svc := newTestTaxService(repo, banking)
 

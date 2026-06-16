@@ -55,7 +55,7 @@ func (r *taxRepositoryImpl) FindAllPositiveAccumulatedTax(ctx context.Context) (
 	return taxes, nil
 }
 
-func (r *taxRepositoryImpl) AddTaxOwed(ctx context.Context, accountNumber string, employeeID *uint, amount float64, currencyCode string) error {
+func (r *taxRepositoryImpl) AddTaxOwed(ctx context.Context, accountNumber string, employeeID *uint, amount float64) error {
 	query := r.db.WithContext(ctx).
 		Model(&model.AccumulatedTax{}).
 		Where("account_number = ?", accountNumber)
@@ -68,7 +68,6 @@ func (r *taxRepositoryImpl) AddTaxOwed(ctx context.Context, accountNumber string
 
 	result := query.Updates(map[string]interface{}{
 		"tax_owed":        gorm.Expr("tax_owed + ?", amount),
-		"currency_code":   currencyCode,
 		"last_updated_at": time.Now(),
 	})
 
@@ -81,7 +80,6 @@ func (r *taxRepositoryImpl) AddTaxOwed(ctx context.Context, accountNumber string
 			AccountNumber: accountNumber,
 			EmployeeID:    employeeID,
 			TaxOwed:       amount,
-			CurrencyCode:  currencyCode,
 			LastUpdatedAt: time.Now(),
 		}
 		return r.db.WithContext(ctx).Create(&tax).Error

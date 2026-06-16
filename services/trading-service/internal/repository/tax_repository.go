@@ -14,7 +14,9 @@ type TaxRepository interface {
 
 	FindAllPositiveAccumulatedTax(ctx context.Context) ([]model.AccumulatedTax, error)
 
-	AddTaxOwed(ctx context.Context, accountNumber string, employeeID *uint, amount float64, currencyCode string) error
+	// AddTaxOwed adds amount (already converted to the account's currency) to the
+	// account's accumulated tax, creating the row if it does not yet exist.
+	AddTaxOwed(ctx context.Context, accountNumber string, employeeID *uint, amount float64) error
 
 	// ReduceTaxOwed subtracts amount from an existing accumulated-tax row, clamped
 	// at zero. It never creates a row: a loss with no prior gains has nothing to
