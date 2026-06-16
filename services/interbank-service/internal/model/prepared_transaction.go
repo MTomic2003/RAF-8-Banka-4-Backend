@@ -13,7 +13,7 @@ const (
 
 type PreparedTransaction struct {
 	RoutingNumber int    `gorm:"primaryKey;column:routing_number"`
-	ID            string `gorm:"primaryKey;size:64;column:id"`
+	ID            string `gorm:"primaryKey;size:128;column:id"`
 
 	Status      PreparedTransactionStatus `gorm:"not null;size:20;column:status"`
 	RequestBody []byte                    `gorm:"type:jsonb;not null;column:request_body"`

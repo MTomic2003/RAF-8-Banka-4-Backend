@@ -204,24 +204,20 @@ func (s *PortfolioService) GetPortfolio(ctx context.Context, ownerships []model.
 			continue
 		}
 
-		currentPrice := 0.0
-		if m.listing != nil {
-			currentPrice = m.listing.Price
-		}
-
+		var currentPriceRSD float64
+		var profit float64
 		if m.listing == nil || m.listing.Exchange == nil || m.listing.Exchange.Currency == "" {
-			return nil, pkgerrors.InternalErr(fmt.Errorf("user listing does not have valid exchange/currency code"))
+			// No listing yet (e.g. cross-bank OTC stock not seeded locally).
+			// Show at cost price so the asset is visible; profit is unknown.
+			currentPriceRSD = o.AvgBuyPriceRSD
+		} else {
+			var err error
+			currentPriceRSD, err = s.toRSD(ctx, m.listing.Price, m.listing.Exchange.Currency)
+			if err != nil {
+				return nil, pkgerrors.InternalErr(err)
+			}
+			profit = (currentPriceRSD - o.AvgBuyPriceRSD) * o.Amount
 		}
-
-		currency := m.listing.Exchange.Currency
-
-		// Convert current price to RSD for consistent profit calculation
-		currentPriceRSD, err := s.toRSD(ctx, currentPrice, currency)
-		if err != nil {
-			return nil, pkgerrors.InternalErr(err)
-		}
-
-		profit := (currentPriceRSD - o.AvgBuyPriceRSD) * o.Amount
 
 		var ticker string
 		if o.Asset.Ticker != "" {

@@ -15,6 +15,7 @@ type PeerOtcShareService struct {
 	shareRepo          repository.PeerOtcShareRepository
 	assetOwnershipRepo repository.AssetOwnershipRepository
 	stockRepo          repository.StockRepository
+	assetRepo          repository.AssetRepository
 	txManager          repository.TransactionManager
 }
 
@@ -22,12 +23,14 @@ func NewPeerOtcShareService(
 	shareRepo repository.PeerOtcShareRepository,
 	assetOwnershipRepo repository.AssetOwnershipRepository,
 	stockRepo repository.StockRepository,
+	assetRepo repository.AssetRepository,
 	txManager repository.TransactionManager,
 ) *PeerOtcShareService {
 	return &PeerOtcShareService{
 		shareRepo:          shareRepo,
 		assetOwnershipRepo: assetOwnershipRepo,
 		stockRepo:          stockRepo,
+		assetRepo:          assetRepo,
 		txManager:          txManager,
 	}
 }
@@ -50,7 +53,7 @@ func (s *PeerOtcShareService) Reserve(ctx context.Context, contractID string, se
 	}
 	ownerType := ownerTypeFromUserType(userType)
 
-	stock, err := s.findStockByTicker(ctx, ticker)
+	stock, err := s.findOrCreateStockByTicker(ctx, ticker)
 	if err != nil {
 		return "", err
 	}
@@ -65,8 +68,14 @@ func (s *PeerOtcShareService) Reserve(ctx context.Context, contractID string, se
 			if existing.SellerID != sellerID || existing.StockAssetID != stock.AssetID || existing.ReservedAmount != amount {
 				return appErrors.ConflictErr("contract id already has a different share reservation")
 			}
-			statusValue = string(existing.Status)
-			return nil
+			// ACTIVE is the idempotent repeat of this same reservation; CONSUMED was
+			// already exercised. Only a RELEASED reservation — left behind by a failed
+			// (rolled-back) accept — may be re-activated, so the accept can be retried
+			// without the released row poisoning the re-reserve.
+			if existing.Status != model.PeerOtcShareReservationReleased {
+				statusValue = string(existing.Status)
+				return nil
+			}
 		}
 
 		ownership, err := s.assetOwnershipRepo.FindByUserAndAssetForUpdate(ctx, sellerID, ownerType, stock.AssetID)
@@ -83,18 +92,27 @@ func (s *PeerOtcShareService) Reserve(ctx context.Context, contractID string, se
 		}
 
 		now := time.Now()
-		reservation := &model.PeerOtcShareReservation{
-			ContractID:     contractID,
-			SellerID:       sellerID,
-			OwnerType:      ownerType,
-			StockAssetID:   stock.AssetID,
-			ReservedAmount: amount,
-			Status:         model.PeerOtcShareReservationActive,
-			CreatedAt:      now,
-			UpdatedAt:      now,
-		}
-		if err := s.shareRepo.CreateReservation(ctx, reservation); err != nil {
-			return appErrors.InternalErr(err)
+		if existing != nil {
+			// Re-activate the released reservation in place.
+			existing.Status = model.PeerOtcShareReservationActive
+			existing.UpdatedAt = now
+			if err := s.shareRepo.SaveReservation(ctx, existing); err != nil {
+				return appErrors.InternalErr(err)
+			}
+		} else {
+			reservation := &model.PeerOtcShareReservation{
+				ContractID:     contractID,
+				SellerID:       sellerID,
+				OwnerType:      ownerType,
+				StockAssetID:   stock.AssetID,
+				ReservedAmount: amount,
+				Status:         model.PeerOtcShareReservationActive,
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			}
+			if err := s.shareRepo.CreateReservation(ctx, reservation); err != nil {
+				return appErrors.InternalErr(err)
+			}
 		}
 
 		ownership.ReservedAmount += amount
@@ -177,7 +195,7 @@ func (s *PeerOtcShareService) Credit(ctx context.Context, contractID string, buy
 	}
 	ownerType := ownerTypeFromUserType(userType)
 
-	stock, err := s.findStockByTicker(ctx, ticker)
+	stock, err := s.findOrCreateStockByTicker(ctx, ticker)
 	if err != nil {
 		return "", err
 	}
@@ -273,7 +291,7 @@ func (s *PeerOtcShareService) transitionReservation(
 	return statusValue, nil
 }
 
-func (s *PeerOtcShareService) findStockByTicker(ctx context.Context, ticker string) (*model.Stock, error) {
+func (s *PeerOtcShareService) findOrCreateStockByTicker(ctx context.Context, ticker string) (*model.Stock, error) {
 	stocks, err := s.stockRepo.FindAll(ctx)
 	if err != nil {
 		return nil, appErrors.InternalErr(err)
@@ -283,7 +301,26 @@ func (s *PeerOtcShareService) findStockByTicker(ctx context.Context, ticker stri
 			return &stocks[i], nil
 		}
 	}
-	return nil, appErrors.BadRequestErr(fmt.Sprintf("stock %s not found", ticker))
+
+	// Stock doesn't exist locally (e.g. cross-bank OTC from a peer). Create a
+	// minimal record so ownership can be tracked.
+	asset := &model.Asset{
+		Ticker:    strings.ToUpper(ticker),
+		AssetType: model.AssetTypeStock,
+	}
+	if err := s.assetRepo.Upsert(ctx, asset); err != nil {
+		return nil, appErrors.InternalErr(err)
+	}
+	stock := &model.Stock{AssetID: asset.AssetID, Asset: *asset}
+	if err := s.stockRepo.Upsert(ctx, stock); err != nil {
+		return nil, appErrors.InternalErr(err)
+	}
+	// Reload to get the populated AssetID on the stock record.
+	created, err := s.stockRepo.FindByAssetIDs(ctx, []uint{asset.AssetID})
+	if err != nil || len(created) == 0 {
+		return nil, appErrors.InternalErr(fmt.Errorf("failed to reload created stock %s", ticker))
+	}
+	return &created[0], nil
 }
 
 func maxFloat(a, b float64) float64 {

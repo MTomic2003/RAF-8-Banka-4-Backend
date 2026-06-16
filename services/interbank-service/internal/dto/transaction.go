@@ -6,6 +6,14 @@ type Posting struct {
 	Account TxAccount `json:"account" binding:"required"`
 	Amount  float64   `json:"amount"  binding:"required"`
 	Asset   Asset     `json:"asset"   binding:"required"`
+
+	// IdempotencyKey, when set, is the stable identifier used for this posting's
+	// underlying cash reservation instead of the per-attempt transaction id. OTC
+	// option/exercise legs set it to a contract-derived value so repeated attempts
+	// (different transaction keys) converge on a single banking cash posting —
+	// making accept/exercise idempotent on the contract identity. Empty for plain
+	// payments, which stay per-attempt.
+	IdempotencyKey string `json:"idempotencyKey,omitempty"`
 }
 
 // Transaction is a balanced list of postings together with metadata (§2.8.2).

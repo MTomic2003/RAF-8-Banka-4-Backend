@@ -1305,6 +1305,10 @@ const docTemplate = `{
                 },
                 "asset": {
                     "$ref": "#/definitions/dto.Asset"
+                },
+                "idempotencyKey": {
+                    "description": "IdempotencyKey, when set, is the stable identifier used for this posting's\nunderlying cash reservation instead of the per-attempt transaction id. OTC\noption/exercise legs set it to a contract-derived value so repeated attempts\n(different transaction keys) converge on a single banking cash posting —\nmaking accept/exercise idempotent on the contract identity. Empty for plain\npayments, which stay per-attempt.",
+                    "type": "string"
                 }
             }
         },

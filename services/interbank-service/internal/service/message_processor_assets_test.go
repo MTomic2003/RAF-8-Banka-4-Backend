@@ -96,6 +96,51 @@ func TestPrepareLocalTransaction_OptionReserveAndRollbackOnLaterFailure(t *testi
 	require.Equal(t, model.PreparedTransactionRolledBack, st)
 }
 
+// cashPostingID prefers a posting's contract-derived IdempotencyKey, so the same
+// cash leg maps to one banking posting across different transaction keys (the
+// structural basis for accept/exercise being idempotent on the contract). Plain
+// postings fall back to the per-attempt transaction id.
+func TestCashPostingID_PrefersIdempotencyKeyAndIsStableAcrossTxKeys(t *testing.T) {
+	postings := []dto.Posting{
+		{IdempotencyKey: "444:neg-1:ex:strike"},
+		{}, // no key → per-attempt fallback
+	}
+	txA := &dto.Transaction{TransactionID: dto.ForeignBankId{RoutingNumber: 444, ID: "otc-exe-A"}, Postings: postings}
+	txB := &dto.Transaction{TransactionID: dto.ForeignBankId{RoutingNumber: 444, ID: "otc-exe-B"}, Postings: postings}
+
+	require.Equal(t, "444:neg-1:ex:strike", cashPostingID(txA, 0))
+	require.Equal(t, "444:otc-exe-A:1", cashPostingID(txA, 1), "no key → per-attempt fallback")
+	require.Equal(t, cashPostingID(txA, 0), cashPostingID(txB, 0), "contract-keyed leg must be stable across transaction keys")
+	require.NotEqual(t, cashPostingID(txA, 1), cashPostingID(txB, 1), "fallback leg differs per transaction")
+}
+
+// A second accept for a negotiation that already has a contract must vote NO at
+// prepare time — before reserving shares or charging the premium — replacing the
+// old deterministic-key dedup. This is what keeps a retried accept from
+// double-executing a successful one.
+func TestPrepareLocalTransaction_OptionVotesNoWhenContractExists(t *testing.T) {
+	trading := &fakeTrading{}
+	p, _, negs, contracts := newProcessorWithStores(nil, trading)
+	seedAuthoritativeNegotiation(negs, "neg-dup")
+	require.NoError(t, contracts.Create(context.Background(), activePeerContract(ourRouting, "neg-dup", 111, "buyer-1", ourRouting, "7")))
+
+	tx := &dto.Transaction{
+		TransactionID: dto.ForeignBankId{RoutingNumber: 111, ID: "option-dup-accept"},
+		Postings: []dto.Posting{
+			{Account: personAccount(ourRouting, "7"), Amount: -1, Asset: optionAsset(ourRouting, "neg-dup", "AAPL", 10)},
+			{Account: personAccount(111, "buyer-1"), Amount: 1, Asset: optionAsset(ourRouting, "neg-dup", "AAPL", 10)},
+			acctPosting(localAcct(), -50, monas("RSD")),
+			acctPosting(remoteAcct(), 50, monas("RSD")),
+		},
+	}
+
+	statusCode, vote, err := p.PrepareLocalTransaction(context.Background(), tx, 0)
+	require.NoError(t, err)
+	require.Equal(t, 200, statusCode)
+	require.Equal(t, dto.ReasonOptionUsedOrExpired, firstReason(t, vote))
+	require.Empty(t, trading.reserveCalls, "guard must vote NO before reserving shares")
+}
+
 func TestCommitLocalTransaction_OptionCreatesAuthoritativeContract(t *testing.T) {
 	p, prepared, negs, contracts := newProcessorWithStores(nil, nil)
 	seedAuthoritativeNegotiation(negs, "neg-authority")

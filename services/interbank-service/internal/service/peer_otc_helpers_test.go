@@ -148,12 +148,17 @@ func TestPeerContractAndTransactionHelpers(t *testing.T) {
 		SettlementDate:      "2026-12-31",
 		BuyerAccountNumber:  "buyer-account",
 	}
-	acceptTx := svc.acceptTransaction(negotiation)
-	if acceptTx.TransactionID.RoutingNumber != 444 || len(acceptTx.Postings) != 4 {
+	acceptTx := svc.acceptTransaction(negotiation, "accept-key")
+	if acceptTx.TransactionID.RoutingNumber != 444 || acceptTx.TransactionID.ID != "accept-key" || len(acceptTx.Postings) != 4 {
 		t.Fatalf("unexpected accept transaction %#v", acceptTx)
 	}
 	if acceptTx.Postings[0].Amount != -10 || acceptTx.Postings[3].Amount != 1 {
 		t.Fatalf("unexpected accept postings %#v", acceptTx.Postings)
+	}
+	// Premium cash legs carry contract-derived idempotency keys (idempotent on the
+	// contract regardless of the per-attempt transaction key).
+	if acceptTx.Postings[0].IdempotencyKey != "444:neg-1:ac:buyer" || acceptTx.Postings[1].IdempotencyKey != "444:neg-1:ac:seller" {
+		t.Fatalf("unexpected accept cash idempotency keys %#v", acceptTx.Postings)
 	}
 
 	exerciseTx := svc.exerciseTransaction(contract, "buyer-account", "execution-key")
@@ -162,6 +167,9 @@ func TestPeerContractAndTransactionHelpers(t *testing.T) {
 	}
 	if exerciseTx.Postings[0].Amount != -500 || exerciseTx.Postings[3].Amount != 5 {
 		t.Fatalf("unexpected exercise postings %#v", exerciseTx.Postings)
+	}
+	if exerciseTx.Postings[0].IdempotencyKey != "444:contract-1:ex:buyer" || exerciseTx.Postings[1].IdempotencyKey != "444:contract-1:ex:strike" {
+		t.Fatalf("unexpected exercise cash idempotency keys %#v", exerciseTx.Postings)
 	}
 }
 

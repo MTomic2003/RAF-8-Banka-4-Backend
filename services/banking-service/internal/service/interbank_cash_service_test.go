@@ -377,6 +377,47 @@ func TestInterbankCashPrepareExplicitAccountAndIdempotency(t *testing.T) {
 	}
 }
 
+// A rolled-back posting (left by a failed OTC accept/exercise that reused this
+// contract-derived posting id) must be re-reservable so the operation can be
+// retried, instead of the rolled-back row poisoning the re-reserve.
+func TestInterbankCashPrepareReactivatesRolledBackPosting(t *testing.T) {
+	t.Parallel()
+
+	account := interbankAccount("444000000000000051", 1, model.RSD, 1000, 1000)
+	rolledBack := &model.InterbankCashPosting{
+		PostingID:             "neg-1:ex:strike",
+		AccountNumber:         account.AccountNumber,
+		CurrencyCode:          model.RSD,
+		Amount:                -250,
+		RequestedCurrencyCode: model.RSD,
+		RequestedAmount:       -250,
+		Status:                model.InterbankCashPostingRolledBack,
+	}
+	accounts := newFakeInterbankAccountRepo(account)
+	postings := newFakeInterbankPostingRepo(rolledBack)
+	svc := NewInterbankCashService(accounts, postings, &fakeBankingTxManager{}, fakeInterbankConverter{}, &recTxRepo{}, &recPayRepo{})
+
+	posting, err := svc.Prepare(context.Background(), "neg-1:ex:strike", account.AccountNumber, 0, model.RSD, -250, "CLIENT", PostingMetadata{})
+	if err != nil {
+		t.Fatalf("re-prepare rolled-back posting: %v", err)
+	}
+	if posting.Status != model.InterbankCashPostingPrepared {
+		t.Fatalf("expected posting re-activated to PREPARED, got %s", posting.Status)
+	}
+	if accounts.accounts[account.AccountNumber].AvailableBalance != 750 {
+		t.Fatalf("available balance = %.2f, want 750 after re-reserve", accounts.accounts[account.AccountNumber].AvailableBalance)
+	}
+
+	// And it can now be committed (previously a rolled-back posting was un-committable).
+	committed, err := svc.Commit(context.Background(), "neg-1:ex:strike")
+	if err != nil {
+		t.Fatalf("commit re-activated posting: %v", err)
+	}
+	if committed.Status != model.InterbankCashPostingCommitted || accounts.accounts[account.AccountNumber].Balance != 750 {
+		t.Fatalf("unexpected committed state posting=%#v account=%#v", committed, accounts.accounts[account.AccountNumber])
+	}
+}
+
 func TestInterbankCashPrepareChoosesClientAccountAndConverts(t *testing.T) {
 	t.Parallel()
 
