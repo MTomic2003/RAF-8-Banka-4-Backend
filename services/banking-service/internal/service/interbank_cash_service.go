@@ -71,6 +71,39 @@ func (s *InterbankCashService) Prepare(ctx context.Context, postingID, accountNu
 			if existing.RequestedAmount != amount || existing.RequestedCurrencyCode != currencyCode {
 				return commonerrors.ConflictErr("posting id already exists with different parameters")
 			}
+			// A PREPARED posting is the idempotent repeat of this same reservation; a
+			// COMMITTED one is already settled. Only a ROLLED_BACK posting — left by a
+			// failed/rolled-back attempt that reused this (contract-derived) posting id —
+			// may be re-reserved, so an OTC accept/exercise can be retried without the
+			// rolled-back row poisoning the re-reserve.
+			if existing.Status != model.InterbankCashPostingRolledBack {
+				result = existing
+				return nil
+			}
+
+			account, err := s.accountRepo.FindByAccountNumber(ctx, existing.AccountNumber)
+			if err != nil {
+				return commonerrors.InternalErr(err)
+			}
+			if account == nil {
+				return commonerrors.NotFoundErr("account not found")
+			}
+			// Re-reserve the frozen amount (kept consistent across phases) and flip
+			// the posting back to PREPARED.
+			if existing.Amount < 0 {
+				required := -existing.Amount
+				if account.AvailableBalance < required {
+					return commonerrors.BadRequestErr("insufficient funds")
+				}
+				account.AvailableBalance -= required
+				if err := s.accountRepo.UpdateBalance(ctx, account); err != nil {
+					return commonerrors.InternalErr(err)
+				}
+			}
+			existing.Status = model.InterbankCashPostingPrepared
+			if err := s.postingRepo.Save(ctx, existing); err != nil {
+				return commonerrors.InternalErr(err)
+			}
 			result = existing
 			return nil
 		}

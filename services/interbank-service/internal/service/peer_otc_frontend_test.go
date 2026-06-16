@@ -269,7 +269,7 @@ func TestPeerOtcServiceExerciseAsLocalValidation(t *testing.T) {
 	inactive.Status = model.PeerContractCancelled
 	require.NoError(t, contracts.Create(context.Background(), inactive))
 
-	svc := NewPeerOtcService(nil, contracts, testResolver(ourRouting), nil, nil, nil, nil, nil, nil, nil)
+	svc := NewPeerOtcService(nil, contracts, testResolver(ourRouting), nil, nil, nil, nil, nil, nil, fakeTxManager{})
 
 	_, err := svc.ExerciseAsLocal(context.Background(), 9, dto.ForeignBankId{RoutingNumber: 111, ID: "missing"}, "444000000000000011")
 	require.Error(t, err)

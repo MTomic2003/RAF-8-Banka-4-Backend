@@ -27,7 +27,7 @@ type OutboundMessage struct {
 	ID                  uint   `gorm:"primaryKey"`
 	PeerRoutingNumber   int    `gorm:"not null;index;column:peer_routing_number"`
 	MessageType         string `gorm:"not null;size:32;column:message_type"`
-	IdempotenceKeyLocal string `gorm:"not null;size:64;column:idempotence_key_local;uniqueIndex"`
+	IdempotenceKeyLocal string `gorm:"not null;size:128;column:idempotence_key_local;uniqueIndex"`
 	Payload             []byte `gorm:"type:jsonb;not null;column:payload"`
 	FlowType            string `gorm:"not null;size:16;default:'PAYMENT';column:flow_type"`
 	// BankingTxID links a PAYMENT NEW_TX row back to the banking-service

@@ -513,13 +513,12 @@ func (s *PeerOtcService) SendCounterOfferAsLocal(
 func (s *PeerOtcService) AcceptFromPeer(ctx context.Context, senderRouting, routingNumber int, id string) (*dto.PeerContract, error) {
 	ourRouting := s.peers.OurRoutingNumber()
 
-	// Lock the negotiation row so concurrent accepts serialize on its status.
-	// The contract-existence fast-path below runs after the lock is released;
-	// true dedup of concurrent accepts is guaranteed by the deterministic accept
-	// transaction id (peer-otc-accept-<seller>-<id>) — PrepareLocalTransaction
-	// short-circuits on the existing PreparedTransaction row, and the contract's
-	// composite primary key rejects a duplicate insert — so a second concurrent
-	// accept cannot double-charge the premium or double-reserve shares.
+	// Lock the negotiation row so the status read + validation serialize. Single
+	// execution does not depend on holding this across the coordinate: the premium
+	// cash legs carry contract-derived idempotency keys and the contract has a
+	// composite primary key, so a duplicate/concurrent accept converges on one
+	// banking posting and one contract (the loser sees the fast-path below or fails
+	// the contract insert) — it cannot double-charge the premium.
 	var n *model.PeerNegotiation
 	if err := s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
 		locked, err := s.negotiations.FindByIDForUpdate(ctx, routingNumber, id)
@@ -656,6 +655,10 @@ func (s *PeerOtcService) ListMyContracts(ctx context.Context, localUserID uint) 
 }
 
 func (s *PeerOtcService) ExerciseAsLocal(ctx context.Context, localUserID uint, contractID dto.ForeignBankId, buyerAccountNumber string) (*dto.PeerContract, error) {
+	if strings.TrimSpace(buyerAccountNumber) == "" {
+		return nil, errors.BadRequestErr("buyerAccountNumber is required to exercise")
+	}
+
 	contract, err := s.contracts.FindByID(ctx, contractID.RoutingNumber, contractID.ID)
 	if err != nil {
 		return nil, errors.InternalErr(err)
@@ -675,11 +678,13 @@ func (s *PeerOtcService) ExerciseAsLocal(ctx context.Context, localUserID uint, 
 	if SettlementPassed(contract.SettlementDate) {
 		return nil, errors.ConflictErr("option contract has expired")
 	}
-	if strings.TrimSpace(buyerAccountNumber) == "" {
-		return nil, errors.BadRequestErr("buyerAccountNumber is required to exercise")
-	}
 
-	executionKey := fmt.Sprintf("peer-otc-exercise-%d-%s-%s", contract.AuthorityRoutingNumber, contract.ID, uuid.NewString())
+	// A fresh per-attempt transaction key keeps the id within the idempotence-key
+	// budget and makes a failed exercise retryable. Single-execution is enforced
+	// structurally: the cash legs carry contract-derived idempotency keys, so
+	// repeated/concurrent exercises (even from a peer) converge on one banking
+	// posting and the option is charged at most once.
+	executionKey := "otc-exe-" + uuid.NewString()
 	tx := s.exerciseTransaction(contract, buyerAccountNumber, executionKey)
 
 	if err := s.coordinateTwoBankTransaction(ctx, contract.SellerRoutingNumber, tx, executionKey); err != nil {
@@ -863,15 +868,21 @@ func monetary(currency string, amount float64) dto.MonetaryValue {
 }
 
 func (s *PeerOtcService) coordinateAcceptTransaction(ctx context.Context, n *model.PeerNegotiation) error {
-	tx := s.acceptTransaction(n)
+	// One fresh per-attempt key is threaded through both the transaction id and the
+	// wire idempotence keys (-new/-commit), keeping them within the idempotence-key
+	// budget and making a failed accept retryable. Single-execution is enforced
+	// structurally by the contract-derived idempotency keys on the premium cash legs
+	// (and the contract's composite primary key), not by this key.
+	acceptKey := "otc-acc-" + uuid.NewString()
+	tx := s.acceptTransaction(n, acceptKey)
 	peerRouting := n.BuyerRoutingNumber
 	if peerRouting == s.peers.OurRoutingNumber() {
 		peerRouting = n.SellerRoutingNumber
 	}
-	return s.coordinateTwoBankTransaction(ctx, peerRouting, tx, fmt.Sprintf("peer-otc-accept-%d-%s", n.SellerRoutingNumber, n.ID))
+	return s.coordinateTwoBankTransaction(ctx, peerRouting, tx, acceptKey)
 }
 
-func (s *PeerOtcService) acceptTransaction(n *model.PeerNegotiation) dto.Transaction {
+func (s *PeerOtcService) acceptTransaction(n *model.PeerNegotiation, acceptKey string) dto.Transaction {
 	negotiationID := dto.ForeignBankId{RoutingNumber: n.SellerRoutingNumber, ID: n.ID}
 	optionAsset := dto.Asset{
 		Type: dto.AssetOption,
@@ -895,11 +906,15 @@ func (s *PeerOtcService) acceptTransaction(n *model.PeerNegotiation) dto.Transac
 		Type: dto.AssetMonas,
 		Body: map[string]any{"currency": n.PremiumCurrency},
 	}
+	// Contract-derived keys make each premium cash leg idempotent on the contract,
+	// so repeated accepts (different transaction keys) converge on one banking
+	// posting and the premium is charged at most once.
+	contractKey := fmt.Sprintf("%d:%s", n.SellerRoutingNumber, n.ID)
 
 	return dto.Transaction{
 		TransactionID: dto.ForeignBankId{
 			RoutingNumber: s.peers.OurRoutingNumber(),
-			ID:            fmt.Sprintf("peer-otc-accept-%d-%s", n.SellerRoutingNumber, n.ID),
+			ID:            acceptKey,
 		},
 		Message:        "Peer OTC option premium and contract acceptance",
 		PaymentCode:    "289",
@@ -909,15 +924,17 @@ func (s *PeerOtcService) acceptTransaction(n *model.PeerNegotiation) dto.Transac
 		Postings: []dto.Posting{
 			// posting 1: buyer ACCOUNT MONAS CREDIT (amount < 0) — buyer pays the premium
 			{
-				Account: dto.TxAccount{Type: dto.TxAccountAccount, Num: &[]string{n.BuyerAccountNumber}[0]},
-				Amount:  -n.Premium,
-				Asset:   monasAsset,
+				Account:        dto.TxAccount{Type: dto.TxAccountAccount, Num: &[]string{n.BuyerAccountNumber}[0]},
+				Amount:         -n.Premium,
+				Asset:          monasAsset,
+				IdempotencyKey: contractKey + ":ac:buyer",
 			},
 			// posting 2: seller PERSON MONAS DEBIT (amount > 0) — seller receives the premium (resolved by ClientId on seller's bank)
 			{
-				Account: personAccount(n.SellerRoutingNumber, n.SellerID),
-				Amount:  n.Premium,
-				Asset:   monasAsset,
+				Account:        personAccount(n.SellerRoutingNumber, n.SellerID),
+				Amount:         n.Premium,
+				Asset:          monasAsset,
+				IdempotencyKey: contractKey + ":ac:seller",
 			},
 			// posting 3: seller PERSON OPTION CREDIT (amount < 0) — seller gives the option (shares reserved)
 			{
@@ -940,6 +957,10 @@ func (s *PeerOtcService) exerciseTransaction(contract *model.PeerContract, buyer
 	contractID := dto.ForeignBankId{RoutingNumber: contract.AuthorityRoutingNumber, ID: contract.ID}
 	stockAsset := dto.Asset{Type: dto.AssetStock, Body: map[string]any{"ticker": contract.Ticker}}
 	monasAsset := dto.Asset{Type: dto.AssetMonas, Body: map[string]any{"currency": contract.StrikeCurrency}}
+	// Contract-derived keys make each cash leg idempotent on the contract, so
+	// repeated exercises (different transaction keys) converge on one banking
+	// posting and the option is charged at most once.
+	contractKey := fmt.Sprintf("%d:%s", contract.AuthorityRoutingNumber, contract.ID)
 
 	return dto.Transaction{
 		TransactionID: dto.ForeignBankId{
@@ -954,15 +975,17 @@ func (s *PeerOtcService) exerciseTransaction(contract *model.PeerContract, buyer
 		Postings: []dto.Posting{
 			// posting 1: buyer ACCOUNT MONAS CREDIT (amount < 0) — buyer pays π·k strike
 			{
-				Account: dto.TxAccount{Type: dto.TxAccountAccount, Num: &[]string{buyerAccountNumber}[0]},
-				Amount:  -amount,
-				Asset:   monasAsset,
+				Account:        dto.TxAccount{Type: dto.TxAccountAccount, Num: &[]string{buyerAccountNumber}[0]},
+				Amount:         -amount,
+				Asset:          monasAsset,
+				IdempotencyKey: contractKey + ":ex:buyer",
 			},
 			// posting 2: option OPTION MONAS DEBIT (amount > 0) — strike paid into the pseudo-account (forwarded to seller on commit)
 			{
-				Account: dto.TxAccount{Type: dto.TxAccountOption, ID: &contractID},
-				Amount:  amount,
-				Asset:   monasAsset,
+				Account:        dto.TxAccount{Type: dto.TxAccountOption, ID: &contractID},
+				Amount:         amount,
+				Asset:          monasAsset,
+				IdempotencyKey: contractKey + ":ex:strike",
 			},
 			// posting 3: option OPTION STOCK CREDIT (amount < 0) — reserved shares leave the pseudo-account
 			{

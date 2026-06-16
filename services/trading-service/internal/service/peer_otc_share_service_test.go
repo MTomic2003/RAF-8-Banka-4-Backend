@@ -154,14 +154,37 @@ func peerOwnershipKey(userID uint, ownerType model.OwnerType, assetID uint) stri
 }
 
 type peerStockRepoFake struct {
-	stocks  []model.Stock
-	findErr error
+	stocks    []model.Stock
+	byAssetID map[uint]*model.Stock
+	findErr   error
 }
 
-func (r *peerStockRepoFake) Upsert(context.Context, *model.Stock) error { return nil }
+func (r *peerStockRepoFake) Upsert(_ context.Context, stock *model.Stock) error {
+	if r.byAssetID == nil {
+		r.byAssetID = make(map[uint]*model.Stock)
+	}
+	cp := *stock
+	r.byAssetID[stock.AssetID] = &cp
+	return nil
+}
 
-func (r *peerStockRepoFake) FindByAssetIDs(context.Context, []uint) ([]model.Stock, error) {
-	return nil, nil
+func (r *peerStockRepoFake) FindByAssetIDs(_ context.Context, assetIDs []uint) ([]model.Stock, error) {
+	var result []model.Stock
+	for _, id := range assetIDs {
+		if r.byAssetID != nil {
+			if s, ok := r.byAssetID[id]; ok {
+				result = append(result, *s)
+				continue
+			}
+		}
+		for i := range r.stocks {
+			if r.stocks[i].AssetID == id {
+				result = append(result, r.stocks[i])
+				break
+			}
+		}
+	}
+	return result, nil
 }
 
 func (r *peerStockRepoFake) FindAll(context.Context) ([]model.Stock, error) {
@@ -172,6 +195,37 @@ func (r *peerStockRepoFake) FindAll(context.Context) ([]model.Stock, error) {
 }
 
 func (r *peerStockRepoFake) Count(context.Context) (int64, error) { return int64(len(r.stocks)), nil }
+
+type peerAssetRepoFake struct {
+	assets    map[string]*model.Asset
+	nextID    uint
+	upsertErr error
+}
+
+func newPeerAssetRepoFake() *peerAssetRepoFake {
+	return &peerAssetRepoFake{assets: make(map[string]*model.Asset), nextID: 100}
+}
+
+func (r *peerAssetRepoFake) Upsert(_ context.Context, asset *model.Asset) error {
+	if r.upsertErr != nil {
+		return r.upsertErr
+	}
+	if asset.AssetID == 0 {
+		asset.AssetID = r.nextID
+		r.nextID++
+	}
+	cp := *asset
+	r.assets[asset.Ticker] = &cp
+	return nil
+}
+
+func (r *peerAssetRepoFake) FindByTicker(_ context.Context, ticker string) (*model.Asset, error) {
+	if a, ok := r.assets[ticker]; ok {
+		cp := *a
+		return &cp, nil
+	}
+	return nil, nil
+}
 
 type peerTxManagerFake struct {
 	err   error
@@ -192,7 +246,7 @@ func newPeerShareServiceForTest(
 	stockRepo *peerStockRepoFake,
 	txManager *peerTxManagerFake,
 ) *PeerOtcShareService {
-	return NewPeerOtcShareService(shareRepo, ownershipRepo, stockRepo, txManager)
+	return NewPeerOtcShareService(shareRepo, ownershipRepo, stockRepo, newPeerAssetRepoFake(), txManager)
 }
 
 func peerStock(assetID uint, ticker string) model.Stock {
@@ -257,7 +311,7 @@ func TestPeerOtcShareServiceReserveIsIdempotentForSameContract(t *testing.T) {
 		OwnerType:      model.OwnerTypeClient,
 		StockAssetID:   42,
 		ReservedAmount: 25,
-		Status:         model.PeerOtcShareReservationReleased,
+		Status:         model.PeerOtcShareReservationActive,
 	}
 	ownershipRepo := newPeerAssetOwnershipRepoFake(&model.AssetOwnership{
 		UserId:       7,
@@ -277,7 +331,7 @@ func TestPeerOtcShareServiceReserveIsIdempotentForSameContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reserve returned error: %v", err)
 	}
-	if status != string(model.PeerOtcShareReservationReleased) {
+	if status != string(model.PeerOtcShareReservationActive) {
 		t.Fatalf("status = %q", status)
 	}
 	if ownershipRepo.upsertCnt != 0 {
@@ -287,6 +341,53 @@ func TestPeerOtcShareServiceReserveIsIdempotentForSameContract(t *testing.T) {
 	_, err = svc.Reserve(context.Background(), "contract-1", 7, "AAPL", 26, "CLIENT")
 	if err == nil {
 		t.Fatal("expected conflict for different reservation details")
+	}
+}
+
+// A released reservation, left behind by a failed/rolled-back accept, must be
+// re-activated on a retry so the shares are actually reserved again (rather than
+// the released row poisoning the re-reserve).
+func TestPeerOtcShareServiceReserveReactivatesReleasedReservation(t *testing.T) {
+	shareRepo := newPeerShareRepoFake()
+	shareRepo.reservations["contract-1"] = &model.PeerOtcShareReservation{
+		ContractID:     "contract-1",
+		SellerID:       7,
+		OwnerType:      model.OwnerTypeClient,
+		StockAssetID:   42,
+		ReservedAmount: 25,
+		Status:         model.PeerOtcShareReservationReleased,
+	}
+	ownershipRepo := newPeerAssetOwnershipRepoFake(&model.AssetOwnership{
+		UserId:         7,
+		OwnerType:      model.OwnerTypeClient,
+		AssetID:        42,
+		Amount:         100,
+		PublicAmount:   80,
+		ReservedAmount: 0,
+	})
+	svc := newPeerShareServiceForTest(
+		shareRepo,
+		ownershipRepo,
+		&peerStockRepoFake{stocks: []model.Stock{peerStock(42, "AAPL")}},
+		&peerTxManagerFake{},
+	)
+
+	status, err := svc.Reserve(context.Background(), "contract-1", 7, "AAPL", 25, "CLIENT")
+	if err != nil {
+		t.Fatalf("Reserve returned error: %v", err)
+	}
+	if status != string(model.PeerOtcShareReservationActive) {
+		t.Fatalf("released reservation should re-activate, status = %q", status)
+	}
+	if shareRepo.reservations["contract-1"].Status != model.PeerOtcShareReservationActive {
+		t.Fatalf("reservation not re-activated: %s", shareRepo.reservations["contract-1"].Status)
+	}
+	if shareRepo.saveReservationCnt != 1 {
+		t.Fatalf("expected reservation to be saved once, got %d", shareRepo.saveReservationCnt)
+	}
+	if ownershipRepo.ownerships[peerOwnershipKey(7, model.OwnerTypeClient, 42)].ReservedAmount != 25 {
+		t.Fatalf("expected ownership reserved amount to be re-applied, got %v",
+			ownershipRepo.ownerships[peerOwnershipKey(7, model.OwnerTypeClient, 42)].ReservedAmount)
 	}
 }
 

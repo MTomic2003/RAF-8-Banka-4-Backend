@@ -449,7 +449,7 @@ func (p *MessageProcessor) prepareMonasPosting(ctx context.Context, tx *dto.Tran
 	if !ok {
 		return nil, dto.ReasonUnacceptableAsset, fmt.Errorf("invalid MONAS asset")
 	}
-	pid := postingID(tx, index)
+	pid := cashPostingID(tx, index)
 	counterparty := counterpartyAccountNumber(tx, index)
 
 	switch posting.Account.Type {
@@ -590,6 +590,18 @@ func (p *MessageProcessor) prepareOptionPosting(ctx context.Context, tx *dto.Tra
 	if negotiation == nil {
 		return nil, dto.ReasonOptionNegotiationNotFound, fmt.Errorf("negotiation not found")
 	}
+	// Single-execution guard: if a contract already backs this negotiation, the
+	// accept already happened — vote NO instead of charging the premium / reserving
+	// shares again. This is the accept-side mirror of the Status==Active check in
+	// prepareStockPosting and replaces the old deterministic-key dedup (which broke
+	// retryability). A *failed* accept leaves no contract, so a retry passes here.
+	existingContract, err := p.contracts.FindByID(ctx, option.NegotiationID.RoutingNumber, option.NegotiationID.ID)
+	if err != nil {
+		return nil, dto.ReasonOptionNegotiationNotFound, err
+	}
+	if existingContract != nil {
+		return nil, dto.ReasonOptionUsedOrExpired, fmt.Errorf("negotiation already accepted")
+	}
 	sellerID, sellerType, err := p.resolveLocalUser(ctx, identityID)
 	if err != nil {
 		return nil, dto.ReasonNoSuchAccount, err
@@ -651,7 +663,7 @@ func (p *MessageProcessor) commitPosting(ctx context.Context, tx *dto.Transactio
 	switch posting.Asset.Type {
 	case dto.AssetMonas:
 		if p.isLocalMonasAccount(posting.Account) {
-			_, err := p.banking.CommitInterbankCashPosting(ctx, postingID(tx, index))
+			_, err := p.banking.CommitInterbankCashPosting(ctx, cashPostingID(tx, index))
 			return err
 		}
 		return nil
@@ -858,7 +870,7 @@ func (p *MessageProcessor) rollbackPosting(ctx context.Context, tx *dto.Transact
 	switch posting.Asset.Type {
 	case dto.AssetMonas:
 		if p.isLocalMonasAccount(posting.Account) {
-			_, err := p.banking.RollbackInterbankCashPosting(ctx, postingID(tx, index))
+			_, err := p.banking.RollbackInterbankCashPosting(ctx, cashPostingID(tx, index))
 			return err
 		}
 		return nil
@@ -1051,6 +1063,17 @@ func balanceKey(asset dto.Asset) (string, bool) {
 
 func postingID(tx *dto.Transaction, index int) string {
 	return fmt.Sprintf("%d:%s:%d", tx.TransactionID.RoutingNumber, tx.TransactionID.ID, index)
+}
+
+// cashPostingID is the identifier for a posting's banking cash reservation. OTC
+// option/exercise legs carry a contract-derived IdempotencyKey so repeated
+// attempts converge on one banking posting (idempotent on the contract). Plain
+// payments leave it empty and fall back to the per-attempt transaction id.
+func cashPostingID(tx *dto.Transaction, index int) string {
+	if key := strings.TrimSpace(tx.Postings[index].IdempotencyKey); key != "" {
+		return key
+	}
+	return postingID(tx, index)
 }
 
 func cashNoVoteReason(err error) dto.NoVoteReasonKind {
